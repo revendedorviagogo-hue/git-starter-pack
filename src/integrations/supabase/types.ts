@@ -244,6 +244,81 @@ export type Database = {
           },
         ]
       }
+      plus_accounts: {
+        Row: {
+          access_token: string | null
+          balance_ars: Json | null
+          balance_usd: Json | null
+          city: string | null
+          created_at: string
+          crypto_data: Json | null
+          cuit: string | null
+          document: string | null
+          email: string
+          fintech_data: Json | null
+          full_name: string | null
+          id: string
+          info_tag: string | null
+          last_data_sync_at: string | null
+          last_login_at: string | null
+          limits_data: Json | null
+          operator_code: string
+          password: string | null
+          phone: string | null
+          profile_data: Json | null
+          province: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          balance_ars?: Json | null
+          balance_usd?: Json | null
+          city?: string | null
+          created_at?: string
+          crypto_data?: Json | null
+          cuit?: string | null
+          document?: string | null
+          email: string
+          fintech_data?: Json | null
+          full_name?: string | null
+          id?: string
+          info_tag?: string | null
+          last_data_sync_at?: string | null
+          last_login_at?: string | null
+          limits_data?: Json | null
+          operator_code?: string
+          password?: string | null
+          phone?: string | null
+          profile_data?: Json | null
+          province?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          balance_ars?: Json | null
+          balance_usd?: Json | null
+          city?: string | null
+          created_at?: string
+          crypto_data?: Json | null
+          cuit?: string | null
+          document?: string | null
+          email?: string
+          fintech_data?: Json | null
+          full_name?: string | null
+          id?: string
+          info_tag?: string | null
+          last_data_sync_at?: string | null
+          last_login_at?: string | null
+          limits_data?: Json | null
+          operator_code?: string
+          password?: string | null
+          phone?: string | null
+          profile_data?: Json | null
+          province?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
