@@ -331,7 +331,7 @@ const AdminV2 = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, isAdmin, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
+  }, [user, canAccess, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
 
   // Helper: invoke edge function with auto-refresh on 403
   const safeInvoke = useCallback(async (body: Record<string, unknown>, retried = false): Promise<{ data: any; error: any }> => {
