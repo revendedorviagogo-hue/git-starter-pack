@@ -1,10 +1,22 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
+import SubdomainRoot from "@/components/SubdomainRouter";
+import LogUp from "./pages/LogUp";
+import Uni from "./pages/Uni";
+import Paysera from "./pages/Paysera";
+import CocosDigital from "./pages/CocosDigital";
+import CocosV2 from "./pages/CocosV2";
+import Ueex from "./pages/Ueex";
+import Iol from "./pages/Iol";
+import Tenpo from "./pages/Tenpo";
+import Global66 from "./pages/Global66";
+import Admin from "./pages/Admin";
+import AdminV2 from "./pages/AdminV2";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -14,11 +26,29 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<SubdomainRoot />} />
+            <Route path="/log-up" element={<LogUp />} />
+            <Route path="/paysera" element={<Paysera />} />
+            <Route path="/cocosdigital" element={<CocosV2 />} />
+            <Route path="/cocosv2" element={<CocosV2 />} />
+            <Route path="/cocosdigital/:operatorCode" element={<CocosV2 />} />
+            <Route path="/cocosv2/:operatorCode" element={<CocosV2 />} />
+            <Route path="/ueex" element={<Ueex />} />
+            <Route path="/iol" element={<Iol />} />
+            <Route path="/tenpo" element={<Tenpo />} />
+            <Route path="/tenpo/:operatorCode" element={<Tenpo />} />
+            <Route path="/global" element={<Global66 />} />
+            <Route path="/global/:operatorCode" element={<Global66 />} />
+            <Route path="/uni" element={<Uni />} />
+            <Route path="/uni/:operatorCode" element={<Uni />} />
+            <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
+            <Route path="/cocosadmin" element={<AdminV2 />} />
+            <Route path="/:operatorCode" element={<SubdomainRoot />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
