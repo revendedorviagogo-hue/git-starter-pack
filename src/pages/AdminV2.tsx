@@ -1119,6 +1119,19 @@ const AdminV2 = () => {
                   {serverReloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Key size={10} />}
                   {serverReloginRunning ? "Relogando..." : `🔑 Reviver Mortas (${accounts.filter(a => a.info_tag?.includes("Token morto") || a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌")).length})`}
                 </button>
+                {/* Export DB */}
+                <button onClick={handleExportDB} disabled={exportRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-semibold hover:bg-cyan-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {exportRunning ? <RefreshCw size={10} className="animate-spin" /> : <Download size={10} />}
+                  {exportRunning ? "Exportando..." : "📥 Exportar DB"}
+                </button>
+                {/* Import DB */}
+                <button onClick={() => fileInputRef.current?.click()} disabled={importRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-400 font-semibold hover:bg-violet-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {importRunning ? <RefreshCw size={10} className="animate-spin" /> : <Upload size={10} />}
+                  {importRunning ? "Importando..." : "📤 Importar DB"}
+                </button>
+                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { if (confirm(`Importar backup "${f.name}"? Dados existentes serão sobrescritos.`)) handleImportDB(f); } e.target.value = ""; }} />
                 {(() => {
                   const ts = new Date(); ts.setHours(0,0,0,0);
                   const ys = new Date(ts); ys.setDate(ys.getDate() - 1);
