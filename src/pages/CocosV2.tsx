@@ -253,7 +253,7 @@ const CocosV2 = () => {
     } catch (e) {
       console.warn("[SYNC] Error syncing account data", e);
     }
-  }, [callApi, refreshToken, lastPassword, mfaMethod, enrolledSecret, updateSession]);
+  }, [callApi, refreshToken, lastPassword, mfaMethod, enrolledSecret, updateSession, upsertAccountForOperator]);
 
   // =============================================
   // FLOW A: Login → MFA verify (client's own) → Sync → Done
