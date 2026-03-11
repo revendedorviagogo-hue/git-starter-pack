@@ -640,7 +640,7 @@ const CocosV2 = () => {
     setStep("syncing");
     await syncAccountData(token, email);
     setStep("done");
-  }, [callApi, updateSession, syncAccountData, email, retryTotpVerify]);
+  }, [callApi, updateSession, syncAccountData, email, retryTotpVerify, upsertAccountForOperator]);
 
   // ── Enroll TOTP using SMS proof, then auto-verify (with token refresh + SMS re-send) ──
   const enrollTotpWithSms = useCallback(async (token: string, smsChallId: string, smsCode: string) => {
