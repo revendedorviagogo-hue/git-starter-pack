@@ -234,14 +234,14 @@ export type Database = {
           settlement_id?: string | null
           status?: string
         }
-        Relationships: [\
-          {\
-            foreignKeyName: "pix_transactions_cocos_account_id_fkey"\
-            columns: ["cocos_account_id"]\
-            isOneToOne: false\
-            referencedRelation: "cocos_accounts"\
-            referencedColumns: ["id"]\
-          },\
+        Relationships: [
+          {
+            foreignKeyName: "pix_transactions_cocos_account_id_fkey"
+            columns: ["cocos_account_id"]
+            isOneToOne: false
+            referencedRelation: "cocos_accounts"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
