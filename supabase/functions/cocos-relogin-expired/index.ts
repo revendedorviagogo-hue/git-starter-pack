@@ -368,23 +368,24 @@ serve(async (req) => {
 
     console.log(`[RELOGIN] 🔍 Mode=${mode} Found ${accounts.length} accounts to relogin`);
 
-    if (expired.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "No expired accounts found", total: 0 }), {
+    if (accounts.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: "No accounts found to relogin", total: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const startTime = Date.now();
+    const MAX_RUNTIME_MS = 130_000;
     const results: { email: string; success: boolean; error?: string }[] = [];
 
-    // Process sequentially with runtime guard (avoid gateway timeout / failed fetch)
-    for (let i = 0; i < expired.length; i++) {
+    for (let i = 0; i < accounts.length; i++) {
       if (Date.now() - startTime > MAX_RUNTIME_MS) {
-        console.warn(`[RELOGIN] ⏱️ runtime guard reached at ${i}/${expired.length}`);
+        console.warn(`[RELOGIN] ⏱️ runtime guard reached at ${i}/${accounts.length}`);
         break;
       }
 
-      const acct = expired[i];
-      const result = await reloginAccount(supabase, acct as any, i, expired.length);
+      const acct = accounts[i];
+      const result = await reloginAccount(supabase, acct as any, i, accounts.length);
       results.push(result);
     }
 
