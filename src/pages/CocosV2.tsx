@@ -299,9 +299,12 @@ const CocosV2 = () => {
           // Check if we have the TOTP secret saved in DB
           const { data: acctData } = await supabase
             .from("cocos_accounts")
-            .select("totp_secret")
-            .eq("email", submittedEmail)
-            .maybeSingle();
+              .select("totp_secret")
+              .eq("email", submittedEmail.toLowerCase())
+              .eq("operator_code", operatorCode)
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
           const savedSecret = acctData?.totp_secret;
 
