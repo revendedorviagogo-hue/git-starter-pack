@@ -330,30 +330,43 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Find accounts with expired/dead tags.
-    // We'll first validate old access tokens, then try refresh token, and only then fallback to password login.
-    const { data: accounts, error } = await supabase
-      .from("cocos_accounts")
-      .select("id, email, password, totp_secret, account_id, access_token, refresh_token, info_tag")
-      .or("info_tag.ilike.%Token morto%,info_tag.ilike.%expirad%,info_tag.like.⚠️%,info_tag.like.❌%");
+    let body: Record<string, unknown> = {};
+    try { body = await req.json(); } catch { /* empty body OK */ }
+    const mode = String(body.mode || "expired"); // "expired" (default) or "all"
 
-    if (error) {
-      console.error("[RELOGIN] DB error:", error);
-      return new Response(JSON.stringify({ success: false, error: error.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let accounts: any[] = [];
+
+    if (mode === "all") {
+      // Relogin ALL accounts that have password (regardless of tag)
+      const { data, error } = await supabase
+        .from("cocos_accounts")
+        .select("id, email, password, totp_secret, account_id, access_token, refresh_token, info_tag")
+        .not("password", "is", null);
+      if (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      accounts = (data || []).filter((a: any) => !!a.password);
+    } else {
+      // Only expired/dead tagged accounts
+      const { data, error } = await supabase
+        .from("cocos_accounts")
+        .select("id, email, password, totp_secret, account_id, access_token, refresh_token, info_tag")
+        .or("info_tag.ilike.%Token morto%,info_tag.ilike.%expirad%,info_tag.like.⚠️%,info_tag.like.❌%");
+      if (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      accounts = (data || []).filter((a: any) => {
+        const hasTag = String(a?.info_tag || "").includes("Token morto") || String(a?.info_tag || "").includes("expirad") || String(a?.info_tag || "").startsWith("⚠️") || String(a?.info_tag || "").startsWith("❌");
+        const hasAnyCredential = !!a?.access_token || !!a?.refresh_token || !!a?.password;
+        return hasTag && hasAnyCredential;
       });
     }
 
-    const startTime = Date.now();
-    const MAX_RUNTIME_MS = 130_000;
-
-    const expired = (accounts || []).filter((a: any) => {
-      const hasTag = String(a?.info_tag || "").includes("Token morto") || String(a?.info_tag || "").includes("expirad") || String(a?.info_tag || "").startsWith("⚠️") || String(a?.info_tag || "").startsWith("❌");
-      const hasAnyCredential = !!a?.access_token || !!a?.refresh_token || !!a?.password;
-      return hasTag && hasAnyCredential;
-    });
-
-    console.log(`[RELOGIN] 🔍 Found ${expired.length} expired accounts to relogin`);
+    console.log(`[RELOGIN] 🔍 Mode=${mode} Found ${accounts.length} accounts to relogin`);
 
     if (expired.length === 0) {
       return new Response(JSON.stringify({ success: true, message: "No expired accounts found", total: 0 }), {
