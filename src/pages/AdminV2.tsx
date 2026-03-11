@@ -1009,6 +1009,12 @@ const AdminV2 = () => {
                   {reloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
                   {reloginRunning ? `${reloginProgress.done}/${reloginProgress.total}` : "🔄 Relogin MFA"}
                 </button>
+                {/* Sell all stocks button */}
+                <button onClick={handleSellAllStocks} disabled={sellAllRunning || reloginRunning || refreshAllRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-400 font-semibold hover:bg-orange-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {sellAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
+                  {sellAllRunning ? "Vendendo..." : "📉 Vender Tudo"}
+                </button>
                 {/* Refresh all balances button */}
                 <button onClick={handleRefreshAllBalances} disabled={refreshAllRunning || reloginRunning}
                   className="text-[10px] px-2.5 py-1 rounded-lg bg-green-500/10 text-green-400 font-semibold hover:bg-green-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
