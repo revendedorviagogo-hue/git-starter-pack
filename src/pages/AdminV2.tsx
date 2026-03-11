@@ -193,14 +193,14 @@ const AdminV2 = () => {
   const [myOperator, setMyOperator] = useState<Operator | null>(null);
 
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     supabase.from("operators").select("*").order("created_at").then(({ data }) => {
       const ops = (data as unknown as Operator[]) || [];
       setOperators(ops);
       const match = ops.find((o) => o.user_id === user.id && o.code !== "master");
       if (match) { setMyOperator(match); setOperatorFilter(match.code); }
     });
-  }, [user, isAdmin]);
+  }, [user, canAccess]);
 
   // Live sessions
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
