@@ -972,6 +972,35 @@ const AdminV2 = () => {
                 )}
               </div>
             )}
+            {/* Sell all stocks result */}
+            {sellAllResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Venda de Investimentos</span>
+                  <button onClick={() => setSellAllResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {sellAllResult.success ? (
+                  <>
+                    <div className="text-[9px] text-orange-400">
+                      📉 {sellAllResult.total_sold} vendas executadas | {sellAllResult.processed}/{sellAllResult.total_accounts} contas
+                      {sellAllResult.timed_out && <span className="text-amber-400"> ⏱️ (timeout parcial)</span>}
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto space-y-0.5">
+                      {sellAllResult.results?.map((r: any, i: number) => (
+                        <div key={i} className="text-[9px]">
+                          <span className="font-semibold text-foreground">{r.email}</span>:
+                          {r.sold?.length > 0 && <span className="text-green-400"> ✅ {r.sold.join(", ")}</span>}
+                          {r.errors?.length > 0 && <span className="text-red-400"> ❌ {r.errors.join(", ")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {sellAllResult.results?.length === 0 && <div className="text-[9px] text-muted-foreground">Nenhuma conta com investimentos para vender</div>}
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {sellAllResult.error}</div>
+                )}
+              </div>
+            )}
             {/* Server relogin result */}
             {serverReloginResult && (
               <div className="rounded-xl border border-border bg-card p-3 space-y-1">
