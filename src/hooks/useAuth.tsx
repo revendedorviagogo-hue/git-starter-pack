@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          checkAdminRole(session.user.id).then(() => {
+          checkRoles(session.user.id).then(() => {
             if (isMounted) setLoading(false);
           });
         } else {
