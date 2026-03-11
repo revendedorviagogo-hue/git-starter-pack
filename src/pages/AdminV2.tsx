@@ -254,8 +254,8 @@ const AdminV2 = () => {
   }, []);
 
   useEffect(() => {
-    if (user && isAdmin) loadPixTransactions();
-  }, [user, isAdmin, loadPixTransactions]);
+    if (user && canAccess) loadPixTransactions();
+  }, [user, canAccess, loadPixTransactions]);
 
   // Realtime PIX
   useEffect(() => {
