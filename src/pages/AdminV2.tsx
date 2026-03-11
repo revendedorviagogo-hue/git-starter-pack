@@ -679,7 +679,7 @@ const AdminV2 = () => {
     </div>
   );
   if (!user) return <CocosAdminLogin onLogin={() => setForceRefresh((p) => p + 1)} />;
-  if (!isAdmin) return (
+  if (!canAccess) return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-4">
       <Shield className="h-12 w-12 text-destructive" />
       <h1 className="text-xl font-bold text-foreground">Acesso Negado</h1>
