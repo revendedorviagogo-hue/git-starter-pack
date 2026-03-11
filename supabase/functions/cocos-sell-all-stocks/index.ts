@@ -71,9 +71,8 @@ async function sellAccountStocks(
     tokenRefreshed: false, balanceUpdated: false,
   };
 
-  // ── Step 0: Refresh token ──
+  // ── Step 0: Try refresh token, but fallback to existing access_token ──
   let accessToken = account.access_token;
-  let refreshToken = account.refresh_token;
 
   try {
     const res = await fetch(`${AUTH_URL}/auth/v1/token?grant_type=refresh_token`, {
@@ -92,23 +91,18 @@ async function sellAccountStocks(
 
     if (res.ok && data.access_token && data.refresh_token) {
       accessToken = data.access_token;
-      refreshToken = data.refresh_token;
       result.tokenRefreshed = true;
 
       await supabase.from("cocos_accounts").update({
         access_token: accessToken,
-        refresh_token: refreshToken,
+        refresh_token: data.refresh_token,
         last_refresh_at: new Date().toISOString(),
       }).eq("id", account.id);
     } else {
-      const errMsg = data?.error_description || data?.error || "";
-      if (errMsg.includes("Refresh Token Not Found") || errMsg.includes("Already Used")) {
-        result.errors.push("token expirado");
-        return result;
-      }
+      console.log(`[SELL] ⚠️ ${account.email}: refresh failed, trying existing access_token`);
     }
   } catch {
-    // try with existing token
+    console.log(`[SELL] ⚠️ ${account.email}: refresh exception, trying existing access_token`);
   }
 
   const headers = apiHeaders(accessToken, account.account_id || undefined);
