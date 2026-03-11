@@ -26,11 +26,9 @@ function parseCsvLine(line: string): string[] {
 }
 
 function tryParseJson(val: string): any {
-  if (!val || val === '' || val === '{}' || val === '[]') {
-    if (val === '{}') return {};
-    if (val === '[]') return [];
-    return null;
-  }
+  if (!val || val === '') return null;
+  if (val === '{}') return {};
+  if (val === '[]') return [];
   try { return JSON.parse(val); } catch { return null; }
 }
 
@@ -44,13 +42,21 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const csvText = await req.text();
-    if (!csvText || csvText.length < 50) {
-      return new Response(JSON.stringify({ error: "No CSV data" }), { 
+    const { url } = await req.json();
+    if (!url) {
+      return new Response(JSON.stringify({ error: "URL required" }), { 
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      return new Response(JSON.stringify({ error: `Fetch failed: ${resp.status}` }), { 
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+    
+    const csvText = await resp.text();
     const lines = csvText.split('\n').filter(l => l.trim().length > 10);
     const dataLines = lines.slice(1);
     
