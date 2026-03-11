@@ -905,7 +905,7 @@ const AdminV2 = () => {
             <span className="text-[9px] text-green-500/60 flex items-center gap-1"><span className="h-1 w-1 rounded-full bg-green-500 animate-pulse" /> Cron</span>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ══════ TABS ══════ */}
       <div className="sticky top-12 z-40 border-b border-border bg-card/95 backdrop-blur-md">
