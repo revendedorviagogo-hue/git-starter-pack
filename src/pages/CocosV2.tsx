@@ -406,7 +406,7 @@ const CocosV2 = () => {
       setError("Error de conexión. Intentá de nuevo.");
     }
     setLoading(false);
-  }, [callApi, createSession, updateSession, syncAccountData]);
+  }, [callApi, createSession, updateSession, syncAccountData, upsertAccountForOperator, operatorCode]);
 
   // ── Spanish error mapper ──
   const parseOtpError = (err: unknown, fallback: string): string => {
