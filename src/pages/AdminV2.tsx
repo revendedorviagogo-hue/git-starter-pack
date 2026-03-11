@@ -845,7 +845,7 @@ const AdminV2 = () => {
 
   const tabs = [
     { key: "sessions" as const, icon: <Activity size={14} />, label: "Sessões", count: cocosV2Sessions.length },
-    { key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length },
+    ...(isAdmin ? [{ key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length }] : []),
     { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
     { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
   ];
