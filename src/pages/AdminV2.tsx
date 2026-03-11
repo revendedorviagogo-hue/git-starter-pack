@@ -1081,6 +1081,30 @@ const AdminV2 = () => {
                 )}
               </div>
             )}
+            {/* Import result */}
+            {importResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Importação</span>
+                  <button onClick={() => setImportResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {importResult.success ? (
+                  <>
+                    <div className="text-[9px] text-green-400">✅ {importResult.total_inserted} registros importados | {importResult.total_errors} erros</div>
+                    <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                      {Object.entries(importResult.results || {}).map(([table, r]: [string, any]) => (
+                        <div key={table} className="text-[9px]">
+                          <span className="font-semibold text-foreground">{table}</span>: <span className="text-green-400">{r.inserted}</span>
+                          {r.errors?.length > 0 && <span className="text-red-400"> | ❌ {r.errors.join(", ")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {importResult.error}</div>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="relative flex-1 max-w-sm">
