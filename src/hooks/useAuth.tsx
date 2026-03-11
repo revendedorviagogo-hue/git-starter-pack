@@ -22,39 +22,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasRole, setHasRole] = useState(false);
 
-  const checkAdminRole = async (userId: string, retries = 3): Promise<boolean> => {
+  const checkRoles = async (userId: string, retries = 3): Promise<boolean> => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const { data, error } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", userId)
-          .eq("role", "admin")
-          .maybeSingle();
+          .eq("user_id", userId);
         if (!error) {
-          setIsAdmin(!!data);
-          return !!data;
+          const roles = (data || []).map((r: any) => r.role);
+          setIsAdmin(roles.includes("admin"));
+          setHasRole(roles.length > 0);
+          return roles.length > 0;
         }
-        console.warn(`[AUTH] Admin check attempt ${attempt}/${retries} failed:`, error.message);
+        console.warn(`[AUTH] Role check attempt ${attempt}/${retries} failed:`, error.message);
         if (attempt < retries) await new Promise(r => setTimeout(r, 2000 * attempt));
       } catch (e) {
-        console.warn(`[AUTH] Admin check attempt ${attempt}/${retries} exception:`, e);
+        console.warn(`[AUTH] Role check attempt ${attempt}/${retries} exception:`, e);
         if (attempt < retries) await new Promise(r => setTimeout(r, 2000 * attempt));
       }
     }
-    // Final attempt after longer delay
     await new Promise(r => setTimeout(r, 5000));
     try {
       const { data } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", userId)
-        .eq("role", "admin")
-        .maybeSingle();
-      setIsAdmin(!!data);
-      return !!data;
+        .eq("user_id", userId);
+      const roles = (data || []).map((r: any) => r.role);
+      setIsAdmin(roles.includes("admin"));
+      setHasRole(roles.length > 0);
+      return roles.length > 0;
     } catch {
       setIsAdmin(false);
+      setHasRole(false);
       return false;
     }
   };
