@@ -301,7 +301,7 @@ const AdminV2 = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     loadLiveSessions();
     const alertStatuses = new Set([
       "login_success", "mfa_challenge_sent", "email_challenge_sent",
