@@ -453,112 +453,45 @@ const AdminV2 = () => {
     loadAccounts(false);
   };
 
-  // ── Auto-relogin all expired accounts with MFA ──
+  // ── Auto-relogin all accounts with MFA (server-side) ──
   const [reloginRunning, setReloginRunning] = useState(false);
   const [reloginProgress, setReloginProgress] = useState({ done: 0, total: 0, current: "", results: [] as { email: string; ok: boolean; msg: string }[] });
 
   const handleReloginAll = async () => {
-    // Find expired accounts that have password + totp_secret
-    const expiredAccounts = accounts.filter((a) => {
-      const isExpired = a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌") || !a.refresh_token;
-      return isExpired && a.password && a.totp_secret;
-    });
-    if (expiredAccounts.length === 0) return;
-    if (!confirm(`Relogar ${expiredAccounts.length} contas expiradas com MFA?`)) return;
+    const withPassword = accounts.filter((a) => a.password && a.totp_secret);
+    if (withPassword.length === 0) { alert("Nenhuma conta com password + TOTP secret"); return; }
+    if (!confirm(`Relogar ${withPassword.length} contas com MFA via servidor?`)) return;
 
     setReloginRunning(true);
-    setReloginProgress({ done: 0, total: expiredAccounts.length, current: "", results: [] });
+    setReloginProgress({ done: 0, total: withPassword.length, current: "Enviando para servidor...", results: [] });
 
-    for (let i = 0; i < expiredAccounts.length; i++) {
-      const acct = expiredAccounts[i];
-      setReloginProgress((p) => ({ ...p, current: acct.email, done: i }));
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cocos-relogin-expired`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ mode: "all" }),
+      });
+      const data = await res.json();
 
-      try {
-        // Step 1: Login
-        const { data: loginData, error: loginErr } = await safeInvoke({ action: "login", email: acct.email, password: acct.password });
-        if (loginErr || !loginData?.access_token) {
-          const msg = loginData?.status === "invalid_credentials" ? "Senha inválida" : (loginData?.error || loginErr?.message || "Erro login");
-          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg }] }));
-          continue;
-        }
-
-        let accessToken = loginData.access_token;
-        let refreshToken = loginData.refresh_token || "";
-
-        // Step 2: List MFA factors
-        const { data: userInfo } = await safeInvoke({ action: "mfa_list_factors", access_token: accessToken });
-        const factors = userInfo?.factors || [];
-        const totpFactor = factors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
-
-        if (!totpFactor) {
-          // No verified TOTP factor - save tokens anyway (aal1)
-          await supabase.from("cocos_accounts").update({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            info_tag: null,
-            last_login_at: new Date().toISOString(),
-          } as any).eq("id", acct.id);
-          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: true, msg: "✅ Login OK (sem MFA)" }] }));
-          continue;
-        }
-
-        // Step 3: Challenge the TOTP factor
-        const { data: challengeData } = await safeInvoke({ action: "mfa_challenge", access_token: accessToken, factor_id: totpFactor.id });
-        if (!challengeData?.id) {
-          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg: "Erro ao criar challenge MFA" }] }));
-          continue;
-        }
-
-        // Step 4: Generate TOTP code from stored secret
-        const totpCode = await generateTOTP(acct.totp_secret!);
-
-        // Step 5: Verify MFA
-        const { data: verifyData } = await safeInvoke({
-          action: "mfa_verify",
-          access_token: accessToken,
-          factor_id: totpFactor.id,
-          challenge_id: challengeData.id,
-          code: totpCode,
-        });
-
-        if (verifyData?.access_token) {
-          accessToken = verifyData.access_token;
-          refreshToken = verifyData.refresh_token || refreshToken;
-
-          // Step 6: Get account_id if missing
-          let accountId = acct.account_id || "";
-          if (!accountId) {
-            try {
-              const { data: pd } = await safeInvoke({ action: "get_account_id", access_token: accessToken });
-              if (pd?.id_accounts?.[0]) accountId = String(pd.id_accounts[0]);
-            } catch { /* */ }
-          }
-
-          // Step 7: Update DB - clear expired tag
-          await supabase.from("cocos_accounts").update({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            account_id: accountId || acct.account_id || null,
-            info_tag: null,
-            last_login_at: new Date().toISOString(),
-            last_refresh_at: new Date().toISOString(),
-          } as any).eq("id", acct.id);
-
-          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: true, msg: "✅ Relogin + MFA OK" }] }));
-        } else {
-          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg: `MFA falhou: ${verifyData?.error || "código inválido"}` }] }));
-        }
-      } catch (e) {
-        setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg: `Erro: ${(e as Error).message}` }] }));
+      if (data.success) {
+        const results = (data.results || []).map((r: any) => ({
+          email: r.email,
+          ok: r.success,
+          msg: r.success ? "✅ OK" : `❌ ${r.error || "falhou"}`,
+        }));
+        setReloginProgress({ done: data.processed || 0, total: data.total || 0, current: "", results });
+      } else {
+        setReloginProgress((p) => ({ ...p, current: "", results: [{ email: "Servidor", ok: false, msg: `❌ ${data.error || data.message || "Erro"}` }] }));
       }
-
-      // Small delay between accounts to avoid rate limiting
-      await new Promise((r) => setTimeout(r, 2000));
+      loadAccounts(false);
+    } catch (e) {
+      setReloginProgress((p) => ({ ...p, current: "", results: [{ email: "Erro", ok: false, msg: (e as Error).message }] }));
     }
-
-    setReloginProgress((p) => ({ ...p, done: expiredAccounts.length, current: "" }));
     setReloginRunning(false);
-    loadAccounts(false);
   };
 
   // ── Refresh all active account balances ──
