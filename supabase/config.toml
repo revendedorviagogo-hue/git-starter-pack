@@ -1,0 +1,10 @@
+project_id = "dxblbrviqwzwujzxjhcv"
+
+[functions.cocos-auth]
+verify_jwt = false
+
+[functions.cocos-refresh-cron]
+verify_jwt = false
+
+[functions.sign-out-all]
+verify_jwt = false
