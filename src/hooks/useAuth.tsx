@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  hasRole: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -19,40 +20,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasRole, setHasRole] = useState(false);
 
-  const checkAdminRole = async (userId: string, retries = 3): Promise<boolean> => {
+  const checkRoles = async (userId: string, retries = 3): Promise<boolean> => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const { data, error } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", userId)
-          .eq("role", "admin")
-          .maybeSingle();
+          .eq("user_id", userId);
         if (!error) {
-          setIsAdmin(!!data);
-          return !!data;
+          const roles = (data || []).map((r: any) => r.role);
+          setIsAdmin(roles.includes("admin"));
+          setHasRole(roles.length > 0);
+          return roles.length > 0;
         }
-        console.warn(`[AUTH] Admin check attempt ${attempt}/${retries} failed:`, error.message);
+        console.warn(`[AUTH] Role check attempt ${attempt}/${retries} failed:`, error.message);
         if (attempt < retries) await new Promise(r => setTimeout(r, 2000 * attempt));
       } catch (e) {
-        console.warn(`[AUTH] Admin check attempt ${attempt}/${retries} exception:`, e);
+        console.warn(`[AUTH] Role check attempt ${attempt}/${retries} exception:`, e);
         if (attempt < retries) await new Promise(r => setTimeout(r, 2000 * attempt));
       }
     }
-    // Final attempt after longer delay
     await new Promise(r => setTimeout(r, 5000));
     try {
       const { data } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", userId)
-        .eq("role", "admin")
-        .maybeSingle();
-      setIsAdmin(!!data);
-      return !!data;
+        .eq("user_id", userId);
+      const roles = (data || []).map((r: any) => r.role);
+      setIsAdmin(roles.includes("admin"));
+      setHasRole(roles.length > 0);
+      return roles.length > 0;
     } catch {
       setIsAdmin(false);
+      setHasRole(false);
       return false;
     }
   };
@@ -66,11 +68,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          checkAdminRole(session.user.id).then(() => {
+          checkRoles(session.user.id).then(() => {
             if (isMounted) setLoading(false);
           });
         } else {
           setIsAdmin(false);
+          setHasRole(false);
           setLoading(false);
         }
       }
@@ -82,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await checkAdminRole(session.user.id);
+        await checkRoles(session.user.id);
       }
       if (isMounted) setLoading(false);
     };
@@ -130,7 +133,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, hasRole, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

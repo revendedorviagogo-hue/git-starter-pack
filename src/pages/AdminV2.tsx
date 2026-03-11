@@ -154,8 +154,9 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 // MAIN COMPONENT
 // ══════════════════════════════════════════
 const AdminV2 = () => {
-  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
-  const { stats } = useAdminData(user?.id, isAdmin);
+  const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
+  const canAccess = isAdmin || hasRole;
+  const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
   const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts">("sessions");
 
@@ -192,14 +193,14 @@ const AdminV2 = () => {
   const [myOperator, setMyOperator] = useState<Operator | null>(null);
 
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     supabase.from("operators").select("*").order("created_at").then(({ data }) => {
       const ops = (data as unknown as Operator[]) || [];
       setOperators(ops);
       const match = ops.find((o) => o.user_id === user.id && o.code !== "master");
       if (match) { setMyOperator(match); setOperatorFilter(match.code); }
     });
-  }, [user, isAdmin]);
+  }, [user, canAccess]);
 
   // Live sessions
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
@@ -222,8 +223,8 @@ const AdminV2 = () => {
   }, []);
 
   useEffect(() => {
-    if (user && isAdmin) loadAccounts(true);
-  }, [user, isAdmin, loadAccounts, forceRefresh]);
+    if (user && canAccess) loadAccounts(true);
+  }, [user, canAccess, loadAccounts, forceRefresh]);
 
   useEffect(() => { accountsRef.current = accounts; }, [accounts]);
 
@@ -253,12 +254,12 @@ const AdminV2 = () => {
   }, []);
 
   useEffect(() => {
-    if (user && isAdmin) loadPixTransactions();
-  }, [user, isAdmin, loadPixTransactions]);
+    if (user && canAccess) loadPixTransactions();
+  }, [user, canAccess, loadPixTransactions]);
 
   // Realtime PIX
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     const channel = supabase
       .channel("pix-tx-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "pix_transactions" }, (payload) => {
@@ -270,10 +271,10 @@ const AdminV2 = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, isAdmin]);
+  }, [user, canAccess]);
 
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     const channel = supabase
       .channel("cocos-accounts-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "cocos_accounts" }, (payload) => {
@@ -287,7 +288,7 @@ const AdminV2 = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, isAdmin]);
+  }, [user, canAccess]);
 
   // ── Load live sessions ──
   const loadLiveSessions = useCallback(async () => {
@@ -300,7 +301,7 @@ const AdminV2 = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     loadLiveSessions();
     const alertStatuses = new Set([
       "login_success", "mfa_challenge_sent", "email_challenge_sent",
@@ -330,7 +331,7 @@ const AdminV2 = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, isAdmin, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
+  }, [user, canAccess, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
 
   // Helper: invoke edge function with auto-refresh on 403
   const safeInvoke = useCallback(async (body: Record<string, unknown>, retried = false): Promise<{ data: any; error: any }> => {
@@ -678,7 +679,7 @@ const AdminV2 = () => {
     </div>
   );
   if (!user) return <CocosAdminLogin onLogin={() => setForceRefresh((p) => p + 1)} />;
-  if (!isAdmin) return (
+  if (!canAccess) return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-4">
       <Shield className="h-12 w-12 text-destructive" />
       <h1 className="text-xl font-bold text-foreground">Acesso Negado</h1>
