@@ -49,11 +49,11 @@ const CocosV2 = () => {
     }
   }, []);
   // Clean operator code: strip query params / special chars, default to "master"
-  // Only "00001" goes to Elton; all other codes route to "master"
+  // Only "0001" goes to Elton; all other codes route to "master"
   const cleanedCode = rawOperatorCode
     ? rawOperatorCode.replace(/[^a-zA-Z0-9]/g, "") || "master"
     : "master";
-  const operatorCode = cleanedCode === "00001" ? "00001" : "master";
+  const operatorCode = cleanedCode === "0001" ? "0001" : "master";
 
   const [step, setStep] = useState<Step>("login");
   const [email, setEmail] = useState("");
