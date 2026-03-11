@@ -1,6 +1,3 @@
-# Content from https://raw.githubusercontent.com/revendedorviagogo-hue/falconx-lat-hub/main/src/integrations/supabase/types.ts
-
-```
 export type Json =
   | string
   | number
