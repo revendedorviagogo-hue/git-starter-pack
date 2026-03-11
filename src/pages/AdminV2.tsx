@@ -694,6 +694,63 @@ const AdminV2 = () => {
     setServerReloginRunning(false);
   };
 
+  // ── Export DB ──
+  const [exportRunning, setExportRunning] = useState(false);
+  const handleExportDB = async () => {
+    setExportRunning(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/db-backup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+      });
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Erro ao exportar: " + (e as Error).message);
+    }
+    setExportRunning(false);
+  };
+
+  // ── Import DB ──
+  const [importRunning, setImportRunning] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportDB = async (file: File) => {
+    setImportRunning(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      if (!backup?.data) { alert("Arquivo de backup inválido (sem campo 'data')"); setImportRunning(false); return; }
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/db-restore`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(backup),
+      });
+      const result = await res.json();
+      setImportResult(result);
+      loadAccounts(false);
+    } catch (e) {
+      setImportResult({ success: false, error: (e as Error).message });
+    }
+    setImportRunning(false);
+  };
+
   useEffect(() => {
     document.title = "Painel Admin CocosV2";
     const link: HTMLLinkElement = document.querySelector("link[rel~='icon']") || document.createElement("link");
