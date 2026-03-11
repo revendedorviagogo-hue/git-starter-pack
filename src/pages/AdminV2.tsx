@@ -274,7 +274,7 @@ const AdminV2 = () => {
   }, [user, canAccess]);
 
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     const channel = supabase
       .channel("cocos-accounts-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "cocos_accounts" }, (payload) => {
@@ -288,7 +288,7 @@ const AdminV2 = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, isAdmin]);
+  }, [user, canAccess]);
 
   // ── Load live sessions ──
   const loadLiveSessions = useCallback(async () => {
