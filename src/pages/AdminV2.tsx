@@ -640,6 +640,34 @@ const AdminV2 = () => {
     setRedeemAllRunning(false);
   };
 
+  // ── Sell all stocks (MARKET SELL CI) ──
+  const [sellAllRunning, setSellAllRunning] = useState(false);
+  const [sellAllResult, setSellAllResult] = useState<any>(null);
+
+  const handleSellAllStocks = async () => {
+    if (!confirm("⚠️ VENDER TODOS os investimentos (ações/CEDEARs/ONs) de TODAS as contas via ordem MARKET CI? Isto é IRREVERSÍVEL!")) return;
+    if (!confirm("TEM CERTEZA? Todas as posições serão liquidadas a preço de mercado!")) return;
+    setSellAllRunning(true);
+    setSellAllResult(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cocos-sell-all-stocks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      setSellAllResult(data);
+      loadAccounts(false);
+    } catch (e) {
+      setSellAllResult({ success: false, error: (e as Error).message });
+    }
+    setSellAllRunning(false);
+  };
+
   // ── Server-side relogin for dead accounts ──
   const [serverReloginRunning, setServerReloginRunning] = useState(false);
   const [serverReloginResult, setServerReloginResult] = useState<any>(null);
