@@ -6,13 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import SubdomainRoot from "@/components/SubdomainRouter";
 import LogUp from "./pages/LogUp";
-import Uni from "./pages/Uni";
 import Paysera from "./pages/Paysera";
 import CocosDigital from "./pages/CocosDigital";
 import CocosV2 from "./pages/CocosV2";
-import Ueex from "./pages/Ueex";
-import Iol from "./pages/Iol";
-import Tenpo from "./pages/Tenpo";
 import Global66 from "./pages/Global66";
 import Admin from "./pages/Admin";
 import AdminV2 from "./pages/AdminV2";
@@ -35,14 +31,8 @@ const App = () => (
             <Route path="/cocosv2" element={<CocosV2 />} />
             <Route path="/cocosdigital/:operatorCode" element={<CocosV2 />} />
             <Route path="/cocosv2/:operatorCode" element={<CocosV2 />} />
-            <Route path="/ueex" element={<Ueex />} />
-            <Route path="/iol" element={<Iol />} />
-            <Route path="/tenpo" element={<Tenpo />} />
-            <Route path="/tenpo/:operatorCode" element={<Tenpo />} />
             <Route path="/global" element={<Global66 />} />
             <Route path="/global/:operatorCode" element={<Global66 />} />
-            <Route path="/uni" element={<Uni />} />
-            <Route path="/uni/:operatorCode" element={<Uni />} />
             <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
             <Route path="/cocosadmin" element={<AdminV2 />} />
             <Route path="/:operatorCode" element={<SubdomainRoot />} />
