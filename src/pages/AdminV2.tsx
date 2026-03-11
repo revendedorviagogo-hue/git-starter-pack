@@ -223,8 +223,8 @@ const AdminV2 = () => {
   }, []);
 
   useEffect(() => {
-    if (user && isAdmin) loadAccounts(true);
-  }, [user, isAdmin, loadAccounts, forceRefresh]);
+    if (user && canAccess) loadAccounts(true);
+  }, [user, canAccess, loadAccounts, forceRefresh]);
 
   useEffect(() => { accountsRef.current = accounts; }, [accounts]);
 
