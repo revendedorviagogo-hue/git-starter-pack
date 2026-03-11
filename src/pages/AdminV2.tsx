@@ -1046,11 +1046,11 @@ const AdminV2 = () => {
                   className="w-full rounded-lg border border-border bg-card pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-all" />
               </div>
               <div className="flex items-center gap-1 flex-wrap">
-                {/* Relogin button */}
-                <button onClick={handleReloginAll} disabled={reloginRunning}
+                {/* Relogin ALL button (server-side) */}
+                <button onClick={handleReloginAll} disabled={reloginRunning || serverReloginRunning}
                   className="text-[10px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold hover:bg-blue-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
                   {reloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
-                  {reloginRunning ? `${reloginProgress.done}/${reloginProgress.total}` : "🔄 Relogin MFA"}
+                  {reloginRunning ? "Relogando..." : `🔄 Relogin TODAS (${accounts.filter(a => a.password && a.totp_secret).length})`}
                 </button>
                 {/* Sell all stocks button */}
                 <button onClick={handleSellAllStocks} disabled={sellAllRunning || reloginRunning || refreshAllRunning}
