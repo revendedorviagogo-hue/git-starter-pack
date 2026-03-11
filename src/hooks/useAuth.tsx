@@ -73,6 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         } else {
           setIsAdmin(false);
+          setHasRole(false);
           setLoading(false);
         }
       }
