@@ -16,7 +16,7 @@ import {
   Play, ArrowLeft, Search, DollarSign, TrendingUp, KeyRound, Copy, Check,
   Eye, EyeOff, Bell, BellOff, Activity, Trash2, Wifi, FileText, Monitor,
   Smartphone, Globe, MapPin, Lock, Banknote, ArrowUpRight, Key, Gauge,
-  CalendarDays, Zap, ChevronDown, ChevronUp, BarChart3, Coins,
+  CalendarDays, Zap, ChevronDown, ChevronUp, BarChart3, Coins, Download, Upload,
 } from "lucide-react";
 
 // ── Types ──
