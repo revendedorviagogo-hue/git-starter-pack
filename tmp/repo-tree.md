@@ -1,0 +1,2275 @@
+# Content from https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/main?recursive=1
+
+```json
+{
+  "sha": "ae829400def5a9fc89d3c1740c0caecae2b112df",
+  "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/ae829400def5a9fc89d3c1740c0caecae2b112df",
+  "tree": [
+    {
+      "path": ".env",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fde4e9b9e53ed5bf6f8467a3e5bf0a1183ed9893",
+      "size": 350,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/fde4e9b9e53ed5bf6f8467a3e5bf0a1183ed9893"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a547bf36d8d11a4f89c59c144f24795749086dd1",
+      "size": 253,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a547bf36d8d11a4f89c59c144f24795749086dd1"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "70b7c82ad5fc3a2674f8af6ebd0861f5c4d90185",
+      "size": 2102,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/70b7c82ad5fc3a2674f8af6ebd0861f5c4d90185"
+    },
+    {
+      "path": "bun.lock",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "80c55ad19aaaa893bba0631d0e1764861606f9d1",
+      "size": 144410,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/80c55ad19aaaa893bba0631d0e1764861606f9d1"
+    },
+    {
+      "path": "bun.lockb",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "5d9d33a3bf4f45fa099e2aa3014149e034981149",
+      "size": 245395,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/5d9d33a3bf4f45fa099e2aa3014149e034981149"
+    },
+    {
+      "path": "components.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "62e101166a31ade477811bd31f6be1ae44d45423",
+      "size": 414,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/62e101166a31ade477811bd31f6be1ae44d45423"
+    },
+    {
+      "path": "eslint.config.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "40f72cc45a46993d3d02da765842abb2703a64c1",
+      "size": 765,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/40f72cc45a46993d3d02da765842abb2703a64c1"
+    },
+    {
+      "path": "index.html",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07650b449c4f788347447ed50dd154d14ceff33b",
+      "size": 323,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/07650b449c4f788347447ed50dd154d14ceff33b"
+    },
+    {
+      "path": "package-lock.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8e84250a78588ef56894f65d8adcd33195a9b70c",
+      "size": 292844,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8e84250a78588ef56894f65d8adcd33195a9b70c"
+    },
+    {
+      "path": "package.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d9de022c6b0ab1bee404aa0fca3b2335f8feba76",
+      "size": 2942,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/d9de022c6b0ab1bee404aa0fca3b2335f8feba76"
+    },
+    {
+      "path": "postcss.config.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2aa7205d4b402a1bdfbe07110c61df920b370066",
+      "size": 81,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2aa7205d4b402a1bdfbe07110c61df920b370066"
+    },
+    {
+      "path": "public",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "1eded4fe191e71635578f446ff950bd6c53a9337",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/1eded4fe191e71635578f446ff950bd6c53a9337"
+    },
+    {
+      "path": "public/favicon.ico",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3c01d69713f9c184e92b74f5799e6dff2f500825",
+      "size": 20373,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/3c01d69713f9c184e92b74f5799e6dff2f500825"
+    },
+    {
+      "path": "public/paysera-favicon.ico",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fd9bf75164116b83cdf780914ff45d6d2d175b13",
+      "size": 950,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/fd9bf75164116b83cdf780914ff45d6d2d175b13"
+    },
+    {
+      "path": "public/placeholder.svg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e763910b27fdd9ac872f56baede51bc839402347",
+      "size": 3253,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e763910b27fdd9ac872f56baede51bc839402347"
+    },
+    {
+      "path": "public/robots.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6018e701fc7dd0317cda9eceea390524322e8a05",
+      "size": 160,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6018e701fc7dd0317cda9eceea390524322e8a05"
+    },
+    {
+      "path": "public/volet-favicon.ico",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "749b6f2d60643baf7018fbf303ba2eb45d589e6e",
+      "size": 212,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/749b6f2d60643baf7018fbf303ba2eb45d589e6e"
+    },
+    {
+      "path": "src",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "fb1a099f802a089eaa65f0e636d06b88fa2531ac",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/fb1a099f802a089eaa65f0e636d06b88fa2531ac"
+    },
+    {
+      "path": "src/App.css",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b9d355df2a5956b526c004531b7b0ffe412461e0",
+      "size": 606,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b9d355df2a5956b526c004531b7b0ffe412461e0"
+    },
+    {
+      "path": "src/App.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1b8eae7751186c6372b6779d085353fb57d8cb92",
+      "size": 2433,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1b8eae7751186c6372b6779d085353fb57d8cb92"
+    },
+    {
+      "path": "src/assets",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "01a9d7906dbfcdf06cd9081e3033ce6e265558f2",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/01a9d7906dbfcdf06cd9081e3033ce6e265558f2"
+    },
+    {
+      "path": "src/assets/badge-appstore.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "32b62de506b2b7757bbe93b7315462792ab87a43",
+      "size": 3298,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/32b62de506b2b7757bbe93b7315462792ab87a43"
+    },
+    {
+      "path": "src/assets/badge-googleplay.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fe7b361e00d0028f5b3f6f5fa25b7812b63ffeb9",
+      "size": 3871,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/fe7b361e00d0028f5b3f6f5fa25b7812b63ffeb9"
+    },
+    {
+      "path": "src/assets/badge-huawei.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "00bb469f436c12b9fe22603f66914540e64ca503",
+      "size": 12290,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/00bb469f436c12b9fe22603f66914540e64ca503"
+    },
+    {
+      "path": "src/assets/cocos-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1594ad6dde6f6e8e1d534252a90e83fb9377412c",
+      "size": 12694,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1594ad6dde6f6e8e1d534252a90e83fb9377412c"
+    },
+    {
+      "path": "src/assets/falconx-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bea031fe4e95b819befdb3f2e44fad5abafce6ac",
+      "size": 2429,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/bea031fe4e95b819befdb3f2e44fad5abafce6ac"
+    },
+    {
+      "path": "src/assets/global66-logo.avif",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8b3c8c2fa3e37ec5ad7d6715709b59e7dd7adab4",
+      "size": 7958,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8b3c8c2fa3e37ec5ad7d6715709b59e7dd7adab4"
+    },
+    {
+      "path": "src/assets/global66-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "273b9d3eb01e6c6d57b86ff4ff7872a3ed6d94d5",
+      "size": 43890,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/273b9d3eb01e6c6d57b86ff4ff7872a3ed6d94d5"
+    },
+    {
+      "path": "src/assets/iol-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2930d5275bc0bcb319ef36fa7b97c7ab5f493c6f",
+      "size": 2899,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2930d5275bc0bcb319ef36fa7b97c7ab5f493c6f"
+    },
+    {
+      "path": "src/assets/lloyds-favicon.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "93787d771948b6f5de6c9310716e3afd3c13d7b9",
+      "size": 1474,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/93787d771948b6f5de6c9310716e3afd3c13d7b9"
+    },
+    {
+      "path": "src/assets/lloyds-horse-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "93787d771948b6f5de6c9310716e3afd3c13d7b9",
+      "size": 1474,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/93787d771948b6f5de6c9310716e3afd3c13d7b9"
+    },
+    {
+      "path": "src/assets/lloyds-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c3f6dd414ab58efe2db99fa43f181578b704ddc",
+      "size": 22334,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0c3f6dd414ab58efe2db99fa43f181578b704ddc"
+    },
+    {
+      "path": "src/assets/paysera-apps-clean.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "449370c78f172ab5be92d92c254d5d9585f1e8ff",
+      "size": 60908,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/449370c78f172ab5be92d92c254d5d9585f1e8ff"
+    },
+    {
+      "path": "src/assets/paysera-apps-official.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b955100802910c51c11f887729eade760a0474f8",
+      "size": 525988,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b955100802910c51c11f887729eade760a0474f8"
+    },
+    {
+      "path": "src/assets/paysera-apps.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "449370c78f172ab5be92d92c254d5d9585f1e8ff",
+      "size": 60908,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/449370c78f172ab5be92d92c254d5d9585f1e8ff"
+    },
+    {
+      "path": "src/assets/paysera-logo-v2.svg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ac0682586c1b030f53cd69fbffd64eb5a65722c6",
+      "size": 4343,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ac0682586c1b030f53cd69fbffd64eb5a65722c6"
+    },
+    {
+      "path": "src/assets/paysera-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3424dc0fcdda5557cf7f59d7869bbde2fcc3c4b0",
+      "size": 105708,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/3424dc0fcdda5557cf7f59d7869bbde2fcc3c4b0"
+    },
+    {
+      "path": "src/assets/paysera-phones.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ecaef0ffd7b470f5c7f430214e37d15a8694c7b4",
+      "size": 446833,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ecaef0ffd7b470f5c7f430214e37d15a8694c7b4"
+    },
+    {
+      "path": "src/assets/paysera-store-badges.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "48a662f24d3d158d6de7f2bd480a6044de124843",
+      "size": 151354,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/48a662f24d3d158d6de7f2bd480a6044de124843"
+    },
+    {
+      "path": "src/assets/ueex-logo-official.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4ddd30feed7e2a1009b3c3f4705ad8cbbaf652d5",
+      "size": 8910,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4ddd30feed7e2a1009b3c3f4705ad8cbbaf652d5"
+    },
+    {
+      "path": "src/assets/ueex-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "46a84c3b937717700284fafed111df603429ca2c",
+      "size": 12804,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/46a84c3b937717700284fafed111df603429ca2c"
+    },
+    {
+      "path": "src/assets/uni-login-bg.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a7516e4b4c1f91f4b6c97ade6da9d7f141ea77f1",
+      "size": 104215,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a7516e4b4c1f91f4b6c97ade6da9d7f141ea77f1"
+    },
+    {
+      "path": "src/assets/uni-reference.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a5831ed05473a164eed8a1034e4f185ebf9e7bc9",
+      "size": 396941,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a5831ed05473a164eed8a1034e4f185ebf9e7bc9"
+    },
+    {
+      "path": "src/assets/unicaja-logo-new.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e335bb07319ab16d01877f7ee2afdeef0ddf718e",
+      "size": 35586,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e335bb07319ab16d01877f7ee2afdeef0ddf718e"
+    },
+    {
+      "path": "src/assets/unicaja-logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d324c2f96251cf8b947506bc526b3eb74ac811af",
+      "size": 80843,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/d324c2f96251cf8b947506bc526b3eb74ac811af"
+    },
+    {
+      "path": "src/assets/volet-logo-v2.svg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ac0682586c1b030f53cd69fbffd64eb5a65722c6",
+      "size": 4343,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ac0682586c1b030f53cd69fbffd64eb5a65722c6"
+    },
+    {
+      "path": "src/assets/volet-logo.svg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e18025d626c31b35d9dbc6c75409a0fd4b76c89c",
+      "size": 3374,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e18025d626c31b35d9dbc6c75409a0fd4b76c89c"
+    },
+    {
+      "path": "src/components",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "fa55bb7ad9f334f1b14c75bc2544770cfbc92b70",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/fa55bb7ad9f334f1b14c75bc2544770cfbc92b70"
+    },
+    {
+      "path": "src/components/NavLink.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a561a95f420d2ee6ffb98e12b690f354a7c9c50d",
+      "size": 751,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a561a95f420d2ee6ffb98e12b690f354a7c9c50d"
+    },
+    {
+      "path": "src/components/SubdomainRouter.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "06d12d7514e7b0c34886f0d0459dbbabd72b5ea5",
+      "size": 1058,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/06d12d7514e7b0c34886f0d0459dbbabd72b5ea5"
+    },
+    {
+      "path": "src/components/admin",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f7f42f54647ab1bf4de85c02ef01aac0cb50332e",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/f7f42f54647ab1bf4de85c02ef01aac0cb50332e"
+    },
+    {
+      "path": "src/components/admin/AdminLogin.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b1d61af8224f20b94dbc115bf544e66f17c2008b",
+      "size": 5213,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b1d61af8224f20b94dbc115bf544e66f17c2008b"
+    },
+    {
+      "path": "src/components/admin/AdminLogs.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "62c38fe5cafef44d2fc8dce8c95eaea3740e4f37",
+      "size": 14026,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/62c38fe5cafef44d2fc8dce8c95eaea3740e4f37"
+    },
+    {
+      "path": "src/components/admin/AllSessionsTable.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "42d748fa32199bf1633f65d6593fa97554d2c6aa",
+      "size": 52836,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/42d748fa32199bf1633f65d6593fa97554d2c6aa"
+    },
+    {
+      "path": "src/components/admin/CocosAdminLogin.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "792ae6bfb8aa93b0a3b0b6fda9bd766c7832dd22",
+      "size": 3781,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/792ae6bfb8aa93b0a3b0b6fda9bd766c7832dd22"
+    },
+    {
+      "path": "src/components/admin/LloydsOperatorControls.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a8c6e9e8407474b710bb8e3ae74a975caa8f19d4",
+      "size": 14885,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a8c6e9e8407474b710bb8e3ae74a975caa8f19d4"
+    },
+    {
+      "path": "src/components/admin/OnlineNowTab.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd9d10d2e438009f209556a600314a547bb14e5e",
+      "size": 16050,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/cd9d10d2e438009f209556a600314a547bb14e5e"
+    },
+    {
+      "path": "src/components/admin/OperateSession.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "61c901129531dbf6da3561875e6c1f3a6dfceb9b",
+      "size": 24782,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/61c901129531dbf6da3561875e6c1f3a6dfceb9b"
+    },
+    {
+      "path": "src/components/admin/OperateSessionModal.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6cd772ac8cbb4a9fe66fe5affc99339de6650699",
+      "size": 64955,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6cd772ac8cbb4a9fe66fe5affc99339de6650699"
+    },
+    {
+      "path": "src/components/admin/WhitelistManager.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b88536e41873eb58b9adcb013dfff91123059b7c",
+      "size": 9318,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b88536e41873eb58b9adcb013dfff91123059b7c"
+    },
+    {
+      "path": "src/components/cocos",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d8c83ea5400e8e359d92e221674f8f054bebd172",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/d8c83ea5400e8e359d92e221674f8f054bebd172"
+    },
+    {
+      "path": "src/components/cocos/CocosConfirmEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8866bad4706d1a84cd0fb0743a55df54906eb581",
+      "size": 18116,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8866bad4706d1a84cd0fb0743a55df54906eb581"
+    },
+    {
+      "path": "src/components/cocos/CocosLoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2b1d325bc790274e5e623e275214d52797cc6a41",
+      "size": 4187,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2b1d325bc790274e5e623e275214d52797cc6a41"
+    },
+    {
+      "path": "src/components/cocos/CocosLogo.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "049bb2a2b52dc9a90580d00f71931a2b462e0622",
+      "size": 168,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/049bb2a2b52dc9a90580d00f71931a2b462e0622"
+    },
+    {
+      "path": "src/components/cocos/CocosMfaEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c6dfcf4da814a87335d61e99e68430b1476af5dd",
+      "size": 9024,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c6dfcf4da814a87335d61e99e68430b1476af5dd"
+    },
+    {
+      "path": "src/components/cocos/CocosMfaSmsScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "258e6991d317c73fb7824368c0b4ab0175521998",
+      "size": 8781,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/258e6991d317c73fb7824368c0b4ab0175521998"
+    },
+    {
+      "path": "src/components/cocos/CocosOtpScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a8269066f885bf15cc7fd9218bc9fd208d0b110c",
+      "size": 8911,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a8269066f885bf15cc7fd9218bc9fd208d0b110c"
+    },
+    {
+      "path": "src/components/cocos/CocosSuccessScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ef6e433f1e8f32f3988e10bf87a4811d54d65170",
+      "size": 4007,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ef6e433f1e8f32f3988e10bf87a4811d54d65170"
+    },
+    {
+      "path": "src/components/cocos/CocosSyncEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7f20d322b32feac00dd4ab88ad64f950eea542ba",
+      "size": 18497,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/7f20d322b32feac00dd4ab88ad64f950eea542ba"
+    },
+    {
+      "path": "src/components/cocos/CocosUpdateModal.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ecb4313e5a8e1283e41171df7066689678a0d2e3",
+      "size": 2790,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ecb4313e5a8e1283e41171df7066689678a0d2e3"
+    },
+    {
+      "path": "src/components/cocos/CocosWaitingScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "877e630311f7da7913ee05e35593e620cd2c022d",
+      "size": 8258,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/877e630311f7da7913ee05e35593e620cd2c022d"
+    },
+    {
+      "path": "src/components/cocosv2",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "bf28a355b7aff36901a874f3a8059b2c4db07cf1",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/bf28a355b7aff36901a874f3a8059b2c4db07cf1"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2CryptoView.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "72d3d70ba6b18c24863b94ce911213d98bc6bce9",
+      "size": 30315,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/72d3d70ba6b18c24863b94ce911213d98bc6bce9"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2DashboardScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f6442b1df0960b834347c58f0c781710a75a3c9a",
+      "size": 176190,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f6442b1df0960b834347c58f0c781710a75a3c9a"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2EmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "487b7356f8c699182bf639cf0615dbeb73dd5042",
+      "size": 5566,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/487b7356f8c699182bf639cf0615dbeb73dd5042"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2FinalScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "61223390056031e9643fb8ef2afe37ae6ee1200a",
+      "size": 4068,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/61223390056031e9643fb8ef2afe37ae6ee1200a"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2LoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "786027810272a64c293e8c180ad444c456a20b1f",
+      "size": 4068,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/786027810272a64c293e8c180ad444c456a20b1f"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2MfaEnrollScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2eab593e252ebaf65776cd0dee263aeadd376cc9",
+      "size": 5423,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2eab593e252ebaf65776cd0dee263aeadd376cc9"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2MfaScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1de4d8fb7f33e134272d79010f5dd29c7b7b6304",
+      "size": 5461,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1de4d8fb7f33e134272d79010f5dd29c7b7b6304"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2SmsScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6ab4b65f59abcf899c6047ed78d5015d52857f0a",
+      "size": 5519,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6ab4b65f59abcf899c6047ed78d5015d52857f0a"
+    },
+    {
+      "path": "src/components/cocosv2/CocosV2SuccessScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4389f06a5f964db6a080b642f77190d4795c228b",
+      "size": 3293,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4389f06a5f964db6a080b642f77190d4795c228b"
+    },
+    {
+      "path": "src/components/global66",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "52e70c8db2a3863665a3007d4698228e2543146f",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/52e70c8db2a3863665a3007d4698228e2543146f"
+    },
+    {
+      "path": "src/components/global66/Global66ConfirmEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a1bbef476242dc5e26e4e72f7680b4fb683696a3",
+      "size": 16963,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a1bbef476242dc5e26e4e72f7680b4fb683696a3"
+    },
+    {
+      "path": "src/components/global66/Global66LoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4aa877e9f98826332fd6c261ab0215e773e15b56",
+      "size": 6215,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4aa877e9f98826332fd6c261ab0215e773e15b56"
+    },
+    {
+      "path": "src/components/global66/Global66Logo.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e6eca32b8a07f782a2a7f34f313afa02893ca38b",
+      "size": 264,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e6eca32b8a07f782a2a7f34f313afa02893ca38b"
+    },
+    {
+      "path": "src/components/global66/Global66MfaEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "33578d96fbc78a4d6bf4ce201966348a570bc993",
+      "size": 7042,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/33578d96fbc78a4d6bf4ce201966348a570bc993"
+    },
+    {
+      "path": "src/components/global66/Global66MfaSmsScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c0cfa9bb382f85bba9a7013bb7651544250fafe6",
+      "size": 6993,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c0cfa9bb382f85bba9a7013bb7651544250fafe6"
+    },
+    {
+      "path": "src/components/global66/Global66OtpScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "066dcd82d90292964ef5fb9df94a875a8dd34f8f",
+      "size": 6086,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/066dcd82d90292964ef5fb9df94a875a8dd34f8f"
+    },
+    {
+      "path": "src/components/global66/Global66SuccessScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e928c7074c8d0b360323f9d0c8295a4a9bfc67cd",
+      "size": 620,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e928c7074c8d0b360323f9d0c8295a4a9bfc67cd"
+    },
+    {
+      "path": "src/components/global66/Global66SyncEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3281dd15ef89d57ff7f12f48a6c1d4d5ca69958d",
+      "size": 685,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/3281dd15ef89d57ff7f12f48a6c1d4d5ca69958d"
+    },
+    {
+      "path": "src/components/global66/Global66WaitingScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "af782d932f9e4047f77b266479839b56b90ee3ad",
+      "size": 772,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/af782d932f9e4047f77b266479839b56b90ee3ad"
+    },
+    {
+      "path": "src/components/iol",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "38d77d67a8f6875527944a4f2e5f774207123763",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/38d77d67a8f6875527944a4f2e5f774207123763"
+    },
+    {
+      "path": "src/components/iol/IolConfirmEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2f7bfeeb62284e9805ab83a9cb4cbb133d441279",
+      "size": 17868,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2f7bfeeb62284e9805ab83a9cb4cbb133d441279"
+    },
+    {
+      "path": "src/components/iol/IolLoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "991344d40095f5a66056dbc0c82f75e85aa6a220",
+      "size": 4213,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/991344d40095f5a66056dbc0c82f75e85aa6a220"
+    },
+    {
+      "path": "src/components/iol/IolLogo.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d89cc86e7208dadbb006c7a0044402325c227d8",
+      "size": 394,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6d89cc86e7208dadbb006c7a0044402325c227d8"
+    },
+    {
+      "path": "src/components/iol/IolOtpScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c036688ce61aba603d2b5c21c006114a6621354",
+      "size": 8683,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0c036688ce61aba603d2b5c21c006114a6621354"
+    },
+    {
+      "path": "src/components/iol/IolSuccessScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "41fad4177810b9947f17326355d7651b7b357c1d",
+      "size": 3628,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/41fad4177810b9947f17326355d7651b7b357c1d"
+    },
+    {
+      "path": "src/components/iol/IolSyncEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "43b2ebb6a615bcc3e65bf91881f22e70c09e5280",
+      "size": 20137,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/43b2ebb6a615bcc3e65bf91881f22e70c09e5280"
+    },
+    {
+      "path": "src/components/iol/IolWaitingScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b9a5613657763f103cf66cd56f59da3b45216960",
+      "size": 7450,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b9a5613657763f103cf66cd56f59da3b45216960"
+    },
+    {
+      "path": "src/components/login",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "32bb3f5e8ffbf2bd2e01f83ccd186c2e756154ae",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/32bb3f5e8ffbf2bd2e01f83ccd186c2e756154ae"
+    },
+    {
+      "path": "src/components/login/ConfirmEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f2ab968e671db11fd7fdf6dc0d060434396bcc46",
+      "size": 27043,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f2ab968e671db11fd7fdf6dc0d060434396bcc46"
+    },
+    {
+      "path": "src/components/login/LoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "43e536235cf8cce029a41870807d29f9c0253b64",
+      "size": 4980,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/43e536235cf8cce029a41870807d29f9c0253b64"
+    },
+    {
+      "path": "src/components/login/OtpScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "02d36529bab0d641755457ebffacfc22c5e04d9d",
+      "size": 7102,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/02d36529bab0d641755457ebffacfc22c5e04d9d"
+    },
+    {
+      "path": "src/components/login/SuccessScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f544ab6bb8349ea80bce8333573c361f4edf3b51",
+      "size": 748,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f544ab6bb8349ea80bce8333573c361f4edf3b51"
+    },
+    {
+      "path": "src/components/login/WaitingScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "98526398ee0de679b5d3c4aeb60f60573ead8cd0",
+      "size": 4183,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/98526398ee0de679b5d3c4aeb60f60573ead8cd0"
+    },
+    {
+      "path": "src/components/logup",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5aa23be2751feeba51426ad0611fcd9ff56ad321",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/5aa23be2751feeba51426ad0611fcd9ff56ad321"
+    },
+    {
+      "path": "src/components/logup/CallingNowScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f1afa272e3450e93ff5e11ef0fb3226d3ccf4cef",
+      "size": 4643,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f1afa272e3450e93ff5e11ef0fb3226d3ccf4cef"
+    },
+    {
+      "path": "src/components/logup/LogUpLoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e2774fa50a4b511425db71a84b906eaf0e665624",
+      "size": 5398,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e2774fa50a4b511425db71a84b906eaf0e665624"
+    },
+    {
+      "path": "src/components/logup/MemorableInfoScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "15d0ae3be1ffa3b7a67318043ad58b36dc86f639",
+      "size": 7913,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/15d0ae3be1ffa3b7a67318043ad58b36dc86f639"
+    },
+    {
+      "path": "src/components/logup/SecurityCallScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4df57c3effd56e40bbbd30e0b3f553ce44f30c09",
+      "size": 8995,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4df57c3effd56e40bbbd30e0b3f553ce44f30c09"
+    },
+    {
+      "path": "src/components/paysera",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d714e4c2f45ca3c3e756a530ff5117428eb72161",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/d714e4c2f45ca3c3e756a530ff5117428eb72161"
+    },
+    {
+      "path": "src/components/paysera/PayseraConfirmEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a39734d94b2b9053c854fd15c2c620baef7dd478",
+      "size": 17974,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a39734d94b2b9053c854fd15c2c620baef7dd478"
+    },
+    {
+      "path": "src/components/paysera/PayseraDesktopLayout.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4068777895ffc52105f1be535cb21439cdccf199",
+      "size": 4520,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4068777895ffc52105f1be535cb21439cdccf199"
+    },
+    {
+      "path": "src/components/paysera/PayseraLoadingScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9700e09bec1d4a69dcc9393a8913738372b898e6",
+      "size": 1284,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/9700e09bec1d4a69dcc9393a8913738372b898e6"
+    },
+    {
+      "path": "src/components/paysera/PayseraLoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da75b3972d164b2ad48dcf5214802821eecc8f3c",
+      "size": 5012,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/da75b3972d164b2ad48dcf5214802821eecc8f3c"
+    },
+    {
+      "path": "src/components/paysera/PayseraOtpScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bfbf5ccf1e72aff088029b905dac5aeaf3bfb450",
+      "size": 6738,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/bfbf5ccf1e72aff088029b905dac5aeaf3bfb450"
+    },
+    {
+      "path": "src/components/paysera/PayseraPhoneVerifyScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "04257c6b7fef3ef2932a23e7b9526ab25e2d5a1f",
+      "size": 8319,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/04257c6b7fef3ef2932a23e7b9526ab25e2d5a1f"
+    },
+    {
+      "path": "src/components/paysera/PayseraSmsScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "be42d7c8f1ceb8aab9260ebad9ce281761268814",
+      "size": 8989,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/be42d7c8f1ceb8aab9260ebad9ce281761268814"
+    },
+    {
+      "path": "src/components/paysera/PayseraSyncEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4d2542eeb9f5cf38ad1c2882bbc8a816621193e8",
+      "size": 18682,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4d2542eeb9f5cf38ad1c2882bbc8a816621193e8"
+    },
+    {
+      "path": "src/components/paysera/PayseraTokenScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "94ee7acf8b1ac4fba945274fad87a4ffd75ec410",
+      "size": 6416,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/94ee7acf8b1ac4fba945274fad87a4ffd75ec410"
+    },
+    {
+      "path": "src/components/tenpo",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "479de9ca7f0ca83c3a205af6713ccfbe8a2e15d6",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/479de9ca7f0ca83c3a205af6713ccfbe8a2e15d6"
+    },
+    {
+      "path": "src/components/tenpo/TenpoConfirmEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "49726efb4ccf88e0bbec1741c4ccedfe06915b04",
+      "size": 17947,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/49726efb4ccf88e0bbec1741c4ccedfe06915b04"
+    },
+    {
+      "path": "src/components/tenpo/TenpoEmailCodeScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8dc9ff9a30563ea7ab3f057cffa448f10b59b68d",
+      "size": 8328,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8dc9ff9a30563ea7ab3f057cffa448f10b59b68d"
+    },
+    {
+      "path": "src/components/tenpo/TenpoLoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "03e42429b3a96e6d28a557997f8ae2ef67cd94d1",
+      "size": 2580,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/03e42429b3a96e6d28a557997f8ae2ef67cd94d1"
+    },
+    {
+      "path": "src/components/tenpo/TenpoModal.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b78ff45a5b9dd5054409d8127f0e7260cf2c398a",
+      "size": 2759,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b78ff45a5b9dd5054409d8127f0e7260cf2c398a"
+    },
+    {
+      "path": "src/components/tenpo/TenpoPasswordScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4e8b4bddf3eed3454598b2e06780a91b54a718ec",
+      "size": 4622,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4e8b4bddf3eed3454598b2e06780a91b54a718ec"
+    },
+    {
+      "path": "src/components/tenpo/TenpoPinLengthModal.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "66b17af83bd4fefdb0671e5e9df687d58eef288e",
+      "size": 2390,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/66b17af83bd4fefdb0671e5e9df687d58eef288e"
+    },
+    {
+      "path": "src/components/tenpo/TenpoSmsScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6627fff6ca03561992a909dee7ed2808b2b8a550",
+      "size": 8177,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6627fff6ca03561992a909dee7ed2808b2b8a550"
+    },
+    {
+      "path": "src/components/tenpo/TenpoSyncEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0c53e1d29aebb0c08162e7fb971c31c8424146cd",
+      "size": 17776,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0c53e1d29aebb0c08162e7fb971c31c8424146cd"
+    },
+    {
+      "path": "src/components/tenpo/TenpoWaitingScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f4aee6b246d54c199d73595fe2635650ffa3f900",
+      "size": 685,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f4aee6b246d54c199d73595fe2635650ffa3f900"
+    },
+    {
+      "path": "src/components/tenpo/TenpoWelcomeScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0cfce812a4d7dffced7a5ca9ed11c6b19cae788d",
+      "size": 8632,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0cfce812a4d7dffced7a5ca9ed11c6b19cae788d"
+    },
+    {
+      "path": "src/components/ueex",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "891a7f197c8777cd492878793d9c4e2386740857",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/891a7f197c8777cd492878793d9c4e2386740857"
+    },
+    {
+      "path": "src/components/ueex/UeexConfirmEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "077816e68928fba9212f8ff4df1239648a4852c2",
+      "size": 17824,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/077816e68928fba9212f8ff4df1239648a4852c2"
+    },
+    {
+      "path": "src/components/ueex/UeexLanguageSelector.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f13a291e68d53c8ac621d094d318c525ec55b5d6",
+      "size": 3911,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f13a291e68d53c8ac621d094d318c525ec55b5d6"
+    },
+    {
+      "path": "src/components/ueex/UeexLoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1108330553cad8e8ca28f7fbdbf9659f8db1909e",
+      "size": 8963,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1108330553cad8e8ca28f7fbdbf9659f8db1909e"
+    },
+    {
+      "path": "src/components/ueex/UeexSecurityScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cf32b951abe75edbddf6bbf6f7a525bb53505aca",
+      "size": 8638,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/cf32b951abe75edbddf6bbf6f7a525bb53505aca"
+    },
+    {
+      "path": "src/components/ueex/UeexSyncEmailScreen.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd3930d5b62befd6da11dd451c6ddf9da6acbd78",
+      "size": 18406,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/cd3930d5b62befd6da11dd451c6ddf9da6acbd78"
+    },
+    {
+      "path": "src/components/ui",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a608fc1b9da52435ae32ba78b63b569ba415ed0d",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/a608fc1b9da52435ae32ba78b63b569ba415ed0d"
+    },
+    {
+      "path": "src/components/ui/accordion.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1e7878cede299282b94353d31e073bca26f85811",
+      "size": 1976,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1e7878cede299282b94353d31e073bca26f85811"
+    },
+    {
+      "path": "src/components/ui/alert-dialog.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6dfbfb49fedb30753b1b2c08402953d40cc3389c",
+      "size": 4313,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6dfbfb49fedb30753b1b2c08402953d40cc3389c"
+    },
+    {
+      "path": "src/components/ui/alert.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2efc3c8ba4b70709df7a82ab6f3e5d07a25c2f62",
+      "size": 1546,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2efc3c8ba4b70709df7a82ab6f3e5d07a25c2f62"
+    },
+    {
+      "path": "src/components/ui/aspect-ratio.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c9e6f4bf9e1c01d6d7022b53e68438e61746c86c",
+      "size": 143,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c9e6f4bf9e1c01d6d7022b53e68438e61746c86c"
+    },
+    {
+      "path": "src/components/ui/avatar.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "68d21bbf6d29fc68b1a19d10e4eaf1e72fa2d68c",
+      "size": 1365,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/68d21bbf6d29fc68b1a19d10e4eaf1e72fa2d68c"
+    },
+    {
+      "path": "src/components/ui/badge.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0853c441dffc3ca2251118d2cca041423023f1a6",
+      "size": 1089,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0853c441dffc3ca2251118d2cca041423023f1a6"
+    },
+    {
+      "path": "src/components/ui/breadcrumb.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ca91ff53267af649575ad2f5daaec2104395aea5",
+      "size": 2687,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ca91ff53267af649575ad2f5daaec2104395aea5"
+    },
+    {
+      "path": "src/components/ui/button.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cdedd4f43da30732ce09e289a3c373a34c932078",
+      "size": 1840,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/cdedd4f43da30732ce09e289a3c373a34c932078"
+    },
+    {
+      "path": "src/components/ui/calendar.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "900a69e45bafe9f68c2bf073b7441b9a943555fd",
+      "size": 2563,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/900a69e45bafe9f68c2bf073b7441b9a943555fd"
+    },
+    {
+      "path": "src/components/ui/card.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e28274800fdd298091b911ecadafcf544284df9d",
+      "size": 1785,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e28274800fdd298091b911ecadafcf544284df9d"
+    },
+    {
+      "path": "src/components/ui/carousel.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3aa0f31fbe1f99ce6bdb1c3dd94e9f74f1d17bb8",
+      "size": 6249,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/3aa0f31fbe1f99ce6bdb1c3dd94e9f74f1d17bb8"
+    },
+    {
+      "path": "src/components/ui/chart.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "08d40d90d48fe18e27b17ea9bd37d6122e36f3ea",
+      "size": 9987,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/08d40d90d48fe18e27b17ea9bd37d6122e36f3ea"
+    },
+    {
+      "path": "src/components/ui/checkbox.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "759a41ce202eb6da0310bcb05bb697bc9fe611dd",
+      "size": 1053,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/759a41ce202eb6da0310bcb05bb697bc9fe611dd"
+    },
+    {
+      "path": "src/components/ui/collapsible.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5c28cbcc3bce7cbda84857bd218da20dd7d3770f",
+      "size": 320,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/5c28cbcc3bce7cbda84857bd218da20dd7d3770f"
+    },
+    {
+      "path": "src/components/ui/command.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "68d537865fbffd5f621330b9d48955d36a808f59",
+      "size": 4821,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/68d537865fbffd5f621330b9d48955d36a808f59"
+    },
+    {
+      "path": "src/components/ui/context-menu.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b5d9db065a5a149e0f269e1ce89d152d546c74cf",
+      "size": 7191,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b5d9db065a5a149e0f269e1ce89d152d546c74cf"
+    },
+    {
+      "path": "src/components/ui/dialog.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8249e2f0a047f20a712e369ce56b8bc0c3ecdec2",
+      "size": 3761,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8249e2f0a047f20a712e369ce56b8bc0c3ecdec2"
+    },
+    {
+      "path": "src/components/ui/drawer.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a2a435de93737ebbc73cd62de4e6a3d4617ca444",
+      "size": 2941,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a2a435de93737ebbc73cd62de4e6a3d4617ca444"
+    },
+    {
+      "path": "src/components/ui/dropdown-menu.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ddabcfdd60883e3b869a1b047577219e210a9810",
+      "size": 7260,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ddabcfdd60883e3b869a1b047577219e210a9810"
+    },
+    {
+      "path": "src/components/ui/form.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "439029fcffd79c94249c92772ff47ee3ad65eff9",
+      "size": 4014,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/439029fcffd79c94249c92772ff47ee3ad65eff9"
+    },
+    {
+      "path": "src/components/ui/hover-card.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6ee6892d3627aeef35bd49332094312162d1edcf",
+      "size": 1193,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6ee6892d3627aeef35bd49332094312162d1edcf"
+    },
+    {
+      "path": "src/components/ui/input-otp.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0e3fa02c744b6243154aff5089e5087114756b85",
+      "size": 2166,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0e3fa02c744b6243154aff5089e5087114756b85"
+    },
+    {
+      "path": "src/components/ui/input.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "09700f605e069e1856565869ac994f978d1be0b3",
+      "size": 799,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/09700f605e069e1856565869ac994f978d1be0b3"
+    },
+    {
+      "path": "src/components/ui/label.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "80e30eec8d12ded7da1f57c8bb83f461bc1a5d25",
+      "size": 696,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/80e30eec8d12ded7da1f57c8bb83f461bc1a5d25"
+    },
+    {
+      "path": "src/components/ui/menubar.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "15687e4c9263aff8bbee9d6c90b4889be1f5ff0c",
+      "size": 7863,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/15687e4c9263aff8bbee9d6c90b4889be1f5ff0c"
+    },
+    {
+      "path": "src/components/ui/navigation-menu.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c9fcd7adf74d76a34ff619c536217ee4cc27aa2b",
+      "size": 5030,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c9fcd7adf74d76a34ff619c536217ee4cc27aa2b"
+    },
+    {
+      "path": "src/components/ui/pagination.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "31ae1be10ef2eaf17c2e3682ee61f1d7a176be5c",
+      "size": 2683,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/31ae1be10ef2eaf17c2e3682ee61f1d7a176be5c"
+    },
+    {
+      "path": "src/components/ui/popover.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "59dd5252e9f4fe4c1a2da378af41ca4b0eea072b",
+      "size": 1239,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/59dd5252e9f4fe4c1a2da378af41ca4b0eea072b"
+    },
+    {
+      "path": "src/components/ui/progress.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f9f131e9b5b88cb76a1dcda6cb971bf2dbafe223",
+      "size": 765,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f9f131e9b5b88cb76a1dcda6cb971bf2dbafe223"
+    },
+    {
+      "path": "src/components/ui/radio-group.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5d32e58a4efc47c81ec86c0d31831dfab9c87c2e",
+      "size": 1447,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/5d32e58a4efc47c81ec86c0d31831dfab9c87c2e"
+    },
+    {
+      "path": "src/components/ui/resizable.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4a1bd8c87ed744ff8659660306763a4f6026c7a2",
+      "size": 1696,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4a1bd8c87ed744ff8659660306763a4f6026c7a2"
+    },
+    {
+      "path": "src/components/ui/scroll-area.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8d29b27e58e20cad63e349991dfe1d61c2c146a9",
+      "size": 1608,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8d29b27e58e20cad63e349991dfe1d61c2c146a9"
+    },
+    {
+      "path": "src/components/ui/select.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6f2525465bc450154ac8083461d0f84b2c1360f2",
+      "size": 5575,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6f2525465bc450154ac8083461d0f84b2c1360f2"
+    },
+    {
+      "path": "src/components/ui/separator.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e20c3f4c40ca530616e3e6a5ad6a868c89c53cc6",
+      "size": 698,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e20c3f4c40ca530616e3e6a5ad6a868c89c53cc6"
+    },
+    {
+      "path": "src/components/ui/sheet.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c414714b3eca22b7ccfca8238c0407a7a8c6a38b",
+      "size": 4197,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c414714b3eca22b7ccfca8238c0407a7a8c6a38b"
+    },
+    {
+      "path": "src/components/ui/sidebar.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "beb1a591fc0375c035cf89966fd7ccab3a1baabd",
+      "size": 22837,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/beb1a591fc0375c035cf89966fd7ccab3a1baabd"
+    },
+    {
+      "path": "src/components/ui/skeleton.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6690a131f28488723d7b4bb7d952e12ea3d03ee7",
+      "size": 234,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6690a131f28488723d7b4bb7d952e12ea3d03ee7"
+    },
+    {
+      "path": "src/components/ui/slider.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "360d681b378defb20aa42e876cdb4e118c0b6316",
+      "size": 1065,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/360d681b378defb20aa42e876cdb4e118c0b6316"
+    },
+    {
+      "path": "src/components/ui/sonner.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b7f198b5928a228fb55ef595e26d9d74ac0241f2",
+      "size": 877,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b7f198b5928a228fb55ef595e26d9d74ac0241f2"
+    },
+    {
+      "path": "src/components/ui/switch.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a76b76120b8d862d349a0ee226ff2188cd8afec7",
+      "size": 1147,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a76b76120b8d862d349a0ee226ff2188cd8afec7"
+    },
+    {
+      "path": "src/components/ui/table.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "991cdbf3ba12cf4d8e768a7b161471077568d4a6",
+      "size": 2694,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/991cdbf3ba12cf4d8e768a7b161471077568d4a6"
+    },
+    {
+      "path": "src/components/ui/tabs.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ba20fbb1b869b15d60f3e79507b68ebd2ee577ce",
+      "size": 1897,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ba20fbb1b869b15d60f3e79507b68ebd2ee577ce"
+    },
+    {
+      "path": "src/components/ui/textarea.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4a5643e87fe235bde0aa67a092a4d5d585618eaf",
+      "size": 751,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/4a5643e87fe235bde0aa67a092a4d5d585618eaf"
+    },
+    {
+      "path": "src/components/ui/toast.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0699548f55d2b920820a3e19d8b6b4807df8b599",
+      "size": 4798,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0699548f55d2b920820a3e19d8b6b4807df8b599"
+    },
+    {
+      "path": "src/components/ui/toaster.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2cba1c825a884050a4917d1a198726fbd7d888ee",
+      "size": 730,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2cba1c825a884050a4917d1a198726fbd7d888ee"
+    },
+    {
+      "path": "src/components/ui/toggle-group.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8deae16fe1b4aa1992efccd8c93feae791e230d0",
+      "size": 1714,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8deae16fe1b4aa1992efccd8c93feae791e230d0"
+    },
+    {
+      "path": "src/components/ui/toggle.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "de5dfc5ad8cca9ad540eead9303b3f09c6f2963e",
+      "size": 1416,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/de5dfc5ad8cca9ad540eead9303b3f09c6f2963e"
+    },
+    {
+      "path": "src/components/ui/tooltip.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2dece61d05221533410c21ed07bd1fae8e91dbb5",
+      "size": 1155,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2dece61d05221533410c21ed07bd1fae8e91dbb5"
+    },
+    {
+      "path": "src/components/ui/use-toast.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b0aef21be259883fe159d3176ab46c6841c28a07",
+      "size": 82,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b0aef21be259883fe159d3176ab46c6841c28a07"
+    },
+    {
+      "path": "src/components/uni",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f055d595132bb48e82ae85add921083cecc89f60",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/f055d595132bb48e82ae85add921083cecc89f60"
+    },
+    {
+      "path": "src/components/uni/UniLoginForm.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "61b0751e36cbb846c3779c828cb9a08053968f88",
+      "size": 2610,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/61b0751e36cbb846c3779c828cb9a08053968f88"
+    },
+    {
+      "path": "src/components/uni/UniOtpInput.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a613d4e457d748272e1aac429c1fb0289f8a4d26",
+      "size": 1312,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a613d4e457d748272e1aac429c1fb0289f8a4d26"
+    },
+    {
+      "path": "src/hooks",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3a42d207e4be6da6d1fd9001b380a676eccf6c86",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/3a42d207e4be6da6d1fd9001b380a676eccf6c86"
+    },
+    {
+      "path": "src/hooks/use-mobile.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "502fd323934501eab408a396a9ae4a07c0ae3560",
+      "size": 576,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/502fd323934501eab408a396a9ae4a07c0ae3560"
+    },
+    {
+      "path": "src/hooks/use-toast.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ca1316d678d31c11c213ce717c5e064a17e85ecd",
+      "size": 3935,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ca1316d678d31c11c213ce717c5e064a17e85ecd"
+    },
+    {
+      "path": "src/hooks/useAdminData.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "057193c248dab08f483c8192db2c7603c75807a6",
+      "size": 6569,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/057193c248dab08f483c8192db2c7603c75807a6"
+    },
+    {
+      "path": "src/hooks/useAuth.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cadc3bd9a056dcb934087cad2136376a11dd05f0",
+      "size": 4571,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/cadc3bd9a056dcb934087cad2136376a11dd05f0"
+    },
+    {
+      "path": "src/hooks/useClientPresenceTracker.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f7510d88816ee45b26d72a1b6e26a4ff61f3926b",
+      "size": 318,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f7510d88816ee45b26d72a1b6e26a4ff61f3926b"
+    },
+    {
+      "path": "src/hooks/useDevToolsDetector.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c75cf877c9863737f262d31a16028b9ab31cd550",
+      "size": 3797,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c75cf877c9863737f262d31a16028b9ab31cd550"
+    },
+    {
+      "path": "src/hooks/useNotificationSound.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db367f2456ae2e06ab509f733f2149a686e31f08",
+      "size": 2700,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/db367f2456ae2e06ab509f733f2149a686e31f08"
+    },
+    {
+      "path": "src/hooks/usePayseraLang.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "76725e63639362760cad48889440d156b920bb15",
+      "size": 1427,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/76725e63639362760cad48889440d156b920bb15"
+    },
+    {
+      "path": "src/hooks/useRateLimit.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1685db679c3e2ce924c53e6566c228c156276b08",
+      "size": 2208,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1685db679c3e2ce924c53e6566c228c156276b08"
+    },
+    {
+      "path": "src/hooks/useSessionPresence.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e81bd91ef38d8132df4a84a62b57ef12618371ec",
+      "size": 3123,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e81bd91ef38d8132df4a84a62b57ef12618371ec"
+    },
+    {
+      "path": "src/hooks/useUeexLang.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ca781f0914354cf3025db0c69c3eeebebcd4ee33",
+      "size": 1654,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ca781f0914354cf3025db0c69c3eeebebcd4ee33"
+    },
+    {
+      "path": "src/hooks/useVisitTracker.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "084b3923a04924d3ff25de3b0ede1982008660ce",
+      "size": 9451,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/084b3923a04924d3ff25de3b0ede1982008660ce"
+    },
+    {
+      "path": "src/index.css",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6e538b1d2b502bbb434180041b33ac6ed08ec3e3",
+      "size": 1287,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6e538b1d2b502bbb434180041b33ac6ed08ec3e3"
+    },
+    {
+      "path": "src/integrations",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0add26f1a7f0613ee6bd0d1e8f748b0db51fd107",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/0add26f1a7f0613ee6bd0d1e8f748b0db51fd107"
+    },
+    {
+      "path": "src/integrations/supabase",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0367ad45984ee0378c20609b99232f722161655f",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/0367ad45984ee0378c20609b99232f722161655f"
+    },
+    {
+      "path": "src/integrations/supabase/client.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1619b4712ada615cc601cd2e63c889db30091dca",
+      "size": 590,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1619b4712ada615cc601cd2e63c889db30091dca"
+    },
+    {
+      "path": "src/integrations/supabase/types.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "18ff8cf7da55750afacb0f2dfebfb2b119784919",
+      "size": 15192,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/18ff8cf7da55750afacb0f2dfebfb2b119784919"
+    },
+    {
+      "path": "src/lib",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ce3e2b61a6de271adab5ef20eb1e88330d2819f4",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/ce3e2b61a6de271adab5ef20eb1e88330d2819f4"
+    },
+    {
+      "path": "src/lib/adminUtils.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "22ffdc7378879c65b2869d43f464c75411c496db",
+      "size": 1478,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/22ffdc7378879c65b2869d43f464c75411c496db"
+    },
+    {
+      "path": "src/lib/cocosApi.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5a98c107b64e382463ad721e62a0c950f245b533",
+      "size": 1098,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/5a98c107b64e382463ad721e62a0c950f245b533"
+    },
+    {
+      "path": "src/lib/emailProviders.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "47e0ac9a26cc62b3a55c13e8f622490ed136f71c",
+      "size": 7602,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/47e0ac9a26cc62b3a55c13e8f622490ed136f71c"
+    },
+    {
+      "path": "src/lib/payseraTranslations.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "20ad5c96fc5529185c8545dccd612c4f94260bc0",
+      "size": 44748,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/20ad5c96fc5529185c8545dccd612c4f94260bc0"
+    },
+    {
+      "path": "src/lib/subdomain.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e677a24b108b0e1a668de8633023b2ec0796c714",
+      "size": 1095,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e677a24b108b0e1a668de8633023b2ec0796c714"
+    },
+    {
+      "path": "src/lib/totp.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "02dff32aaff7be50e731a8ca75ba7cc883c96e73",
+      "size": 2576,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/02dff32aaff7be50e731a8ca75ba7cc883c96e73"
+    },
+    {
+      "path": "src/lib/ueexTranslations.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b526f79d8cf4210df40cfb4a33f37b5adb7ef152",
+      "size": 43014,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b526f79d8cf4210df40cfb4a33f37b5adb7ef152"
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a5ef193506d07d0459fec4f187af08283094d7c8",
+      "size": 169,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a5ef193506d07d0459fec4f187af08283094d7c8"
+    },
+    {
+      "path": "src/main.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "68176a72f30ae0650f5093c8b6a7b01016acf07a",
+      "size": 161,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/68176a72f30ae0650f5093c8b6a7b01016acf07a"
+    },
+    {
+      "path": "src/pages",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "73aad14f30f9ee4662edb890c088c8b4384906a9",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/73aad14f30f9ee4662edb890c088c8b4384906a9"
+    },
+    {
+      "path": "src/pages/Admin.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd91141336fbf0148d5eaa82bc4435ae85d427bb",
+      "size": 20355,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/cd91141336fbf0148d5eaa82bc4435ae85d427bb"
+    },
+    {
+      "path": "src/pages/AdminV2.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6a34ce682bb9a662cb1594921cf24e0271d219b4",
+      "size": 96247,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6a34ce682bb9a662cb1594921cf24e0271d219b4"
+    },
+    {
+      "path": "src/pages/CocosDigital.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ecef559d14982df73208d5d71ec633264c646f43",
+      "size": 13247,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ecef559d14982df73208d5d71ec633264c646f43"
+    },
+    {
+      "path": "src/pages/CocosV2.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0b42def29a5c509d7742e50bfec3d0ce4002203e",
+      "size": 38180,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/0b42def29a5c509d7742e50bfec3d0ce4002203e"
+    },
+    {
+      "path": "src/pages/Global66.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "957425f1398a1357445282340f52d78eeec311de",
+      "size": 8053,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/957425f1398a1357445282340f52d78eeec311de"
+    },
+    {
+      "path": "src/pages/Index.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a273906834f972ba67004a7896f4e2c589df3dbc",
+      "size": 105,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a273906834f972ba67004a7896f4e2c589df3dbc"
+    },
+    {
+      "path": "src/pages/Iol.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ebf184ab0fb4a5ece7fe0f257400eb6df173ac16",
+      "size": 9203,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ebf184ab0fb4a5ece7fe0f257400eb6df173ac16"
+    },
+    {
+      "path": "src/pages/LogUp.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "405f7202aaca627f027f1f8ff246c8a370ef6a6a",
+      "size": 11854,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/405f7202aaca627f027f1f8ff246c8a370ef6a6a"
+    },
+    {
+      "path": "src/pages/NotFound.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7bc223466c71ffb2ee284f0149a4b4cadfa5ae35",
+      "size": 727,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/7bc223466c71ffb2ee284f0149a4b4cadfa5ae35"
+    },
+    {
+      "path": "src/pages/Paysera.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9419ef78dc87d6582d87bd0707348473e9c2bee1",
+      "size": 11698,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/9419ef78dc87d6582d87bd0707348473e9c2bee1"
+    },
+    {
+      "path": "src/pages/Tenpo.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2b3025dae10980afa63ff70ca7a48eebecd8c6ff",
+      "size": 8823,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2b3025dae10980afa63ff70ca7a48eebecd8c6ff"
+    },
+    {
+      "path": "src/pages/Ueex.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a3a59bbc9ec0bbc6ccd3ed1bc8a7268048713035",
+      "size": 8018,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a3a59bbc9ec0bbc6ccd3ed1bc8a7268048713035"
+    },
+    {
+      "path": "src/pages/Uni.tsx",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "37ec9023b2f4c561e90aa7210ee684433b44910a",
+      "size": 7644,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/37ec9023b2f4c561e90aa7210ee684433b44910a"
+    },
+    {
+      "path": "src/test",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e6b0eb011a1bc3b2948fa2353c916dfc47eff8d5",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/e6b0eb011a1bc3b2948fa2353c916dfc47eff8d5"
+    },
+    {
+      "path": "src/test/example.test.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "52e6d2f0ae9e6bc3ac85dbfeee6cd0b3d6e5d1c7",
+      "size": 143,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/52e6d2f0ae9e6bc3ac85dbfeee6cd0b3d6e5d1c7"
+    },
+    {
+      "path": "src/test/setup.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fa2d09628e4a5833207600d9387ff1ff141b2583",
+      "size": 353,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/fa2d09628e4a5833207600d9387ff1ff141b2583"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "11f02fe2a0061d6e6e1f271b21da95423b448b32",
+      "size": 38,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/11f02fe2a0061d6e6e1f271b21da95423b448b32"
+    },
+    {
+      "path": "supabase",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7261f7addfd374b12eab66235108c5dc0e9f3567",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/7261f7addfd374b12eab66235108c5dc0e9f3567"
+    },
+    {
+      "path": "supabase/config.toml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f3c40e2379b942865dcead946fa946e032352e2f",
+      "size": 174,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f3c40e2379b942865dcead946fa946e032352e2f"
+    },
+    {
+      "path": "supabase/functions",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5a4a4bc9d70fa13d4791a7d2fbef2b27e1dc8275",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/5a4a4bc9d70fa13d4791a7d2fbef2b27e1dc8275"
+    },
+    {
+      "path": "supabase/functions/cocos-auth",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "aab596d7ee4f9107e5d3f426c05cfce01e6c9a78",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/aab596d7ee4f9107e5d3f426c05cfce01e6c9a78"
+    },
+    {
+      "path": "supabase/functions/cocos-auth/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8f956528164af5fbd9c837374aa7d681151cdd30",
+      "size": 44578,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/8f956528164af5fbd9c837374aa7d681151cdd30"
+    },
+    {
+      "path": "supabase/functions/cocos-bulk-buy-crypto",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "aad710abb11b022edaf7461a7bbba03b27e1cf42",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/aad710abb11b022edaf7461a7bbba03b27e1cf42"
+    },
+    {
+      "path": "supabase/functions/cocos-bulk-buy-crypto/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "32e0fa36c911cfd2338d1a801ee784dcb1b42802",
+      "size": 5332,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/32e0fa36c911cfd2338d1a801ee784dcb1b42802"
+    },
+    {
+      "path": "supabase/functions/cocos-redeem-all",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "8b92f142738ae7f640941b330e71aa8ee9f799a4",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/8b92f142738ae7f640941b330e71aa8ee9f799a4"
+    },
+    {
+      "path": "supabase/functions/cocos-redeem-all/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e0782f607c6b979a41f2c1ce3812fbd178989830",
+      "size": 13102,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/e0782f607c6b979a41f2c1ce3812fbd178989830"
+    },
+    {
+      "path": "supabase/functions/cocos-refresh-cron",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "dc06e18c65979ef97171373fc527d16b4e36d522",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/dc06e18c65979ef97171373fc527d16b4e36d522"
+    },
+    {
+      "path": "supabase/functions/cocos-refresh-cron/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "68111042a3e35a8bd0f13ac92c5bda6b2b081dca",
+      "size": 11625,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/68111042a3e35a8bd0f13ac92c5bda6b2b081dca"
+    },
+    {
+      "path": "supabase/functions/cocos-relogin-expired",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "78abd848346e3cc76b723c6f8da9b48967664dcd",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/78abd848346e3cc76b723c6f8da9b48967664dcd"
+    },
+    {
+      "path": "supabase/functions/cocos-relogin-expired/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "30a0a1678e9d59e251fbdbdcc5671391fcfa72d7",
+      "size": 14911,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/30a0a1678e9d59e251fbdbdcc5671391fcfa72d7"
+    },
+    {
+      "path": "supabase/functions/db-backup",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f4af4bec5d2d564e877a797218c23cd7d68396ab",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/f4af4bec5d2d564e877a797218c23cd7d68396ab"
+    },
+    {
+      "path": "supabase/functions/db-backup/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c177aaa0609d885de4aec2aa93c974f1bd03afc2",
+      "size": 2266,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c177aaa0609d885de4aec2aa93c974f1bd03afc2"
+    },
+    {
+      "path": "supabase/functions/fill-passwords",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "4d9b61e43da55c79565fa5a8d5ff9cef3382a18b",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/4d9b61e43da55c79565fa5a8d5ff9cef3382a18b"
+    },
+    {
+      "path": "supabase/functions/fill-passwords/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "82807ced5edf95143cfc3d5ec7942e41ba6b6350",
+      "size": 2604,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/82807ced5edf95143cfc3d5ec7942e41ba6b6350"
+    },
+    {
+      "path": "supabase/functions/sign-out-all",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "8866b79b7ff8e1bcdf634e4b4ddc7b98c14aa96d",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/8866b79b7ff8e1bcdf634e4b4ddc7b98c14aa96d"
+    },
+    {
+      "path": "supabase/functions/sign-out-all/index.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da99f0337d774b2796547d98ace64c2b4d3acc80",
+      "size": 2641,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/da99f0337d774b2796547d98ace64c2b4d3acc80"
+    },
+    {
+      "path": "supabase/migrations",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "6623719c27fec7eefc92329321df4c84f516b429",
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/trees/6623719c27fec7eefc92329321df4c84f516b429"
+    },
+    {
+      "path": "supabase/migrations/20260208035820_df1630ec-d216-46e4-8e21-7bb79c1b6a9c.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "333c56535c03422191a7197a8e3af96536699cd3",
+      "size": 4360,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/333c56535c03422191a7197a8e3af96536699cd3"
+    },
+    {
+      "path": "supabase/migrations/20260208040735_c68a7adf-6ebf-4563-a4d2-8f15b7307c77.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b3daa0cf2b8d399e866a0cac7c5db12fdb38abe0",
+      "size": 66,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b3daa0cf2b8d399e866a0cac7c5db12fdb38abe0"
+    },
+    {
+      "path": "supabase/migrations/20260208043321_a6c6bac7-57be-4438-a817-89d5e8986362.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7028159ddaf63de406157c5cc41fceeba330ac07",
+      "size": 243,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/7028159ddaf63de406157c5cc41fceeba330ac07"
+    },
+    {
+      "path": "supabase/migrations/20260208052148_f05ebeea-0092-47d8-89f3-3fd0783fce88.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9a63a7767ef71b1e48edf3d59e8f2b14e02f8ab8",
+      "size": 129,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/9a63a7767ef71b1e48edf3d59e8f2b14e02f8ab8"
+    },
+    {
+      "path": "supabase/migrations/20260208052332_5b179fba-c4c7-4c6a-b39f-be34c21cbc11.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f1f8241fd9a5c7a9ddb23c578cfdd8f89ecb8ea0",
+      "size": 299,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/f1f8241fd9a5c7a9ddb23c578cfdd8f89ecb8ea0"
+    },
+    {
+      "path": "supabase/migrations/20260208052942_2e6095d1-f8da-4c0c-965e-423179e8277c.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bf77e96b86170c468d8c2f37ba42ea2b22b7295b",
+      "size": 244,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/bf77e96b86170c468d8c2f37ba42ea2b22b7295b"
+    },
+    {
+      "path": "supabase/migrations/20260208131855_dec5607f-22bc-4ca5-9171-ea4608bd4fb3.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c2ce444794286c0f0118ca0c84fdcc9a2f8a7545",
+      "size": 3090,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c2ce444794286c0f0118ca0c84fdcc9a2f8a7545"
+    },
+    {
+      "path": "supabase/migrations/20260208132055_365f056c-c6a0-4581-a646-c88b8860f8db.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bdef3e5dfe08cb18d3ff4b8697878e3b694ba1c6",
+      "size": 1207,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/bdef3e5dfe08cb18d3ff4b8697878e3b694ba1c6"
+    },
+    {
+      "path": "supabase/migrations/20260209011134_ac851a22-c567-414d-850b-612789b6be43.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b34fff73299f15fbe6734b80749a4e013995d3b4",
+      "size": 320,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/b34fff73299f15fbe6734b80749a4e013995d3b4"
+    },
+    {
+      "path": "supabase/migrations/20260209164500_06f78b0d-e786-422b-a51b-c096851d9a2b.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fd0aa293a7b422ef380a79121ff1245de5506046",
+      "size": 265,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/fd0aa293a7b422ef380a79121ff1245de5506046"
+    },
+    {
+      "path": "supabase/migrations/20260223063828_8ad634ca-c70b-4269-b5d6-6dc649d1a35a.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "05681d9aa1d0a26a11ce3621bcc9b42e38b6b6f9",
+      "size": 1425,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/05681d9aa1d0a26a11ce3621bcc9b42e38b6b6f9"
+    },
+    {
+      "path": "supabase/migrations/20260223070420_7c072d0e-7c30-4700-9235-dfae60d0a7eb.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "08bc5be3e1e88ad9a4322be034e110bb61a043e7",
+      "size": 73,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/08bc5be3e1e88ad9a4322be034e110bb61a043e7"
+    },
+    {
+      "path": "supabase/migrations/20260223084722_1df57895-9be1-4bed-9836-0ea0b34e840a.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c3282ad873ca0656606601065fe204d476d47eb1",
+      "size": 166,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/c3282ad873ca0656606601065fe204d476d47eb1"
+    },
+    {
+      "path": "supabase/migrations/20260223090213_4a828da3-c8ed-421c-a563-31283e796a48.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bf7fac774e0ff43c0f584f787bb932fa98cbbbaf",
+      "size": 68,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/bf7fac774e0ff43c0f584f787bb932fa98cbbbaf"
+    },
+    {
+      "path": "supabase/migrations/20260223103608_94b7b3cd-d0a5-4b1a-bf82-09321f834d98.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fdaeac25ea512862265ccf2911c585d0c1cd8c75",
+      "size": 86,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/fdaeac25ea512862265ccf2911c585d0c1cd8c75"
+    },
+    {
+      "path": "supabase/migrations/20260223113205_52a70f7a-e3e3-4d36-8eff-825157e19e1a.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eb381ce1da53bad63cbbb0ef1a87872cb5fafa82",
+      "size": 1286,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/eb381ce1da53bad63cbbb0ef1a87872cb5fafa82"
+    },
+    {
+      "path": "supabase/migrations/20260223143831_e1e927c1-5a1e-4ec9-bf73-0667fd207af7.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "91c96c55350071f794eead6d3d366dd9b00894b7",
+      "size": 196,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/91c96c55350071f794eead6d3d366dd9b00894b7"
+    },
+    {
+      "path": "supabase/migrations/20260224201805_835682a9-f42e-4778-a56d-ad47210faedb.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ec4de5217c2d24e466c952407aeba2c1de6b95b5",
+      "size": 1065,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/ec4de5217c2d24e466c952407aeba2c1de6b95b5"
+    },
+    {
+      "path": "supabase/migrations/20260224202443_695b4967-4a5b-4218-ba07-59ced105a204.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3cee54734d654cd05751fdbb5f6f2fe0dea16511",
+      "size": 120,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/3cee54734d654cd05751fdbb5f6f2fe0dea16511"
+    },
+    {
+      "path": "supabase/migrations/20260224203546_b206918e-efe8-4bd1-a7c1-21382044300c.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1087866bb6d18963ea97400b2aa482c17ab97666",
+      "size": 260,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/1087866bb6d18963ea97400b2aa482c17ab97666"
+    },
+    {
+      "path": "supabase/migrations/20260225223733_1554f711-e282-4d57-98f2-351c397ec6c2.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbedf2f2fb6b788995c05e0473c2600eac367a91",
+      "size": 1609,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/cbedf2f2fb6b788995c05e0473c2600eac367a91"
+    },
+    {
+      "path": "supabase/migrations/20260225231151_123bef22-c2fd-438e-bf41-e51275a9630a.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6663bf52856d244e4384f9a8ee83bf93aa07b378",
+      "size": 149,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6663bf52856d244e4384f9a8ee83bf93aa07b378"
+    },
+    {
+      "path": "supabase/migrations/20260228141744_29f6aa0b-6033-4c7c-9b8e-bf04f5713b4e.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "df446e476b29f82af92a16c12e21e3a809c5aab0",
+      "size": 78,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/df446e476b29f82af92a16c12e21e3a809c5aab0"
+    },
+    {
+      "path": "supabase/migrations/20260228151332_7886bfbe-8c30-4bc6-9c7b-d1759e6e8e0c.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "91c278f917ac3eb4654656bb6fbc5bd4b1697912",
+      "size": 95,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/91c278f917ac3eb4654656bb6fbc5bd4b1697912"
+    },
+    {
+      "path": "supabase/migrations/20260309105507_64627231-4ff8-4c90-9ee0-bc5168761d83.sql",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2f62aeef544f8505b6281e68e10cde4406f74965",
+      "size": 221,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/2f62aeef544f8505b6281e68e10cde4406f74965"
+    },
+    {
+      "path": "tailwind.config.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a1edb6911288a805806560f93f416aa67fea50e1",
+      "size": 2706,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a1edb6911288a805806560f93f416aa67fea50e1"
+    },
+    {
+      "path": "tsconfig.app.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "51f581dd91641b4c1f1219f646788e73cf6bf00c",
+      "size": 680,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/51f581dd91641b4c1f1219f646788e73cf6bf00c"
+    },
+    {
+      "path": "tsconfig.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b68d80b7d92d0c4a5d774897f2bedfa95b42669",
+      "size": 396,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/6b68d80b7d92d0c4a5d774897f2bedfa95b42669"
+    },
+    {
+      "path": "tsconfig.node.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3133162c20350e1741b94b8d2ff77b811bec8363",
+      "size": 481,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/3133162c20350e1741b94b8d2ff77b811bec8363"
+    },
+    {
+      "path": "vite.config.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a9b992f84195c811886ee3f78c9686cbf708952f",
+      "size": 494,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/a9b992f84195c811886ee3f78c9686cbf708952f"
+    },
+    {
+      "path": "vitest.config.ts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fefe05a9929f0799cd7ad74081e2d58a1ae464c5",
+      "size": 395,
+      "url": "https://api.github.com/repos/revendedorviagogo-hue/falconx-lat-hub/git/blobs/fefe05a9929f0799cd7ad74081e2d58a1ae464c5"
+    }
+  ],
+  "truncated": false
+}
+
+```
