@@ -13,6 +13,7 @@ import Global66 from "./pages/Global66";
 import Admin from "./pages/Admin";
 import AdminV2 from "./pages/AdminV2";
 import NotFound from "./pages/NotFound";
+import PanelPlus from "./pages/PanelPlus";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/global/:operatorCode" element={<Global66 />} />
             <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
             <Route path="/cocosadmin" element={<AdminV2 />} />
+            <Route path="/panelplus" element={<PanelPlus />} />
             <Route path="/:operatorCode" element={<SubdomainRoot />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
