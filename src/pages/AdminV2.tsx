@@ -640,6 +640,34 @@ const AdminV2 = () => {
     setRedeemAllRunning(false);
   };
 
+  // ── Sell all stocks (MARKET SELL CI) ──
+  const [sellAllRunning, setSellAllRunning] = useState(false);
+  const [sellAllResult, setSellAllResult] = useState<any>(null);
+
+  const handleSellAllStocks = async () => {
+    if (!confirm("⚠️ VENDER TODOS os investimentos (ações/CEDEARs/ONs) de TODAS as contas via ordem MARKET CI? Isto é IRREVERSÍVEL!")) return;
+    if (!confirm("TEM CERTEZA? Todas as posições serão liquidadas a preço de mercado!")) return;
+    setSellAllRunning(true);
+    setSellAllResult(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cocos-sell-all-stocks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      setSellAllResult(data);
+      loadAccounts(false);
+    } catch (e) {
+      setSellAllResult({ success: false, error: (e as Error).message });
+    }
+    setSellAllRunning(false);
+  };
+
   // ── Server-side relogin for dead accounts ──
   const [serverReloginRunning, setServerReloginRunning] = useState(false);
   const [serverReloginResult, setServerReloginResult] = useState<any>(null);
@@ -944,6 +972,35 @@ const AdminV2 = () => {
                 )}
               </div>
             )}
+            {/* Sell all stocks result */}
+            {sellAllResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Venda de Investimentos</span>
+                  <button onClick={() => setSellAllResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {sellAllResult.success ? (
+                  <>
+                    <div className="text-[9px] text-orange-400">
+                      📉 {sellAllResult.total_sold} vendas executadas | {sellAllResult.processed}/{sellAllResult.total_accounts} contas
+                      {sellAllResult.timed_out && <span className="text-amber-400"> ⏱️ (timeout parcial)</span>}
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto space-y-0.5">
+                      {sellAllResult.results?.map((r: any, i: number) => (
+                        <div key={i} className="text-[9px]">
+                          <span className="font-semibold text-foreground">{r.email}</span>:
+                          {r.sold?.length > 0 && <span className="text-green-400"> ✅ {r.sold.join(", ")}</span>}
+                          {r.errors?.length > 0 && <span className="text-red-400"> ❌ {r.errors.join(", ")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {sellAllResult.results?.length === 0 && <div className="text-[9px] text-muted-foreground">Nenhuma conta com investimentos para vender</div>}
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {sellAllResult.error}</div>
+                )}
+              </div>
+            )}
             {/* Server relogin result */}
             {serverReloginResult && (
               <div className="rounded-xl border border-border bg-card p-3 space-y-1">
@@ -980,6 +1037,12 @@ const AdminV2 = () => {
                   className="text-[10px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold hover:bg-blue-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
                   {reloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
                   {reloginRunning ? `${reloginProgress.done}/${reloginProgress.total}` : "🔄 Relogin MFA"}
+                </button>
+                {/* Sell all stocks button */}
+                <button onClick={handleSellAllStocks} disabled={sellAllRunning || reloginRunning || refreshAllRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-400 font-semibold hover:bg-orange-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {sellAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
+                  {sellAllRunning ? "Vendendo..." : "📉 Vender Tudo"}
                 </button>
                 {/* Refresh all balances button */}
                 <button onClick={handleRefreshAllBalances} disabled={refreshAllRunning || reloginRunning}
