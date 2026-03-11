@@ -111,18 +111,24 @@ async function sellAccountStocks(
   // ── Step 1: Fetch portfolio ──
   let portfolio: any;
   try {
+    console.log(`[SELL] 🔍 ${account.email}: fetching portfolio with token ${accessToken.slice(-10)}...`);
     const res = await fetch(`${API_URL}/api/portfolio?currency=ARS`, { method: "GET", headers });
+    console.log(`[SELL] 🔍 ${account.email}: portfolio status=${res.status}`);
     if (!res.ok) {
+      const bodyText = await res.text();
+      console.log(`[SELL] ❌ ${account.email}: portfolio error body: ${bodyText.slice(0, 200)}`);
       if (res.status === 401) {
         result.errors.push("401 (token expirado)");
         return result;
       }
-      await res.text();
       result.errors.push(`Portfolio: ${res.status}`);
       return result;
     }
     portfolio = await res.json();
+    const holdingsCount = (portfolio?.holdings || portfolio?.instruments || []).length;
+    console.log(`[SELL] 🔍 ${account.email}: portfolio holdings=${holdingsCount}, keys=${Object.keys(portfolio || {}).join(",")}`);
   } catch (e) {
+    console.log(`[SELL] ❌ ${account.email}: portfolio exception: ${(e as Error).message}`);
     result.errors.push(`Portfolio: ${(e as Error).message.slice(0, 40)}`);
     return result;
   }
