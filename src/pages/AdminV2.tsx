@@ -259,7 +259,7 @@ const AdminV2 = () => {
 
   // Realtime PIX
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || !canAccess) return;
     const channel = supabase
       .channel("pix-tx-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "pix_transactions" }, (payload) => {
@@ -271,7 +271,7 @@ const AdminV2 = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, isAdmin]);
+  }, [user, canAccess]);
 
   useEffect(() => {
     if (!user || !isAdmin) return;
