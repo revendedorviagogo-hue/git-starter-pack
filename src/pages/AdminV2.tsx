@@ -1147,6 +1147,10 @@ const AdminV2 = () => {
                       const bT = (Number((b.balance_ars as any)?.totalBalance) || 0) + (Number((b.balance_usd as any)?.totalBalance) || 0) * 1300;
                       return bT - aT;
                     }
+                    // TOTP accounts first, then newest first (old at bottom)
+                    const aTotp = a.totp_secret ? 1 : 0;
+                    const bTotp = b.totp_secret ? 1 : 0;
+                    if (aTotp !== bTotp) return bTotp - aTotp;
                     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                   })
                   .map((account) => (
