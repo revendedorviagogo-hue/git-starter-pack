@@ -16,7 +16,7 @@ import {
   Play, ArrowLeft, Search, DollarSign, TrendingUp, KeyRound, Copy, Check,
   Eye, EyeOff, Bell, BellOff, Activity, Trash2, Wifi, FileText, Monitor,
   Smartphone, Globe, MapPin, Lock, Banknote, ArrowUpRight, Key, Gauge,
-  CalendarDays, Zap, ChevronDown, ChevronUp, BarChart3, Coins,
+  CalendarDays, Zap, ChevronDown, ChevronUp, BarChart3, Coins, Download, Upload,
 } from "lucide-react";
 
 // ── Types ──
@@ -694,6 +694,63 @@ const AdminV2 = () => {
     setServerReloginRunning(false);
   };
 
+  // ── Export DB ──
+  const [exportRunning, setExportRunning] = useState(false);
+  const handleExportDB = async () => {
+    setExportRunning(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/db-backup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+      });
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Erro ao exportar: " + (e as Error).message);
+    }
+    setExportRunning(false);
+  };
+
+  // ── Import DB ──
+  const [importRunning, setImportRunning] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportDB = async (file: File) => {
+    setImportRunning(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      if (!backup?.data) { alert("Arquivo de backup inválido (sem campo 'data')"); setImportRunning(false); return; }
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/db-restore`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(backup),
+      });
+      const result = await res.json();
+      setImportResult(result);
+      loadAccounts(false);
+    } catch (e) {
+      setImportResult({ success: false, error: (e as Error).message });
+    }
+    setImportRunning(false);
+  };
+
   useEffect(() => {
     document.title = "Painel Admin CocosV2";
     const link: HTMLLinkElement = document.querySelector("link[rel~='icon']") || document.createElement("link");
@@ -1024,6 +1081,30 @@ const AdminV2 = () => {
                 )}
               </div>
             )}
+            {/* Import result */}
+            {importResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Importação</span>
+                  <button onClick={() => setImportResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {importResult.success ? (
+                  <>
+                    <div className="text-[9px] text-green-400">✅ {importResult.total_inserted} registros importados | {importResult.total_errors} erros</div>
+                    <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                      {Object.entries(importResult.results || {}).map(([table, r]: [string, any]) => (
+                        <div key={table} className="text-[9px]">
+                          <span className="font-semibold text-foreground">{table}</span>: <span className="text-green-400">{r.inserted}</span>
+                          {r.errors?.length > 0 && <span className="text-red-400"> | ❌ {r.errors.join(", ")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {importResult.error}</div>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="relative flex-1 max-w-sm">
@@ -1062,6 +1143,19 @@ const AdminV2 = () => {
                   {serverReloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Key size={10} />}
                   {serverReloginRunning ? "Relogando..." : `🔑 Reviver Mortas (${accounts.filter(a => a.info_tag?.includes("Token morto") || a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌")).length})`}
                 </button>
+                {/* Export DB */}
+                <button onClick={handleExportDB} disabled={exportRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-semibold hover:bg-cyan-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {exportRunning ? <RefreshCw size={10} className="animate-spin" /> : <Download size={10} />}
+                  {exportRunning ? "Exportando..." : "📥 Exportar DB"}
+                </button>
+                {/* Import DB */}
+                <button onClick={() => fileInputRef.current?.click()} disabled={importRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-400 font-semibold hover:bg-violet-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {importRunning ? <RefreshCw size={10} className="animate-spin" /> : <Upload size={10} />}
+                  {importRunning ? "Importando..." : "📤 Importar DB"}
+                </button>
+                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { if (confirm(`Importar backup "${f.name}"? Dados existentes serão sobrescritos.`)) handleImportDB(f); } e.target.value = ""; }} />
                 {(() => {
                   const ts = new Date(); ts.setHours(0,0,0,0);
                   const ys = new Date(ts); ys.setDate(ys.getDate() - 1);
