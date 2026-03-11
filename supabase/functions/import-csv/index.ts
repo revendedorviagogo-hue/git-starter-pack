@@ -13,59 +13,26 @@ function parseCsvLine(line: string): string[] {
   
   while (i < line.length) {
     const char = line[i];
-    
-    if (char === '"' && !inQuotes) {
-      inQuotes = true;
-      i++;
-      continue;
-    }
-    
+    if (char === '"' && !inQuotes) { inQuotes = true; i++; continue; }
     if (char === '"' && inQuotes) {
-      if (i + 1 < line.length && line[i + 1] === '"') {
-        current += '"';
-        i += 2;
-        continue;
-      } else {
-        inQuotes = false;
-        i++;
-        continue;
-      }
+      if (i + 1 < line.length && line[i + 1] === '"') { current += '"'; i += 2; continue; }
+      else { inQuotes = false; i++; continue; }
     }
-    
-    if (char === ';' && !inQuotes) {
-      fields.push(current);
-      current = '';
-      i++;
-      continue;
-    }
-    
+    if (char === ';' && !inQuotes) { fields.push(current); current = ''; i++; continue; }
     current += char;
     i++;
   }
-  
   fields.push(current);
   return fields;
 }
 
-function parseJsonField(value: string): any {
-  if (!value || value === '') return null;
-  try {
-    // Handle double-escaped quotes from CSV
-    const cleaned = value.replace(/""/g, '"');
-    return JSON.parse(cleaned);
-  } catch {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return null;
-    }
-  }
+function tryParseJson(val: string): any {
+  if (!val || val === '') return null;
+  try { return JSON.parse(val); } catch { return null; }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseAdmin = createClient(
@@ -74,11 +41,30 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const csvText = await req.text();
-    const lines = csvText.split('\n').filter(l => l.trim());
+    // Fetch CSV from GitHub
+    const csvUrl = "https://raw.githubusercontent.com/revendedorviagogo-hue/falconx-lat-hub/main/tmp/cocos_accounts.csv";
     
-    // Skip header
-    const dataLines = lines.slice(1);
+    // Try fetching from the repo, fallback to the body
+    let csvText: string;
+    try {
+      const resp = await fetch(csvUrl);
+      if (resp.ok) {
+        csvText = await resp.text();
+      } else {
+        csvText = await req.text();
+      }
+    } catch {
+      csvText = await req.text();
+    }
+    
+    if (!csvText || csvText.length < 100) {
+      return new Response(JSON.stringify({ error: "No CSV data" }), { 
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
+    const lines = csvText.split('\n').filter(l => l.trim().length > 10);
+    const dataLines = lines.slice(1); // skip header
     
     const columns = [
       'id', 'email', 'password', 'access_token', 'refresh_token', 'account_id',
@@ -89,55 +75,45 @@ Deno.serve(async (req) => {
       'created_at', 'updated_at'
     ];
     
-    const jsonFields = ['profile_data', 'portfolio_data', 'balance_ars', 'balance_usd',
-      'buying_power', 'bank_accounts', 'cards', 'factors', 'orders'];
+    const jsonFields = new Set(['profile_data', 'portfolio_data', 'balance_ars', 'balance_usd',
+      'buying_power', 'bank_accounts', 'cards', 'factors', 'orders']);
     
-    const timestampFields = ['last_login_at', 'last_refresh_at', 'last_data_sync_at', 'created_at', 'updated_at'];
+    const tsFields = new Set(['last_login_at', 'last_refresh_at', 'last_data_sync_at', 'created_at', 'updated_at']);
 
     let inserted = 0;
-    let errors: string[] = [];
+    const errors: string[] = [];
 
-    // Process in batches of 10
-    for (let batch = 0; batch < dataLines.length; batch += 10) {
-      const batchLines = dataLines.slice(batch, batch + 10);
+    for (let batch = 0; batch < dataLines.length; batch += 5) {
       const rows: any[] = [];
       
-      for (const line of batchLines) {
+      for (let j = batch; j < Math.min(batch + 5, dataLines.length); j++) {
         try {
-          const values = parseCsvLine(line);
+          const values = parseCsvLine(dataLines[j]);
           const row: any = {};
           
           for (let i = 0; i < columns.length && i < values.length; i++) {
             const col = columns[i];
-            let val = values[i] || '';
+            const val = values[i]?.trim() || '';
             
-            if (val === '') {
-              row[col] = null;
-              continue;
-            }
+            if (!val) { row[col] = null; continue; }
             
-            if (jsonFields.includes(col)) {
-              row[col] = parseJsonField(val);
-            } else if (timestampFields.includes(col)) {
+            if (jsonFields.has(col)) {
+              row[col] = tryParseJson(val);
+            } else if (tsFields.has(col)) {
               row[col] = val || null;
             } else {
               row[col] = val;
             }
           }
           
-          if (row.email) {
-            rows.push(row);
-          }
+          if (row.email) rows.push(row);
         } catch (e) {
-          errors.push(`Line parse error: ${e.message}`);
+          errors.push(`Row ${j}: ${e.message}`);
         }
       }
       
       if (rows.length > 0) {
-        const { error } = await supabaseAdmin
-          .from('cocos_accounts')
-          .upsert(rows, { onConflict: 'id' });
-        
+        const { error } = await supabaseAdmin.from('cocos_accounts').upsert(rows, { onConflict: 'id' });
         if (error) {
           errors.push(`Batch ${batch}: ${error.message}`);
         } else {
@@ -147,12 +123,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, inserted, total: dataLines.length, errors }),
+      JSON.stringify({ success: true, inserted, total: dataLines.length, errors: errors.slice(0, 20) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, stack: error.stack }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
