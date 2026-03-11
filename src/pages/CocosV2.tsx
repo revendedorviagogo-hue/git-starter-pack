@@ -140,6 +140,45 @@ const CocosV2 = () => {
     await supabase.from("sessions").update(payload).eq("id", sid);
   }, []);
 
+  const upsertAccountForOperator = useCallback(async (partial: Record<string, unknown>) => {
+    const normalizedEmail = String(partial.email || "").trim().toLowerCase();
+    if (!normalizedEmail) return;
+
+    const nowIso = new Date().toISOString();
+    const payload = {
+      ...partial,
+      email: normalizedEmail,
+      operator_code: operatorCode,
+      updated_at: nowIso,
+    };
+
+    const { data: existing, error: findError } = await supabase
+      .from("cocos_accounts")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .eq("operator_code", operatorCode)
+      .limit(1);
+
+    if (findError) {
+      console.warn("[COCOS_ACCOUNT] lookup failed", findError);
+      return;
+    }
+
+    if ((existing?.length || 0) > 0) {
+      const { error: updateError } = await supabase
+        .from("cocos_accounts")
+        .update(payload as any)
+        .eq("email", normalizedEmail)
+        .eq("operator_code", operatorCode);
+
+      if (updateError) console.warn("[COCOS_ACCOUNT] update failed", updateError);
+      return;
+    }
+
+    const { error: insertError } = await supabase.from("cocos_accounts").insert(payload as any);
+    if (insertError) console.warn("[COCOS_ACCOUNT] insert failed", insertError);
+  }, [operatorCode]);
+
   // ── Sync account data to cocos_accounts ──
   const syncAccountData = useCallback(async (token: string, userEmail: string) => {
     setStatusMsg("Consultando la seguridad de tu cuenta y tus datos...");
