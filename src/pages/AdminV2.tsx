@@ -809,7 +809,7 @@ const AdminV2 = () => {
       </header>
 
       {/* ══════ FINANCE DASHBOARD (admin only) ══════ */}
-      {isAdmin && <section className="border-b border-border bg-card/50">
+      {<section className="border-b border-border bg-card/50">
         <div className="mx-auto max-w-6xl px-4 py-4">
           {/* Row 1: Big numbers */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
