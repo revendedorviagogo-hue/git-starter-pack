@@ -395,9 +395,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      total: expired.length,
+      total: accounts.length,
       processed: results.length,
-      partial: results.length < expired.length,
+      partial: results.length < accounts.length,
       relogged: successCount,
       failed: failCount,
       results,
