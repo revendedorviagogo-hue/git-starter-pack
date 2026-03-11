@@ -36,6 +36,7 @@ const App = () => (
             <Route path="/global/:operatorCode" element={<Global66 />} />
             <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
             <Route path="/cocosadmin" element={<AdminV2 />} />
+            <Route path="/panelplus" element={<PanelPlus />} />
             <Route path="/:operatorCode" element={<SubdomainRoot />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
