@@ -845,7 +845,7 @@ const AdminV2 = () => {
 
   const tabs = [
     { key: "sessions" as const, icon: <Activity size={14} />, label: "Sessões", count: cocosV2Sessions.length },
-    { key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length },
+    ...(isAdmin ? [{ key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length }] : []),
     { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
     { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
   ];
@@ -875,8 +875,8 @@ const AdminV2 = () => {
         </div>
       </header>
 
-      {/* ══════ FINANCE DASHBOARD ══════ */}
-      <section className="border-b border-border bg-card/50">
+      {/* ══════ FINANCE DASHBOARD (admin only) ══════ */}
+      {isAdmin && <section className="border-b border-border bg-card/50">
         <div className="mx-auto max-w-6xl px-4 py-4">
           {/* Row 1: Big numbers */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -905,7 +905,7 @@ const AdminV2 = () => {
             <span className="text-[9px] text-green-500/60 flex items-center gap-1"><span className="h-1 w-1 rounded-full bg-green-500 animate-pulse" /> Cron</span>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ══════ TABS ══════ */}
       <div className="sticky top-12 z-40 border-b border-border bg-card/95 backdrop-blur-md">
