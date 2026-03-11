@@ -154,8 +154,9 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 // MAIN COMPONENT
 // ══════════════════════════════════════════
 const AdminV2 = () => {
-  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
-  const { stats } = useAdminData(user?.id, isAdmin);
+  const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
+  const canAccess = isAdmin || hasRole;
+  const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
   const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts">("sessions");
 
