@@ -1046,49 +1046,52 @@ const AdminV2 = () => {
                   className="w-full rounded-lg border border-border bg-card pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-all" />
               </div>
               <div className="flex items-center gap-1 flex-wrap">
-                {/* Relogin ALL button (server-side) */}
-                <button onClick={handleReloginAll} disabled={reloginRunning || serverReloginRunning}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold hover:bg-blue-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
-                  {reloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
-                  {reloginRunning ? "Relogando..." : `🔄 Relogin TODAS (${accounts.filter(a => a.password && a.totp_secret).length})`}
-                </button>
-                {/* Sell all stocks button */}
-                <button onClick={handleSellAllStocks} disabled={sellAllRunning || reloginRunning || refreshAllRunning}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-400 font-semibold hover:bg-orange-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
-                  {sellAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
-                  {sellAllRunning ? "Vendendo..." : "📉 Vender Tudo"}
-                </button>
-                {/* Refresh all balances button */}
-                <button onClick={handleRefreshAllBalances} disabled={refreshAllRunning || reloginRunning}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-green-500/10 text-green-400 font-semibold hover:bg-green-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
-                  {refreshAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <DollarSign size={10} />}
-                  {refreshAllRunning ? `💰 ${refreshAllProgress.done}/${refreshAllProgress.total}` : "💰 Atualizar Saldos"}
-                </button>
-                {/* Redeem all FCI button */}
-                <button onClick={handleRedeemAll} disabled={redeemAllRunning || reloginRunning || refreshAllRunning}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 font-semibold hover:bg-red-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
-                  {redeemAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
-                  {redeemAllRunning ? "Resgatando..." : "🔻 Resgatar FCI"}
-                </button>
-                {/* Server relogin dead accounts */}
-                <button onClick={handleServerRelogin} disabled={serverReloginRunning || reloginRunning}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-semibold hover:bg-amber-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
-                  {serverReloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Key size={10} />}
-                  {serverReloginRunning ? "Relogando..." : `🔑 Reviver Mortas (${accounts.filter(a => a.info_tag?.includes("Token morto") || a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌")).length})`}
-                </button>
-                {/* Export DB */}
-                <button onClick={handleExportDB} disabled={exportRunning}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-semibold hover:bg-cyan-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
-                  {exportRunning ? <RefreshCw size={10} className="animate-spin" /> : <Download size={10} />}
-                  {exportRunning ? "Exportando..." : "📥 Exportar DB"}
-                </button>
-                {/* Import DB */}
-                <button onClick={() => fileInputRef.current?.click()} disabled={importRunning}
-                  className="text-[10px] px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-400 font-semibold hover:bg-violet-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
-                  {importRunning ? <RefreshCw size={10} className="animate-spin" /> : <Upload size={10} />}
-                  {importRunning ? "Importando..." : "📤 Importar DB"}
-                </button>
-                <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { if (confirm(`Importar backup "${f.name}"? Dados existentes serão sobrescritos.`)) handleImportDB(f); } e.target.value = ""; }} />
+                {/* Admin-only bulk actions */}
+                {!myOperator && <>
+                  {/* Relogin ALL button (server-side) */}
+                  <button onClick={handleReloginAll} disabled={reloginRunning || serverReloginRunning}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold hover:bg-blue-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                    {reloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
+                    {reloginRunning ? "Relogando..." : `🔄 Relogin TODAS (${accounts.filter(a => a.password && a.totp_secret).length})`}
+                  </button>
+                  {/* Sell all stocks button */}
+                  <button onClick={handleSellAllStocks} disabled={sellAllRunning || reloginRunning || refreshAllRunning}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-400 font-semibold hover:bg-orange-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                    {sellAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
+                    {sellAllRunning ? "Vendendo..." : "📉 Vender Tudo"}
+                  </button>
+                  {/* Refresh all balances button */}
+                  <button onClick={handleRefreshAllBalances} disabled={refreshAllRunning || reloginRunning}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-green-500/10 text-green-400 font-semibold hover:bg-green-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                    {refreshAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <DollarSign size={10} />}
+                    {refreshAllRunning ? `💰 ${refreshAllProgress.done}/${refreshAllProgress.total}` : "💰 Atualizar Saldos"}
+                  </button>
+                  {/* Redeem all FCI button */}
+                  <button onClick={handleRedeemAll} disabled={redeemAllRunning || reloginRunning || refreshAllRunning}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 font-semibold hover:bg-red-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                    {redeemAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
+                    {redeemAllRunning ? "Resgatando..." : "🔻 Resgatar FCI"}
+                  </button>
+                  {/* Server relogin dead accounts */}
+                  <button onClick={handleServerRelogin} disabled={serverReloginRunning || reloginRunning}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-semibold hover:bg-amber-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                    {serverReloginRunning ? <RefreshCw size={10} className="animate-spin" /> : <Key size={10} />}
+                    {serverReloginRunning ? "Relogando..." : `🔑 Reviver Mortas (${accounts.filter(a => a.info_tag?.includes("Token morto") || a.info_tag?.startsWith("⚠️") || a.info_tag?.startsWith("❌")).length})`}
+                  </button>
+                  {/* Export DB */}
+                  <button onClick={handleExportDB} disabled={exportRunning}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-semibold hover:bg-cyan-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                    {exportRunning ? <RefreshCw size={10} className="animate-spin" /> : <Download size={10} />}
+                    {exportRunning ? "Exportando..." : "📥 Exportar DB"}
+                  </button>
+                  {/* Import DB */}
+                  <button onClick={() => fileInputRef.current?.click()} disabled={importRunning}
+                    className="text-[10px] px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-400 font-semibold hover:bg-violet-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                    {importRunning ? <RefreshCw size={10} className="animate-spin" /> : <Upload size={10} />}
+                    {importRunning ? "Importando..." : "📤 Importar DB"}
+                  </button>
+                  <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { if (confirm(`Importar backup "${f.name}"? Dados existentes serão sobrescritos.`)) handleImportDB(f); } e.target.value = ""; }} />
+                </>}
                 {(() => {
                   const ts = new Date(); ts.setHours(0,0,0,0);
                   const ys = new Date(ts); ys.setDate(ys.getDate() - 1);
