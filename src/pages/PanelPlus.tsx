@@ -30,6 +30,8 @@ const PanelPlus = () => {
   const [results, setResults] = useState<AccountResult[]>([]);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [singleData, setSingleData] = useState<AccountResult | null>(null);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = { current: false };
   const { toast } = useToast();
 
   const handleSingleLogin = async () => {
