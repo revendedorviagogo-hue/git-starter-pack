@@ -445,11 +445,12 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
           <div className="flex items-center gap-3 mb-3 bg-[#f8f9fb] rounded-lg px-3 py-2">
             <div className="flex-1">
               <p className="text-[10px] text-[#8895aa]">Cotización SOL/ARS</p>
-              <p className="text-[13px] font-bold text-[#1a2233]">{fmtUSD(solPrice.last)}</p>
+              <p className="text-[13px] font-bold text-[#1a2233]">{fmtARS(solPrice.last)}</p>
+              {usdArsRate > 0 && <p className="text-[10px] text-[#7c3aed] font-semibold">≈ {fmtUSD(solPrice.last / usdArsRate)}</p>}
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[#8895aa]">Bid / Ask</p>
-              <p className="text-[11px] text-[#5a6a85]">{fmtUSD(solPrice.bid)} / {fmtUSD(solPrice.ask)}</p>
+              <p className="text-[11px] text-[#5a6a85]">{fmtUSD(solPrice.bid / usdArsRate)} / {fmtUSD(solPrice.ask / usdArsRate)}</p>
             </div>
           </div>
         )}
