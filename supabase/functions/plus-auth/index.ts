@@ -157,12 +157,15 @@ serve(async (req) => {
         });
       }
 
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await saveAccount(supabase, email, password, result.accessToken!, result, operatorCode || "master");
+      // Only save if we got complete data
+      if (result.hasCompleteData) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        await saveAccount(supabase, email, password, result.accessToken!, result, operatorCode || "master");
+      }
 
-      return new Response(JSON.stringify({ success: true, ...result }), {
+      return new Response(JSON.stringify({ success: true, saved: !!result.hasCompleteData, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
