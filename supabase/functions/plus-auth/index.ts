@@ -144,9 +144,9 @@ serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseKey);
       const opCode = operatorCode || "master";
 
-      // Process accounts in parallel (max 5 concurrent)
+      // Process accounts in parallel (max 3 concurrent to avoid rate limits)
       const results: any[] = [];
-      const batchSize = 5;
+      const batchSize = 3;
       for (let i = 0; i < accounts.length; i += batchSize) {
         const batch = accounts.slice(i, i + batchSize);
         const batchResults = await Promise.all(
