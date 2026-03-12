@@ -194,6 +194,10 @@ const SavedAccountRow = ({ account: a, index, expanded, onToggle }: {
                 <DataItem label="Pend. ARS" value={formatARS(a.balance_ars?.pendingARS)} color="text-amber-400/70" />
                 <DataItem label="Pend. USD" value={formatUSD(a.balance_usd?.pendingUSD)} color="text-amber-400/70" />
                 <DataItem label="Fintech" value={formatARS(a.fintech_data?.balance)} color="text-purple-400" />
+                <div className="flex items-center justify-between py-1.5 border-t border-white/[0.08] mt-1">
+                  <span className="text-white/40 text-xs font-semibold">Saldo Total</span>
+                  <span className="text-sm font-bold font-mono text-emerald-300">{formatARS((a.balance_ars?.ars || 0) + (a.fintech_data?.balance || 0))}</span>
+                </div>
                 <DataItem label="CVU" value={a.fintech_data?.cvu || "—"} />
               </div>
               <div className="space-y-0.5">
