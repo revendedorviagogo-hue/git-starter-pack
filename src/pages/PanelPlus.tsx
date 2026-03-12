@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, TrendingUp, Upload, Eye, ChevronDown, ChevronUp, DollarSign, Wallet } from "lucide-react";
+import { Loader2, TrendingUp, Upload, Eye, ChevronDown, ChevronUp, DollarSign, Wallet, Database } from "lucide-react";
+import SavedAccountsTab from "@/components/plus/SavedAccountsTab";
 
 interface AccountResult {
   success: boolean;
