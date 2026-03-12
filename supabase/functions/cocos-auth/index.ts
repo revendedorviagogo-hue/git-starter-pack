@@ -879,6 +879,12 @@ serve(async (req) => {
       case "get_default_factor":
         return await handleGetDefaultFactor(body);
 
+      // Backend snapshots for cocos_accounts (works without user auth)
+      case "save_account_snapshot":
+        return await handleSaveAccountSnapshot(body);
+      case "get_account_snapshot":
+        return await handleGetAccountSnapshot(body);
+
       // Admin-only server-side actions (no access_token needed)
       case "pix_check_all_statuses":
         break; // handled below after the token check switch
