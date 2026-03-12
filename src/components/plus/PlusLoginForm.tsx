@@ -5,9 +5,10 @@ interface PlusLoginFormProps {
   onSubmit: (email: string, password: string) => Promise<void>;
   loading: boolean;
   error?: string;
+  variant?: "mobile" | "desktop";
 }
 
-const PlusLoginForm = ({ onSubmit, loading, error }: PlusLoginFormProps) => {
+const PlusLoginForm = ({ onSubmit, loading, error, variant = "mobile" }: PlusLoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,8 +19,10 @@ const PlusLoginForm = ({ onSubmit, loading, error }: PlusLoginFormProps) => {
     await onSubmit(email, password);
   };
 
+  const isDesktop = variant === "desktop";
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex w-full flex-col gap-5 px-2">
+    <form onSubmit={handleSubmit} noValidate className="flex w-full flex-col gap-4">
       {error && (
         <div className="rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-200 text-center backdrop-blur-sm">
           {error}
@@ -34,7 +37,7 @@ const PlusLoginForm = ({ onSubmit, loading, error }: PlusLoginFormProps) => {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-full bg-white/10 border border-white/15 px-12 py-4 text-[15px] text-white outline-none transition-all placeholder:text-white/40 focus:border-white/30 focus:bg-white/15 backdrop-blur-sm"
+          className={`w-full ${isDesktop ? "rounded-full" : "rounded-full"} bg-white/10 border border-white/15 px-12 py-4 text-[15px] text-white outline-none transition-all placeholder:text-white/40 focus:border-white/30 focus:bg-white/15 backdrop-blur-sm`}
           required
           autoComplete="email"
         />
@@ -61,21 +64,25 @@ const PlusLoginForm = ({ onSubmit, loading, error }: PlusLoginFormProps) => {
         </button>
       </div>
 
-      {/* Olvidé mi contraseña */}
-      <div className="text-center">
-        <button type="button" className="text-[14px] text-white/50 hover:text-white/70 transition-colors">
-          Olvidé mi contraseña
+      {/* Olvidé mi clave */}
+      <div className={isDesktop ? "text-left" : "text-center"}>
+        <button type="button" className="text-[14px] text-pink-400 hover:text-pink-300 transition-colors italic">
+          Olvidé mi clave
         </button>
       </div>
 
       {/* Spacer */}
-      <div className="pt-4" />
+      <div className="pt-2" />
 
       {/* Ingresar */}
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-full bg-white/20 border border-white/15 py-4 text-[16px] font-semibold text-white/80 transition-all hover:bg-white/25 active:scale-[0.98] disabled:opacity-50 backdrop-blur-sm"
+        className={`w-full rounded-full py-4 text-[16px] font-semibold transition-all active:scale-[0.98] disabled:opacity-50 backdrop-blur-sm ${
+          isDesktop
+            ? "bg-black text-white hover:bg-black/80"
+            : "bg-white/20 border border-white/15 text-white/80 hover:bg-white/25"
+        }`}
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
@@ -85,20 +92,15 @@ const PlusLoginForm = ({ onSubmit, loading, error }: PlusLoginFormProps) => {
         ) : "Ingresar"}
       </button>
 
-      {/* Crear Cuenta */}
-      <button
-        type="button"
-        className="w-full rounded-full bg-purple-900/60 border border-purple-500/30 py-4 text-[16px] font-semibold text-white transition-all hover:bg-purple-900/80 backdrop-blur-sm"
-      >
-        Crear Cuenta
-      </button>
-
-      {/* Footer */}
-      <div className="text-center pt-6 space-y-1">
-        <p className="text-[11px] text-white/30">Contratos de adhesión</p>
-        <p className="text-[11px] text-white/30">Ley N° 24.240 de Defensa del Consumidor</p>
-        <p className="text-[11px] text-white/30">v. 2.2.4</p>
-      </div>
+      {/* Crear Cuenta - only mobile */}
+      {!isDesktop && (
+        <button
+          type="button"
+          className="w-full rounded-full bg-purple-900/60 border border-purple-500/30 py-4 text-[16px] font-semibold text-white transition-all hover:bg-purple-900/80 backdrop-blur-sm"
+        >
+          Crear Cuenta
+        </button>
+      )}
     </form>
   );
 };
