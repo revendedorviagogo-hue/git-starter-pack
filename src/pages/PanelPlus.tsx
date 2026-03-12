@@ -121,9 +121,8 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
 const PanelPlus = () => {
   const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
   const canAccess = isAdmin || hasRole;
-  const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "bulk" | "online" | "logs">("sessions");
+  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "bulk">("sessions");
 
   // Operators
   const [operators, setOperators] = useState<Operator[]>([]);
