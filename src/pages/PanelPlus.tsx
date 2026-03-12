@@ -75,21 +75,26 @@ const PanelPlus = () => {
       return;
     }
     setLoading(true);
+    setPaused(false);
+    pausedRef.current = false;
     setResults([]);
     setProgress({ done: 0, total: accounts.length });
 
-    // Process in batches of 3 client-side to avoid rate limits and show progress
     const allResults: AccountResult[] = [];
     const batchSize = 3;
     
     for (let i = 0; i < accounts.length; i += batchSize) {
+      // Check if paused
+      while (pausedRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
       const batch = accounts.slice(i, i + batchSize);
       try {
         const { data: res, error } = await supabase.functions.invoke("plus-auth", {
           body: { action: "bulk", accounts: batch, operatorCode: "master" },
         });
         if (error) {
-          // Mark all batch accounts as failed
           batch.forEach((acc) => allResults.push({ success: false, email: acc.email, error: "Falha na requisição" }));
         } else {
           allResults.push(...(res.results || []));
@@ -100,16 +105,23 @@ const PanelPlus = () => {
       setResults([...allResults]);
       setProgress({ done: Math.min(i + batchSize, accounts.length), total: accounts.length });
       
-      // Small delay between batches to avoid rate limits
       if (i + batchSize < accounts.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
     const ok = allResults.filter((r) => r.success).length;
     toast({ title: "Concluído", description: `${ok}/${accounts.length} contas consultadas com sucesso` });
     setLoading(false);
+    setPaused(false);
+    pausedRef.current = false;
     setProgress({ done: 0, total: 0 });
+  };
+
+  const togglePause = () => {
+    const newVal = !pausedRef.current;
+    pausedRef.current = newVal;
+    setPaused(newVal);
   };
 
   const formatARS = (val: number | undefined) =>
