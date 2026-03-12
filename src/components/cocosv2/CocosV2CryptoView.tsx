@@ -104,11 +104,11 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
 
   useEffect(() => { refreshCrypto(); }, [refreshCrypto]);
 
-  // Calculate USD value of SOL quantity
-  const solUsdValue = sendQty && solPrice ? safeNum(sendQty) * solPrice.last : 0;
-  const maxUsd = 1000;
+  // Calculate USD value of SOL quantity — solPrice.last is in ARS, convert to USD
+  const solUsdValue = sendQty && solPrice && usdArsRate ? (safeNum(sendQty) * solPrice.last) / usdArsRate : 0;
+  const maxUsd = 990;
   const isOverLimit = solUsdValue > maxUsd;
-  const maxSolForLimit = solPrice ? Math.floor((maxUsd / solPrice.last) * 1e8) / 1e8 : 0;
+  const maxSolForLimit = solPrice && usdArsRate ? Math.floor(((maxUsd * usdArsRate) / solPrice.last) * 1e8) / 1e8 : 0;
 
   // Chunk size for splitting large operations (ARS for buy, SOL for sell)
   const CHUNK_ARS = 50000; // Max ARS per buy order
