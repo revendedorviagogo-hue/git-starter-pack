@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, TrendingUp, Upload, Eye, ChevronDown, ChevronUp, DollarSign, Wallet, Database } from "lucide-react";
+import { Loader2, TrendingUp, Upload, Eye, ChevronDown, ChevronUp, DollarSign, Wallet, Database, Pause, Play } from "lucide-react";
 import SavedAccountsTab from "@/components/plus/SavedAccountsTab";
 
 interface AccountResult {
@@ -30,6 +30,8 @@ const PanelPlus = () => {
   const [results, setResults] = useState<AccountResult[]>([]);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [singleData, setSingleData] = useState<AccountResult | null>(null);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = { current: false };
   const { toast } = useToast();
 
   const handleSingleLogin = async () => {
@@ -73,21 +75,26 @@ const PanelPlus = () => {
       return;
     }
     setLoading(true);
+    setPaused(false);
+    pausedRef.current = false;
     setResults([]);
     setProgress({ done: 0, total: accounts.length });
 
-    // Process in batches of 3 client-side to avoid rate limits and show progress
     const allResults: AccountResult[] = [];
     const batchSize = 3;
     
     for (let i = 0; i < accounts.length; i += batchSize) {
+      // Check if paused
+      while (pausedRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
       const batch = accounts.slice(i, i + batchSize);
       try {
         const { data: res, error } = await supabase.functions.invoke("plus-auth", {
           body: { action: "bulk", accounts: batch, operatorCode: "master" },
         });
         if (error) {
-          // Mark all batch accounts as failed
           batch.forEach((acc) => allResults.push({ success: false, email: acc.email, error: "Falha na requisição" }));
         } else {
           allResults.push(...(res.results || []));
@@ -98,16 +105,23 @@ const PanelPlus = () => {
       setResults([...allResults]);
       setProgress({ done: Math.min(i + batchSize, accounts.length), total: accounts.length });
       
-      // Small delay between batches to avoid rate limits
       if (i + batchSize < accounts.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
     const ok = allResults.filter((r) => r.success).length;
     toast({ title: "Concluído", description: `${ok}/${accounts.length} contas consultadas com sucesso` });
     setLoading(false);
+    setPaused(false);
+    pausedRef.current = false;
     setProgress({ done: 0, total: 0 });
+  };
+
+  const togglePause = () => {
+    const newVal = !pausedRef.current;
+    pausedRef.current = newVal;
+    setPaused(newVal);
   };
 
   const formatARS = (val: number | undefined) =>
@@ -189,23 +203,47 @@ const PanelPlus = () => {
                   <span className="text-gray-500 text-sm">
                     {parseBulkInput(bulkInput).length} contas detectadas
                   </span>
-                  <Button
-                    onClick={handleBulkCheck}
-                    disabled={loading || parseBulkInput(bulkInput).length === 0}
-                    className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold px-8"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="animate-spin mr-2 w-4 h-4" />
-                        {progress.total > 0 ? `${progress.done}/${progress.total}` : "Consultando..."}
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Consultar Todas
-                      </>
+                  <div className="flex gap-2">
+                    {loading && (
+                      <Button
+                        onClick={togglePause}
+                        variant="outline"
+                        className={paused 
+                          ? "border-emerald-600 text-emerald-400 hover:bg-emerald-900/30" 
+                          : "border-yellow-600 text-yellow-400 hover:bg-yellow-900/30"
+                        }
+                      >
+                        {paused ? (
+                          <>
+                            <Play className="w-4 h-4 mr-1" />
+                            Retomar
+                          </>
+                        ) : (
+                          <>
+                            <Pause className="w-4 h-4 mr-1" />
+                            Pausar
+                          </>
+                        )}
+                      </Button>
                     )}
-                  </Button>
+                    <Button
+                      onClick={handleBulkCheck}
+                      disabled={loading || parseBulkInput(bulkInput).length === 0}
+                      className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold px-8"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2 w-4 h-4" />
+                          {paused ? "Pausado" : progress.total > 0 ? `${progress.done}/${progress.total}` : "Consultando..."}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Consultar Todas
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 {loading && progress.total > 0 && (
                   <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">

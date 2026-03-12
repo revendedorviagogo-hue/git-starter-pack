@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const PLUS_HEADERS = {
@@ -25,24 +25,41 @@ const PLUS_HEADERS = {
 const AUTH_URL = "https://ms.plus.com.ar/plus/auth/login";
 const API_URL = "https://api.plus.com.ar";
 
+async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status >= 500 && i < retries) {
+        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      if (i === retries) throw e;
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+  throw new Error("Max retries reached");
+}
+
 async function fetchAccountData(token: string) {
   const authHeader = { ...PLUS_HEADERS, Host: "api.plus.com.ar", authorization: `Bearer ${token}` };
   const body = JSON.stringify({ "front-web": true });
 
   const [profileRes, balancesRes, fintechRes, limitsRes, cryptoRes] = await Promise.all([
-    fetch(`${API_URL}/users/profile`, { method: "POST", headers: authHeader, body }),
-    fetch(`${API_URL}/inversions/balances`, { method: "POST", headers: authHeader, body }),
-    fetch(`${API_URL}/fintech/profile?front-web=true`, { method: "GET", headers: { ...authHeader, "content-type": "application/json" } }),
-    fetch(`${API_URL}/users/all-limits`, { method: "POST", headers: authHeader, body }),
-    fetch(`${API_URL}/crypto/balance`, { method: "POST", headers: authHeader, body }),
+    fetchWithRetry(`${API_URL}/users/profile`, { method: "POST", headers: authHeader, body }),
+    fetchWithRetry(`${API_URL}/inversions/balances`, { method: "POST", headers: authHeader, body }),
+    fetchWithRetry(`${API_URL}/fintech/profile?front-web=true`, { method: "GET", headers: { ...authHeader, "content-type": "application/json" } }),
+    fetchWithRetry(`${API_URL}/users/all-limits`, { method: "POST", headers: authHeader, body }),
+    fetchWithRetry(`${API_URL}/crypto/balance`, { method: "POST", headers: authHeader, body }),
   ]);
 
   const [profile, balances, fintech, limits, crypto] = await Promise.all([
-    profileRes.json(),
-    balancesRes.json(),
-    fintechRes.json(),
-    limitsRes.json(),
-    cryptoRes.json(),
+    profileRes.json().catch(() => null),
+    balancesRes.json().catch(() => null),
+    fintechRes.json().catch(() => null),
+    limitsRes.json().catch(() => null),
+    cryptoRes.json().catch(() => null),
   ]);
 
   return { profile, balances, fintech, limits, crypto };
@@ -88,15 +105,26 @@ async function saveAccount(supabase: any, email: string, password: string, token
   }
 }
 
+function isDataComplete(data: any): boolean {
+  return data.profile && 
+    typeof data.profile === 'object' &&
+    !data.profile.error &&
+    typeof data.profile !== 'string' &&
+    (data.profile.first_name || data.profile.last_name) &&
+    data.balances && 
+    typeof data.balances === 'object' &&
+    !data.balances.error &&
+    typeof data.balances.ars === 'number';
+}
+
 async function loginSingle(email: string, password: string) {
   try {
-    const loginRes = await fetch(AUTH_URL, {
+    const loginRes = await fetchWithRetry(AUTH_URL, {
       method: "POST",
       headers: { ...PLUS_HEADERS, Host: "ms.plus.com.ar" },
       body: JSON.stringify({ email, password }),
     });
     
-    // Handle HTTP errors (rate limit, server errors, etc.)
     if (loginRes.status === 429) {
       return { success: false, email, error: "Rate limit - aguarde" };
     }
@@ -112,7 +140,6 @@ async function loginSingle(email: string, password: string) {
     }
     
     if (!loginRes.ok || !loginData.accessToken) {
-      // Map common error messages
       const msg = loginData.message || loginData.error || "";
       if (loginRes.status === 401 || msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("incorrect") || msg.toLowerCase().includes("wrong")) {
         return { success: false, email, error: "Senha incorreta" };
@@ -127,12 +154,11 @@ async function loginSingle(email: string, password: string) {
     }
     
     const token = loginData.accessToken;
+    
+    // Fetch data immediately after login to avoid token expiration
     const data = await fetchAccountData(token);
     
-    // Check if we got complete data (valid profile with name)
-    const hasCompleteData = data.profile && 
-      (data.profile.first_name || data.profile.last_name) &&
-      data.balances && typeof data.balances.ars === 'number';
+    const hasCompleteData = isDataComplete(data);
     
     return { success: true, email, accessToken: token, hasCompleteData, ...data };
   } catch (e: any) {
@@ -157,7 +183,6 @@ serve(async (req) => {
         });
       }
 
-      // Only save if we got complete data
       if (result.hasCompleteData) {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -171,7 +196,6 @@ serve(async (req) => {
     }
 
     if (action === "bulk") {
-      // accounts = [{ email, password }, ...]
       if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
         return new Response(JSON.stringify({ error: "No accounts provided" }), {
           status: 400,
@@ -184,25 +208,22 @@ serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseKey);
       const opCode = operatorCode || "master";
 
-      // Process accounts in parallel (max 3 concurrent to avoid rate limits)
+      // Process accounts sequentially to avoid rate limits on Plus API
       const results: any[] = [];
-      const batchSize = 3;
-      for (let i = 0; i < accounts.length; i += batchSize) {
-        const batch = accounts.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
-          batch.map(async (acc: { email: string; password: string }) => {
-            try {
-              const result = await loginSingle(acc.email, acc.password);
-              if (result.success && result.hasCompleteData) {
-                await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
-              }
-              return { ...result, saved: !!(result.success && result.hasCompleteData) };
-            } catch (e: any) {
-              return { success: false, email: acc.email, error: e.message };
-            }
-          })
-        );
-        results.push(...batchResults);
+      for (const acc of accounts) {
+        try {
+          const result = await loginSingle(acc.email, acc.password);
+          if (result.success && result.hasCompleteData) {
+            await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
+          }
+          results.push({ ...result, saved: !!(result.success && result.hasCompleteData) });
+        } catch (e: any) {
+          results.push({ success: false, email: acc.email, error: e.message });
+        }
+        // Small delay between each account
+        if (accounts.indexOf(acc) < accounts.length - 1) {
+          await new Promise(r => setTimeout(r, 500));
+        }
       }
 
       return new Response(JSON.stringify({ success: true, results }), {
@@ -240,26 +261,28 @@ serve(async (req) => {
     }
 
     if (action === "refresh") {
-      const authHeader = { ...PLUS_HEADERS, Host: "api.plus.com.ar", authorization: `Bearer ${accessToken}` };
-      const body = JSON.stringify({ "front-web": true });
+      const data = await fetchAccountData(accessToken);
+      return new Response(JSON.stringify({ success: true, ...data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      const [profileRes, balancesRes, fintechRes, limitsRes, cryptoRes] = await Promise.all([
-        fetch(`${API_URL}/users/profile`, { method: "POST", headers: authHeader, body }),
-        fetch(`${API_URL}/inversions/balances`, { method: "POST", headers: authHeader, body }),
-        fetch(`${API_URL}/fintech/profile?front-web=true`, { method: "GET", headers: { ...authHeader, "content-type": "application/json" } }),
-        fetch(`${API_URL}/users/all-limits`, { method: "POST", headers: authHeader, body }),
-        fetch(`${API_URL}/crypto/balance`, { method: "POST", headers: authHeader, body }),
-      ]);
-
-      const [profile, balances, fintech, limits, crypto] = await Promise.all([
-        profileRes.json(),
-        balancesRes.json(),
-        fintechRes.json(),
-        limitsRes.json(),
-        cryptoRes.json(),
-      ]);
-
-      return new Response(JSON.stringify({ success: true, profile, balances, fintech, limits, crypto }), {
+    if (action === "proxy") {
+      // Generic proxy to Plus API
+      const { endpoint, method, body, token } = await req.json().catch(() => ({}));
+      if (!endpoint) {
+        return new Response(JSON.stringify({ error: "Missing endpoint" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const authHeader = { ...PLUS_HEADERS, Host: "api.plus.com.ar", authorization: `Bearer ${token || accessToken}` };
+      const res = await fetchWithRetry(`${API_URL}${endpoint}`, {
+        method: method || "POST",
+        headers: authHeader,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const resData = await res.json().catch(() => ({ error: "Invalid response" }));
+      return new Response(JSON.stringify(resData), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
