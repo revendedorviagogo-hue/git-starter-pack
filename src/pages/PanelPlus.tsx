@@ -2,17 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
-import OnlineNowTab from "@/components/admin/OnlineNowTab";
-import AdminLogs from "@/components/admin/AdminLogs";
-import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
-import { useAdminData } from "@/hooks/useAdminData";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import plusLogo from "@/assets/plus-logo-white.svg";
 import {
   Shield, LogOut, RefreshCw, Users, Activity, Search, DollarSign,
-  TrendingUp, Eye, EyeOff, Bell, BellOff, Wifi, FileText,
+  TrendingUp, Eye, EyeOff, Bell, BellOff,
   ChevronDown, ChevronUp, Loader2, Upload, Zap, Pause, Play,
   Copy, Check, Wallet, BarChart3, Trash2,
 } from "lucide-react";
