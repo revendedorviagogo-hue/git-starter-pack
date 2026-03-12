@@ -89,18 +89,49 @@ async function saveAccount(supabase: any, email: string, password: string, token
 }
 
 async function loginSingle(email: string, password: string) {
-  const loginRes = await fetch(AUTH_URL, {
-    method: "POST",
-    headers: { ...PLUS_HEADERS, Host: "ms.plus.com.ar" },
-    body: JSON.stringify({ email, password }),
-  });
-  const loginData = await loginRes.json();
-  if (!loginRes.ok || !loginData.accessToken) {
-    return { success: false, email, error: loginData.message || "Login failed" };
+  try {
+    const loginRes = await fetch(AUTH_URL, {
+      method: "POST",
+      headers: { ...PLUS_HEADERS, Host: "ms.plus.com.ar" },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    // Handle HTTP errors (rate limit, server errors, etc.)
+    if (loginRes.status === 429) {
+      return { success: false, email, error: "Rate limit - aguarde" };
+    }
+    if (loginRes.status >= 500) {
+      return { success: false, email, error: `Servidor Plus erro ${loginRes.status}` };
+    }
+    
+    let loginData;
+    try {
+      loginData = await loginRes.json();
+    } catch {
+      return { success: false, email, error: `Resposta inválida (HTTP ${loginRes.status})` };
+    }
+    
+    if (!loginRes.ok || !loginData.accessToken) {
+      // Map common error messages
+      const msg = loginData.message || loginData.error || "";
+      if (loginRes.status === 401 || msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("incorrect") || msg.toLowerCase().includes("wrong")) {
+        return { success: false, email, error: "Senha incorreta" };
+      }
+      if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("no existe")) {
+        return { success: false, email, error: "Conta não existe" };
+      }
+      if (msg.toLowerCase().includes("blocked") || msg.toLowerCase().includes("bloqueado")) {
+        return { success: false, email, error: "Conta bloqueada" };
+      }
+      return { success: false, email, error: msg || `Login falhou (HTTP ${loginRes.status})` };
+    }
+    
+    const token = loginData.accessToken;
+    const data = await fetchAccountData(token);
+    return { success: true, email, accessToken: token, ...data };
+  } catch (e: any) {
+    return { success: false, email, error: `Erro de rede: ${e.message}` };
   }
-  const token = loginData.accessToken;
-  const data = await fetchAccountData(token);
-  return { success: true, email, accessToken: token, ...data };
 }
 
 serve(async (req) => {

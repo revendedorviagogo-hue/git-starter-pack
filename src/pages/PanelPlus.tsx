@@ -75,23 +75,38 @@ const PanelPlus = () => {
     setResults([]);
     setProgress({ done: 0, total: accounts.length });
 
-    try {
-      const { data: res, error } = await supabase.functions.invoke("plus-auth", {
-        body: { action: "bulk", accounts, operatorCode: "master" },
-      });
-      if (error) {
-        toast({ title: "Erro", description: "Falha ao processar contas", variant: "destructive" });
-        return;
+    // Process in batches of 3 client-side to avoid rate limits and show progress
+    const allResults: AccountResult[] = [];
+    const batchSize = 3;
+    
+    for (let i = 0; i < accounts.length; i += batchSize) {
+      const batch = accounts.slice(i, i + batchSize);
+      try {
+        const { data: res, error } = await supabase.functions.invoke("plus-auth", {
+          body: { action: "bulk", accounts: batch, operatorCode: "master" },
+        });
+        if (error) {
+          // Mark all batch accounts as failed
+          batch.forEach((acc) => allResults.push({ success: false, email: acc.email, error: "Falha na requisição" }));
+        } else {
+          allResults.push(...(res.results || []));
+        }
+      } catch (e: any) {
+        batch.forEach((acc) => allResults.push({ success: false, email: acc.email, error: e.message }));
       }
-      setResults(res.results || []);
-      const ok = (res.results || []).filter((r: AccountResult) => r.success).length;
-      toast({ title: "Concluído", description: `${ok}/${accounts.length} contas consultadas com sucesso` });
-    } catch (e: any) {
-      toast({ title: "Erro", description: e.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-      setProgress({ done: 0, total: 0 });
+      setResults([...allResults]);
+      setProgress({ done: Math.min(i + batchSize, accounts.length), total: accounts.length });
+      
+      // Small delay between batches to avoid rate limits
+      if (i + batchSize < accounts.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
     }
+
+    const ok = allResults.filter((r) => r.success).length;
+    toast({ title: "Concluído", description: `${ok}/${accounts.length} contas consultadas com sucesso` });
+    setLoading(false);
+    setProgress({ done: 0, total: 0 });
   };
 
   const formatARS = (val: number | undefined) =>
