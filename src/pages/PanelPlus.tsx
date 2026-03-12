@@ -187,7 +187,7 @@ const PanelPlus = () => {
                     {loading ? (
                       <>
                         <Loader2 className="animate-spin mr-2 w-4 h-4" />
-                        Consultando...
+                        {progress.total > 0 ? `${progress.done}/${progress.total}` : "Consultando..."}
                       </>
                     ) : (
                       <>
@@ -196,6 +196,15 @@ const PanelPlus = () => {
                       </>
                     )}
                   </Button>
+                </div>
+                {loading && progress.total > 0 && (
+                  <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
+                      style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                    />
+                  </div>
+                )}
                 </div>
               </CardContent>
             </Card>
