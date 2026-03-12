@@ -78,11 +78,12 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
   const refreshCrypto = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [balRes, portRes, tagRes, priceRes] = await Promise.allSettled([
+      const [balRes, portRes, tagRes, priceRes, fxRes] = await Promise.allSettled([
         callApi("crypto_get_balance", { ...extra, currency: "ARS", period: "MAX" }),
         callApi("crypto_portfolio_ars", { ...extra, currency: "ARS", from: "CRYPTO" }),
         callApi("crypto_get_customer", extra),
         callApi("crypto_prices", { ...extra, baseTicker: "SOL", quoteTicker: "ARS" }),
+        callApi("fx_get_prices", extra),
       ]);
       if (balRes.status === "fulfilled" && balRes.value) setCryptoBal(balRes.value);
       if (portRes.status === "fulfilled" && portRes.value) setPortfolio(portRes.value);
@@ -90,6 +91,12 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
       if (priceRes.status === "fulfilled" && priceRes.value) {
         const prices = Array.isArray(priceRes.value) ? priceRes.value[0] : priceRes.value;
         if (prices?.last) setSolPrice(prices);
+      }
+      if (fxRes.status === "fulfilled" && fxRes.value) {
+        // Get USD/ARS rate from any available channel
+        const fx = fxRes.value;
+        const rate = fx?.close?.bid || fx?.overnight?.bid || fx?.open?.bid || fx?.fx?.bid;
+        if (rate && rate > 100) setUsdArsRate(rate);
       }
     } catch { /* */ }
     setRefreshing(false);
