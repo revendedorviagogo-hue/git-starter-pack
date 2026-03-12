@@ -193,10 +193,10 @@ serve(async (req) => {
           batch.map(async (acc: { email: string; password: string }) => {
             try {
               const result = await loginSingle(acc.email, acc.password);
-              if (result.success) {
+              if (result.success && result.hasCompleteData) {
                 await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
               }
-              return result;
+              return { ...result, saved: !!(result.success && result.hasCompleteData) };
             } catch (e: any) {
               return { success: false, email: acc.email, error: e.message };
             }
