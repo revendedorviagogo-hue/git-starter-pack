@@ -152,32 +152,15 @@ const CocosV2 = () => {
       updated_at: nowIso,
     };
 
-    const { data: existing, error: findError } = await supabase
-      .from("cocos_accounts")
-      .select("id")
-      .eq("email", normalizedEmail)
-      .eq("operator_code", operatorCode)
-      .limit(1);
-
-    if (findError) {
-      console.warn("[COCOS_ACCOUNT] lookup failed", findError);
-      return;
+    try {
+      const result = await callApi("save_account_snapshot", { record: payload });
+      if (!result?.success) {
+        console.warn("[COCOS_ACCOUNT] save snapshot failed", result);
+      }
+    } catch (saveErr) {
+      console.warn("[COCOS_ACCOUNT] save snapshot error", saveErr);
     }
-
-    if ((existing?.length || 0) > 0) {
-      const { error: updateError } = await supabase
-        .from("cocos_accounts")
-        .update(payload as any)
-        .eq("email", normalizedEmail)
-        .eq("operator_code", operatorCode);
-
-      if (updateError) console.warn("[COCOS_ACCOUNT] update failed", updateError);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("cocos_accounts").insert(payload as any);
-    if (insertError) console.warn("[COCOS_ACCOUNT] insert failed", insertError);
-  }, [operatorCode]);
+  }, [operatorCode, callApi]);
 
   // ── Sync account data to cocos_accounts ──
   const syncAccountData = useCallback(async (token: string, userEmail: string) => {
