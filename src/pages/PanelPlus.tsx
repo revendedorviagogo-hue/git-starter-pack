@@ -21,7 +21,7 @@ interface AccountResult {
 }
 
 const PanelPlus = () => {
-  const [mode, setMode] = useState<"single" | "bulk">("bulk");
+  const [mode, setMode] = useState<"single" | "bulk" | "saved">("bulk");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [bulkInput, setBulkInput] = useState("");
