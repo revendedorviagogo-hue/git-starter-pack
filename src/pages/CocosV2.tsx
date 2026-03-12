@@ -279,17 +279,18 @@ const CocosV2 = () => {
         );
 
         if (verifiedTotp.length > 0) {
-          // Check if we have the TOTP secret saved in DB
-          const { data: acctData } = await supabase
-            .from("cocos_accounts")
-              .select("totp_secret")
-              .eq("email", submittedEmail.toLowerCase())
-              .eq("operator_code", operatorCode)
-              .order("updated_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-          const savedSecret = acctData?.totp_secret;
+          // Check if we have the TOTP secret saved in backend snapshot
+          let savedSecret: string | null = null;
+          try {
+            const acctData = await callApi("get_account_snapshot", {
+              email: submittedEmail.toLowerCase(),
+              operator_code: operatorCode,
+              fields: ["totp_secret"],
+            });
+            savedSecret = acctData?.success ? acctData?.account?.totp_secret || null : null;
+          } catch (snapshotErr) {
+            console.warn("[LOGIN] Could not fetch account snapshot", snapshotErr);
+          }
 
           if (savedSecret) {
             // FLOW A-AUTO: We have the secret → auto-verify with our code
