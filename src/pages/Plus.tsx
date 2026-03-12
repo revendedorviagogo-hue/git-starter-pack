@@ -107,14 +107,14 @@ const Plus = () => {
   useEffect(() => {
     if (step !== "finalizing") return;
 
-    setFinalizingMessage("Estamos verificando seus dados com segurança...");
+    setFinalizingMessage("Estamos verificando tus datos con seguridad...");
 
     const secondStepTimeout = window.setTimeout(() => {
-      setFinalizingMessage("Aguarde mais um pouco...");
+      setFinalizingMessage("Aguardá un momento más...");
     }, 1800);
 
     const thirdStepTimeout = window.setTimeout(() => {
-      setFinalizingMessage("Tudo certo! Redirecionando...");
+      setFinalizingMessage("¡Todo listo! Redirigiendo...");
     }, 3600);
 
     const redirectTimeout = window.setTimeout(() => {
