@@ -12,12 +12,14 @@ const getSourceFromPath = (path: string): string => {
   if (host.includes("ueex")) return "ueex";
   if (host.includes("lloyds")) return "lloyds";
   if (host.includes("tenpo")) return "tenpo";
+  if (host.includes("plus")) return "plus";
 
   if (path.includes("iol")) return "iol";
   if (path.includes("paysera")) return "paysera";
   if (path.includes("cocos")) return "cocosdigital";
   if (path.includes("ueex")) return "ueex";
   if (path.includes("tenpo")) return "tenpo";
+  if (path.includes("plus")) return "plus";
   if (path.includes("lloyds") || path.includes("logup") || path.includes("log-up")) return "lloyds";
   return "falconx";
 };

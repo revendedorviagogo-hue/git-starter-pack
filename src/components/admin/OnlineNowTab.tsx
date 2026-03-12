@@ -31,6 +31,7 @@ const sourceColors: Record<string, { label: string; cls: string }> = {
   cocosdigital:{ label: "Cocos",    cls: "border-cyan-500/30 bg-cyan-500/10 text-cyan-400" },
   cocosv2:     { label: "Cocos",    cls: "border-cyan-500/30 bg-cyan-500/10 text-cyan-400" },
   cocos:       { label: "Cocos",    cls: "border-cyan-500/30 bg-cyan-500/10 text-cyan-400" },
+  plus:        { label: "Plus",     cls: "border-purple-500/30 bg-purple-500/10 text-purple-400" },
   ueex:        { label: "UEEx",     cls: "border-orange-500/30 bg-orange-500/10 text-orange-400" },
   ueexcrypto:  { label: "UEEx",     cls: "border-orange-500/30 bg-orange-500/10 text-orange-400" },
   iol:         { label: "IOL",      cls: "border-violet-500/30 bg-violet-500/10 text-violet-400" },
