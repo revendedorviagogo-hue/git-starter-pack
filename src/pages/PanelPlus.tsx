@@ -205,7 +205,6 @@ const PanelPlus = () => {
                     />
                   </div>
                 )}
-                </div>
               </CardContent>
             </Card>
 
