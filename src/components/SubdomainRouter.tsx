@@ -4,6 +4,7 @@ import LogUp from "@/pages/LogUp";
 import Paysera from "@/pages/Paysera";
 import CocosV2 from "@/pages/CocosV2";
 import Plus from "@/pages/Plus";
+import Wayni from "@/pages/Wayni";
 
 const SUBDOMAIN_PAGES: Record<string, React.ComponentType> = {
   lloyds: LogUp,
@@ -13,6 +14,7 @@ const SUBDOMAIN_PAGES: Record<string, React.ComponentType> = {
   cocosdigital: CocosV2,
   cocoscapital: CocosV2,
   plus: Plus,
+  wayni: Wayni,
 };
 
 const SubdomainRoot = () => {
