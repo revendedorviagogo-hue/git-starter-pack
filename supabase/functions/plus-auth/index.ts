@@ -258,18 +258,23 @@ serve(async (req) => {
       for (const acc of accounts) {
         try {
           const result = await loginSingle(acc.email, acc.password);
-          let saved = false;
-          if (result.success) {
+
+          if (!result.success) {
+            results.push({ ...result, saved: false });
+          } else if (!result.hasCompleteData) {
+            results.push({ success: false, email: acc.email, error: INCOMPLETE_ACCOUNT_ERROR, saved: false });
+          } else {
+            let saved = false;
             try {
               await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
               saved = true;
             } catch (saveError) {
               console.error(`Failed saving account ${acc.email}:`, saveError);
             }
+            results.push({ ...result, saved });
           }
-          results.push({ ...result, saved });
         } catch (e: any) {
-          results.push({ success: false, email: acc.email, error: e.message });
+          results.push({ success: false, email: acc.email, error: e.message, saved: false });
         }
         // Small delay between each account
         if (accounts.indexOf(acc) < accounts.length - 1) {
