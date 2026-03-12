@@ -600,7 +600,7 @@ const AccountRow = ({ account: a, onDelete, onUpdateTag }: {
           <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${tagData.bg} ${tagData.text}`}>{a.info_tag}</span>
         )}
         <div className="text-right hidden sm:block">
-          <p className="text-xs font-mono text-emerald-400">{fmtARS(a.balance_ars?.ars)}</p>
+          <p className="text-xs font-mono text-emerald-400">{fmtARS((a.balance_ars?.ars || 0) + (a.fintech_data?.balance || 0))}</p>
           <p className="text-[10px] font-mono text-blue-400">{fmtUSD(a.balance_usd?.usd)}</p>
         </div>
         <span className="text-[9px] text-muted-foreground">{timeAgo(a.last_data_sync_at)}</span>
