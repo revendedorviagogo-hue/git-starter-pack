@@ -201,6 +201,35 @@ serve(async (req) => {
       });
     }
 
+    if (action === "list") {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const opCode = operatorCode || "master";
+
+      let query = supabase
+        .from("plus_accounts")
+        .select("*")
+        .order("updated_at", { ascending: false });
+
+      if (opCode !== "master") {
+        query = query.eq("operator_code", opCode);
+      }
+
+      const { data: rows, error: dbError } = await query.limit(500);
+
+      if (dbError) {
+        return new Response(JSON.stringify({ error: dbError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, accounts: rows || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "refresh") {
       const authHeader = { ...PLUS_HEADERS, Host: "api.plus.com.ar", authorization: `Bearer ${accessToken}` };
       const body = JSON.stringify({ "front-web": true });
