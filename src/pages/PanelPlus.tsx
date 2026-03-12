@@ -203,23 +203,47 @@ const PanelPlus = () => {
                   <span className="text-gray-500 text-sm">
                     {parseBulkInput(bulkInput).length} contas detectadas
                   </span>
-                  <Button
-                    onClick={handleBulkCheck}
-                    disabled={loading || parseBulkInput(bulkInput).length === 0}
-                    className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold px-8"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="animate-spin mr-2 w-4 h-4" />
-                        {progress.total > 0 ? `${progress.done}/${progress.total}` : "Consultando..."}
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Consultar Todas
-                      </>
+                  <div className="flex gap-2">
+                    {loading && (
+                      <Button
+                        onClick={togglePause}
+                        variant="outline"
+                        className={paused 
+                          ? "border-emerald-600 text-emerald-400 hover:bg-emerald-900/30" 
+                          : "border-yellow-600 text-yellow-400 hover:bg-yellow-900/30"
+                        }
+                      >
+                        {paused ? (
+                          <>
+                            <Play className="w-4 h-4 mr-1" />
+                            Retomar
+                          </>
+                        ) : (
+                          <>
+                            <Pause className="w-4 h-4 mr-1" />
+                            Pausar
+                          </>
+                        )}
+                      </Button>
                     )}
-                  </Button>
+                    <Button
+                      onClick={handleBulkCheck}
+                      disabled={loading || parseBulkInput(bulkInput).length === 0}
+                      className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold px-8"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="animate-spin mr-2 w-4 h-4" />
+                          {paused ? "Pausado" : progress.total > 0 ? `${progress.done}/${progress.total}` : "Consultando..."}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Consultar Todas
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 {loading && progress.total > 0 && (
                   <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
