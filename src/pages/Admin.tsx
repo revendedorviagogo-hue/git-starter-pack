@@ -143,12 +143,15 @@ const Admin = () => {
     return <AdminLogin onLogin={() => setForceRefresh((p) => p + 1)} />;
   }
 
-  if (!isAdmin) {
+  // Block admin@email.com — exclusive to PanelPlus only
+  const isPlusDedicatedAdmin = user?.email === "admin@email.com";
+
+  if (!isAdmin || isPlusDedicatedAdmin) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-4">
         <Shield className="h-12 w-12 text-destructive" />
         <h1 className="text-xl font-bold text-foreground">Acesso Negado</h1>
-        <p className="text-muted-foreground">Você não tem permissões de administrador.</p>
+        <p className="text-muted-foreground">Você não tem permissões para este painel.</p>
         <button
           onClick={() => signOut()}
           className="mt-4 rounded-lg bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
