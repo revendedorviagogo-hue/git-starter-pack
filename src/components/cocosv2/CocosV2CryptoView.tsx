@@ -520,7 +520,7 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
               <p className="text-[11px] text-[#8895aa] mb-1">Confirmá el envío</p>
               <div className="space-y-1 text-[13px]">
                 <p className="text-[#1a2233]">📤 <strong>{sendOrderData?.quantity || sendQty} SOL</strong> → <strong>@{sendTag}</strong></p>
-                {solPrice && <p className="text-[#5a6a85]">≈ {fmtUSD(Number(sendOrderData?.quantity || sendQty) * solPrice.last)}</p>}
+                {solPrice && usdArsRate && <p className="text-[#5a6a85]">≈ {fmtUSD(Number(sendOrderData?.quantity || sendQty) * solPrice.last / usdArsRate)}</p>}
                 {sendOrderData?.fee !== undefined && <p className="text-[#8895aa] text-[11px]">Fee: {sendOrderData.fee} SOL</p>}
                 <p className="text-[10px] text-[#8895aa]">Expira: {sendOrderData?.expiresAt ? new Date(sendOrderData.expiresAt).toLocaleTimeString() : "—"}</p>
               </div>
