@@ -217,6 +217,13 @@ serve(async (req) => {
         });
       }
 
+      if (!result.hasCompleteData) {
+        return new Response(JSON.stringify({ error: INCOMPLETE_ACCOUNT_ERROR }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       let saved = false;
       try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
