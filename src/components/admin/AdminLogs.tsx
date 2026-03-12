@@ -23,6 +23,7 @@ interface VisitRecord {
   referrer: string | null;
   country: string | null;
   city: string | null;
+  source: string | null;
   created_at: string;
 }
 
@@ -122,22 +123,45 @@ const AdminLogs = ({ operatorCode, sourceFilter }: { operatorCode?: string; sour
 
   // Realtime new visits
   useEffect(() => {
+    const allowedSourceForFilter = (source: string | null) => {
+      if (sourceFilter === "cocosv2") return ["cocosdigital", "cocosv2", "cocos"].includes(source || "");
+      if (sourceFilter) return source === sourceFilter;
+      return true;
+    };
+
+    const allowedOperatorForFilter = (path: string | null) => {
+      if (!operatorCode) return true;
+      if (!path) return false;
+      return path.includes(`/${operatorCode}`);
+    };
+
+    const startOfToday = new Date(todayStart()).getTime();
+
     const channel = supabase
       .channel("admin-logs-rt")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "page_visits" }, (payload) => {
         const newVisit = payload.new as VisitRecord;
+
+        if (!allowedSourceForFilter(newVisit.source) || !allowedOperatorForFilter(newVisit.page_path)) {
+          return;
+        }
+
         if (page === 0 && sortField === "created_at" && sortDir === "desc") {
           setVisits((prev) => [newVisit, ...prev].slice(0, PAGE_SIZE));
         }
+
         setTotalCount((c) => c + 1);
-        setTodayCount((c) => c + 1);
+
+        if (new Date(newVisit.created_at).getTime() >= startOfToday) {
+          setTodayCount((c) => c + 1);
+        }
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [page, sortField, sortDir]);
+  }, [operatorCode, page, sortField, sortDir, sourceFilter, todayStart]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
