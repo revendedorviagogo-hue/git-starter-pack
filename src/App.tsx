@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import PanelPlus from "./pages/PanelPlus";
 import Plus from "./pages/Plus";
 import Wayni from "./pages/Wayni";
+import WayniAdmin from "./pages/WayniAdmin";
 
 const queryClient = new QueryClient();
 
