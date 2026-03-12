@@ -23,6 +23,7 @@ interface VisitRecord {
   referrer: string | null;
   country: string | null;
   city: string | null;
+  source: string | null;
   created_at: string;
 }
 
