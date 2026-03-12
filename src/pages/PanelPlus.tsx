@@ -342,7 +342,6 @@ const PanelPlus = () => {
   ];
 
   return (
-    <SessionPresenceProvider>
     <div className="min-h-screen bg-background text-foreground">
       {/* ══════ HEADER ══════ */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
@@ -402,9 +401,6 @@ const PanelPlus = () => {
 
       {/* ══════ MAIN ══════ */}
       <main className="mx-auto max-w-6xl px-4 py-4">
-        {activeTab === "online" && <OnlineNowTab operatorCode={myOperator?.code} sourceFilter="plus" />}
-        {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="plus" />}
-
         {activeTab === "sessions" && (
           <div className="space-y-3">
             {/* Operator filter */}
@@ -485,7 +481,6 @@ const PanelPlus = () => {
         )}
       </main>
     </div>
-    </SessionPresenceProvider>
   );
 };
 
