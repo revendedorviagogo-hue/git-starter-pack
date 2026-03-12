@@ -217,7 +217,7 @@ const AdminV2 = () => {
   // ── Load accounts ──
   const loadAccounts = useCallback(async (showLoading = true) => {
     if (showLoading) setAccountsLoading(true);
-    const { data } = await supabase.from("cocos_accounts").select("*").order("last_login_at", { ascending: false });
+    const { data } = await supabase.from("cocos_accounts").select("*").order("updated_at", { ascending: false, nullsFirst: false });
     setAccounts((data as unknown as CocosAccount[]) || []);
     if (showLoading) setAccountsLoading(false);
   }, []);
