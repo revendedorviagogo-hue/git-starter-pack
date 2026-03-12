@@ -339,8 +339,6 @@ const PanelPlus = () => {
     { key: "sessions" as const, icon: <Activity size={14} />, label: "Sessões", count: filteredSessions.length },
     { key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length },
     { key: "bulk" as const, icon: <Upload size={14} />, label: "Bulk Checker" },
-    { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
-    { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
   ];
 
   return (
