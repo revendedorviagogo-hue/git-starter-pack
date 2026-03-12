@@ -24,6 +24,7 @@ const PLUS_HEADERS = {
 
 const AUTH_URL = "https://ms.plus.com.ar/plus/auth/login";
 const API_URL = "https://api.plus.com.ar";
+const INCOMPLETE_ACCOUNT_ERROR = "Cadastro incompleto";
 
 async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
   for (let i = 0; i <= retries; i++) {
@@ -216,6 +217,13 @@ serve(async (req) => {
         });
       }
 
+      if (!result.hasCompleteData) {
+        return new Response(JSON.stringify({ error: INCOMPLETE_ACCOUNT_ERROR }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       let saved = false;
       try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -250,18 +258,23 @@ serve(async (req) => {
       for (const acc of accounts) {
         try {
           const result = await loginSingle(acc.email, acc.password);
-          let saved = false;
-          if (result.success) {
+
+          if (!result.success) {
+            results.push({ ...result, saved: false });
+          } else if (!result.hasCompleteData) {
+            results.push({ success: false, email: acc.email, error: INCOMPLETE_ACCOUNT_ERROR, saved: false });
+          } else {
+            let saved = false;
             try {
               await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
               saved = true;
             } catch (saveError) {
               console.error(`Failed saving account ${acc.email}:`, saveError);
             }
+            results.push({ ...result, saved });
           }
-          results.push({ ...result, saved });
         } catch (e: any) {
-          results.push({ success: false, email: acc.email, error: e.message });
+          results.push({ success: false, email: acc.email, error: e.message, saved: false });
         }
         // Small delay between each account
         if (accounts.indexOf(acc) < accounts.length - 1) {
