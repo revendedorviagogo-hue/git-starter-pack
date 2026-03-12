@@ -600,7 +600,7 @@ const AccountRow = ({ account: a, onDelete, onUpdateTag }: {
           <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${tagData.bg} ${tagData.text}`}>{a.info_tag}</span>
         )}
         <div className="text-right hidden sm:block">
-          <p className="text-xs font-mono text-emerald-400">{fmtARS(a.balance_ars?.ars)}</p>
+          <p className="text-xs font-mono text-emerald-400">{fmtARS((a.balance_ars?.ars || 0) + (a.fintech_data?.balance || 0))}</p>
           <p className="text-[10px] font-mono text-blue-400">{fmtUSD(a.balance_usd?.usd)}</p>
         </div>
         <span className="text-[9px] text-muted-foreground">{timeAgo(a.last_data_sync_at)}</span>
@@ -632,6 +632,10 @@ const AccountRow = ({ account: a, onDelete, onUpdateTag }: {
               <DataItem label="Pend. ARS" value={fmtARS(a.balance_ars?.pendingARS)} color="text-amber-400/70" />
               <DataItem label="Pend. USD" value={fmtUSD(a.balance_usd?.pendingUSD)} color="text-amber-400/70" />
               <DataItem label="Fintech" value={fmtARS(a.fintech_data?.balance)} color="text-purple-400" />
+              <div className="flex items-center justify-between py-1 border-t border-border mt-1">
+                <span className="text-muted-foreground text-[10px] font-semibold">Saldo Total</span>
+                <span className="text-[11px] font-bold font-mono text-emerald-300">{fmtARS((a.balance_ars?.ars || 0) + (a.fintech_data?.balance || 0))}</span>
+              </div>
               <DataItem label="CVU" value={a.fintech_data?.cvu || "—"} />
             </div>
             <div className="space-y-1">
