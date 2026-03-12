@@ -14,6 +14,7 @@ import Admin from "./pages/Admin";
 import AdminV2 from "./pages/AdminV2";
 import NotFound from "./pages/NotFound";
 import PanelPlus from "./pages/PanelPlus";
+import Plus from "./pages/Plus";
 
 const queryClient = new QueryClient();
 
