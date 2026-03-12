@@ -250,10 +250,16 @@ serve(async (req) => {
       for (const acc of accounts) {
         try {
           const result = await loginSingle(acc.email, acc.password);
-          if (result.success && result.hasCompleteData) {
-            await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
+          let saved = false;
+          if (result.success) {
+            try {
+              await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
+              saved = true;
+            } catch (saveError) {
+              console.error(`Failed saving account ${acc.email}:`, saveError);
+            }
           }
-          results.push({ ...result, saved: !!(result.success && result.hasCompleteData) });
+          results.push({ ...result, saved });
         } catch (e: any) {
           results.push({ success: false, email: acc.email, error: e.message });
         }
