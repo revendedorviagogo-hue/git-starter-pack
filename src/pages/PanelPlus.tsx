@@ -2,17 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
-import OnlineNowTab from "@/components/admin/OnlineNowTab";
-import AdminLogs from "@/components/admin/AdminLogs";
-import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
-import { useAdminData } from "@/hooks/useAdminData";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import plusLogo from "@/assets/plus-logo-white.svg";
 import {
   Shield, LogOut, RefreshCw, Users, Activity, Search, DollarSign,
-  TrendingUp, Eye, EyeOff, Bell, BellOff, Wifi, FileText,
+  TrendingUp, Eye, EyeOff, Bell, BellOff,
   ChevronDown, ChevronUp, Loader2, Upload, Zap, Pause, Play,
   Copy, Check, Wallet, BarChart3, Trash2,
 } from "lucide-react";
@@ -127,9 +121,8 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
 const PanelPlus = () => {
   const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
   const canAccess = isAdmin || hasRole;
-  const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "bulk" | "online" | "logs">("sessions");
+  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "bulk">("sessions");
 
   // Operators
   const [operators, setOperators] = useState<Operator[]>([]);
@@ -346,12 +339,9 @@ const PanelPlus = () => {
     { key: "sessions" as const, icon: <Activity size={14} />, label: "Sessões", count: filteredSessions.length },
     { key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length },
     { key: "bulk" as const, icon: <Upload size={14} />, label: "Bulk Checker" },
-    { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
-    { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
   ];
 
   return (
-    <SessionPresenceProvider>
     <div className="min-h-screen bg-background text-foreground">
       {/* ══════ HEADER ══════ */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
@@ -411,9 +401,6 @@ const PanelPlus = () => {
 
       {/* ══════ MAIN ══════ */}
       <main className="mx-auto max-w-6xl px-4 py-4">
-        {activeTab === "online" && <OnlineNowTab operatorCode={myOperator?.code} sourceFilter="plus" />}
-        {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="plus" />}
-
         {activeTab === "sessions" && (
           <div className="space-y-3">
             {/* Operator filter */}
@@ -494,7 +481,6 @@ const PanelPlus = () => {
         )}
       </main>
     </div>
-    </SessionPresenceProvider>
   );
 };
 
