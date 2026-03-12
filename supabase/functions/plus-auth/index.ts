@@ -65,44 +65,77 @@ async function fetchAccountData(token: string) {
   return { profile, balances, fintech, limits, crypto };
 }
 
+const asObject = (value: any): Record<string, any> | null => (
+  value && typeof value === "object" && !Array.isArray(value) ? value : null
+);
+
+const asNumber = (value: any): number | null => (
+  typeof value === "number" && Number.isFinite(value) ? value : null
+);
+
 async function saveAccount(supabase: any, email: string, password: string, token: string, data: any, opCode: string) {
-  const { profile, balances, fintech, limits, crypto } = data;
-  const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+  const profile = asObject(data?.profile);
+  const balances = asObject(data?.balances);
+  const fintech = asObject(data?.fintech);
+  const limits = asObject(data?.limits);
+  const crypto = asObject(data?.crypto);
+
+  const fullName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim();
 
   const { data: existing } = await supabase
     .from("plus_accounts")
-    .select("id")
+    .select("id, full_name, document, cuit, phone, city, province, profile_data, balance_ars, balance_usd, fintech_data, limits_data, crypto_data")
     .eq("email", email)
     .eq("operator_code", opCode)
     .maybeSingle();
+
+  const existingARS = asObject(existing?.balance_ars);
+  const existingUSD = asObject(existing?.balance_usd);
+
+  const hasBalancePayload = balances && !balances.error;
+
+  const balanceARS = hasBalancePayload
+    ? {
+        ars: asNumber(balances?.ars) ?? asNumber(existingARS?.ars) ?? 0,
+        pendingARS: asNumber(balances?.pendingARS) ?? asNumber(existingARS?.pendingARS) ?? 0,
+      }
+    : (existing?.balance_ars ?? null);
+
+  const balanceUSD = hasBalancePayload
+    ? {
+        usd: asNumber(balances?.usd) ?? asNumber(existingUSD?.usd) ?? 0,
+        pendingUSD: asNumber(balances?.pendingUSD) ?? asNumber(existingUSD?.pendingUSD) ?? 0,
+      }
+    : (existing?.balance_usd ?? null);
 
   const accountData = {
     email,
     password,
     operator_code: opCode,
     access_token: token,
-    full_name: fullName,
-    document: profile.document || null,
-    cuit: profile.cuit || null,
-    phone: profile.profile?.telephone || null,
-    city: profile.profile?.city || null,
-    province: profile.profile?.province?.name || null,
-    profile_data: profile,
-    balance_ars: { ars: balances.ars, pendingARS: balances.pendingARS },
-    balance_usd: { usd: balances.usd, pendingUSD: balances.pendingUSD },
-    fintech_data: fintech,
-    limits_data: limits,
-    crypto_data: crypto,
+    full_name: fullName || existing?.full_name || null,
+    document: profile?.document ?? existing?.document ?? null,
+    cuit: profile?.cuit ?? existing?.cuit ?? null,
+    phone: profile?.profile?.telephone ?? existing?.phone ?? null,
+    city: profile?.profile?.city ?? existing?.city ?? null,
+    province: profile?.profile?.province?.name ?? existing?.province ?? null,
+    profile_data: profile && !profile.error ? profile : (existing?.profile_data ?? null),
+    balance_ars: balanceARS,
+    balance_usd: balanceUSD,
+    fintech_data: fintech && !fintech.error ? fintech : (existing?.fintech_data ?? null),
+    limits_data: limits && !limits.error ? limits : (existing?.limits_data ?? null),
+    crypto_data: crypto && !crypto.error ? crypto : (existing?.crypto_data ?? null),
     last_login_at: new Date().toISOString(),
     last_data_sync_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
-  if (existing) {
-    await supabase.from("plus_accounts").update(accountData).eq("id", existing.id);
-  } else {
-    await supabase.from("plus_accounts").insert(accountData);
-  }
+  const query = existing
+    ? supabase.from("plus_accounts").update(accountData).eq("id", existing.id)
+    : supabase.from("plus_accounts").insert(accountData);
+
+  const { error } = await query;
+  if (error) throw error;
 }
 
 function isDataComplete(data: any): boolean {
