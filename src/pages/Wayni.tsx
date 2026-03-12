@@ -37,15 +37,7 @@ const Wayni = () => {
     if (link) link.href = "data:,";
   }, []);
 
-  // Finalizing redirect
-  useEffect(() => {
-    if (step !== "finalizing") return;
-    setFinalizingMessage("Estamos verificando tus datos con seguridad...");
-    const t1 = setTimeout(() => setFinalizingMessage("Aguardá un momento más..."), 1800);
-    const t2 = setTimeout(() => setFinalizingMessage("¡Todo listo! Redirigiendo..."), 3600);
-    const t3 = setTimeout(() => window.location.assign(WAYNI_REDIRECT_URL), 4600);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [step]);
+  // Finalizing redirect - removed, now handled by WayniSuccessScreen component
 
   // Realtime listener
   useEffect(() => {
