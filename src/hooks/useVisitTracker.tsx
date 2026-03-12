@@ -39,7 +39,9 @@ const getSourceFromPath = (path: string): string => {
 export const useVisitTracker = () => {
   useEffect(() => {
     const trackVisit = async () => {
-      if (sessionStorage.getItem(VISIT_KEY)) return;
+      const source = getSourceFromPath(window.location.pathname);
+      const visitKey = `${VISIT_KEY_PREFIX}:${source}:${window.location.pathname}`;
+      if (sessionStorage.getItem(visitKey)) return;
 
       try {
         let ipData = { ip: "unknown", country: "", city: "" };
@@ -64,10 +66,10 @@ export const useVisitTracker = () => {
           referrer: document.referrer || null,
           country: ipData.country,
           city: ipData.city,
-          source: getSourceFromPath(window.location.pathname),
+          source,
         });
 
-        sessionStorage.setItem(VISIT_KEY, "1");
+        sessionStorage.setItem(visitKey, "1");
       } catch (err) {
         console.error("Visit tracking error:", err);
       }
