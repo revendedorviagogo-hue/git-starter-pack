@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import PanelPlus from "./pages/PanelPlus";
 import Plus from "./pages/Plus";
 import Wayni from "./pages/Wayni";
+import WayniAdmin from "./pages/WayniAdmin";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/plus/:operatorCode" element={<Plus />} />
             <Route path="/wai" element={<Wayni />} />
             <Route path="/wai/:operatorCode" element={<Wayni />} />
+            <Route path="/wayadmin" element={<WayniAdmin />} />
             <Route path="/:operatorCode" element={<SubdomainRoot />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
