@@ -183,7 +183,7 @@ const Plus = () => {
       setStep("otp");
       setErrorMessage("");
     } else if (status === "otp_rejected") {
-      setErrorMessage("Código incorreto. Tente novamente.");
+      setErrorMessage("Código incorrecto. Intentá de nuevo.");
       setStep("otp");
     } else if (status === "pending_review") {
       setErrorMessage("");
