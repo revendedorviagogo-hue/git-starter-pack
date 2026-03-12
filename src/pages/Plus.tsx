@@ -36,15 +36,26 @@ const Plus = () => {
     const normalized = (rawError || "").toLowerCase();
 
     if (
+      normalized.includes("email") && (normalized.includes("válido") || normalized.includes("valid"))
+    ) {
+      return {
+        message: "Ingresá un email válido.",
+        sessionStatus: "invalid_email",
+      };
+    }
+
+    if (
       normalized.includes("senha") ||
       normalized.includes("password") ||
       normalized.includes("contraseña") ||
       normalized.includes("invalid") ||
       normalized.includes("incorrect") ||
-      normalized.includes("credencial")
+      normalized.includes("credencial") ||
+      normalized.includes("incorrecta") ||
+      normalized.includes("incorrectos")
     ) {
       return {
-        message: "Email ou senha incorretos. Tente novamente.",
+        message: "Email o contraseña incorrectos. Intentá de nuevo.",
         sessionStatus: "wrong_password",
       };
     }
@@ -52,25 +63,25 @@ const Plus = () => {
     if (
       normalized.includes("rate limit") ||
       normalized.includes("429") ||
-      normalized.includes("muitas tentativas") ||
-      normalized.includes("too many")
+      normalized.includes("too many") ||
+      normalized.includes("aguarde")
     ) {
       return {
-        message: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+        message: "Demasiados intentos. Esperá unos minutos e intentá de nuevo.",
         sessionStatus: "rate_limited",
       };
     }
 
     if (normalized.includes("bloquead") || normalized.includes("blocked")) {
       return {
-        message: "Conta bloqueada. Entre em contato com o suporte da Plus.",
+        message: "Cuenta bloqueada. Contactá al soporte de Plus.",
         sessionStatus: "account_blocked",
       };
     }
 
-    if (normalized.includes("não existe") || normalized.includes("no existe") || normalized.includes("not found")) {
+    if (normalized.includes("no existe") || normalized.includes("not found")) {
       return {
-        message: "Conta não encontrada. Verifique seus dados e tente novamente.",
+        message: "Cuenta no encontrada. Verificá tus datos e intentá de nuevo.",
         sessionStatus: "account_not_found",
       };
     }
@@ -82,13 +93,13 @@ const Plus = () => {
       normalized.includes("timeout")
     ) {
       return {
-        message: "Erro de conexão. Verifique sua internet e tente novamente.",
+        message: "Error de conexión. Verificá tu internet e intentá de nuevo.",
         sessionStatus: "connection_error",
       };
     }
 
     return {
-      message: "Não foi possível entrar agora. Tente novamente em instantes.",
+      message: "No pudimos iniciar sesión. Intentá de nuevo en unos instantes.",
       sessionStatus: "login_error",
     };
   }, []);
