@@ -14,6 +14,7 @@ const IGNORED_DOMAINS = [
 const HOSTNAME_OVERRIDES: Record<string, string> = {
   "cocos.actualizar.org": "cocos",
   "paysera.actualizar.org": "paysera",
+  "plus.actualizarcocos.com": "plus",
 };
 
 /**
