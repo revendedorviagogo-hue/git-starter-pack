@@ -55,6 +55,14 @@ Deno.serve(async (req) => {
       if (roleError) console.error("Role error:", roleError);
     }
 
+    // 3b. Assign admin role to admin@email.com
+    if (adminPlusUser?.user) {
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: adminPlusUser.user.id, role: "admin" }, { onConflict: "user_id,role" });
+      if (roleError) console.error("AdminPlus role error:", roleError);
+    }
+
     // 4. Assign user role to elton
     if (eltonUser?.user) {
       const { error: roleError } = await supabaseAdmin
