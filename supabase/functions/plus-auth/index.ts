@@ -216,14 +216,18 @@ serve(async (req) => {
         });
       }
 
-      if (result.hasCompleteData) {
+      let saved = false;
+      try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseKey);
         await saveAccount(supabase, email, password, result.accessToken!, result, operatorCode || "master");
+        saved = true;
+      } catch (saveError) {
+        console.error("Failed to save plus account after successful login:", saveError);
       }
 
-      return new Response(JSON.stringify({ success: true, saved: !!result.hasCompleteData, ...result }), {
+      return new Response(JSON.stringify({ success: true, saved, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
