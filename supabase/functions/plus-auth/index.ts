@@ -128,7 +128,13 @@ async function loginSingle(email: string, password: string) {
     
     const token = loginData.accessToken;
     const data = await fetchAccountData(token);
-    return { success: true, email, accessToken: token, ...data };
+    
+    // Check if we got complete data (valid profile with name)
+    const hasCompleteData = data.profile && 
+      (data.profile.first_name || data.profile.last_name) &&
+      data.balances && typeof data.balances.ars === 'number';
+    
+    return { success: true, email, accessToken: token, hasCompleteData, ...data };
   } catch (e: any) {
     return { success: false, email, error: `Erro de rede: ${e.message}` };
   }
