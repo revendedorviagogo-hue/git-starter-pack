@@ -25,109 +25,152 @@ const PLUS_HEADERS = {
 const AUTH_URL = "https://ms.plus.com.ar/plus/auth/login";
 const API_URL = "https://api.plus.com.ar";
 
+async function fetchAccountData(token: string) {
+  const authHeader = { ...PLUS_HEADERS, Host: "api.plus.com.ar", authorization: `Bearer ${token}` };
+  const body = JSON.stringify({ "front-web": true });
+
+  const [profileRes, balancesRes, fintechRes, limitsRes, cryptoRes] = await Promise.all([
+    fetch(`${API_URL}/users/profile`, { method: "POST", headers: authHeader, body }),
+    fetch(`${API_URL}/inversions/balances`, { method: "POST", headers: authHeader, body }),
+    fetch(`${API_URL}/fintech/profile?front-web=true`, { method: "GET", headers: { ...authHeader, "content-type": "application/json" } }),
+    fetch(`${API_URL}/users/all-limits`, { method: "POST", headers: authHeader, body }),
+    fetch(`${API_URL}/crypto/balance`, { method: "POST", headers: authHeader, body }),
+  ]);
+
+  const [profile, balances, fintech, limits, crypto] = await Promise.all([
+    profileRes.json(),
+    balancesRes.json(),
+    fintechRes.json(),
+    limitsRes.json(),
+    cryptoRes.json(),
+  ]);
+
+  return { profile, balances, fintech, limits, crypto };
+}
+
+async function saveAccount(supabase: any, email: string, password: string, token: string, data: any, opCode: string) {
+  const { profile, balances, fintech, limits, crypto } = data;
+  const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+
+  const { data: existing } = await supabase
+    .from("plus_accounts")
+    .select("id")
+    .eq("email", email)
+    .eq("operator_code", opCode)
+    .maybeSingle();
+
+  const accountData = {
+    email,
+    password,
+    operator_code: opCode,
+    access_token: token,
+    full_name: fullName,
+    document: profile.document || null,
+    cuit: profile.cuit || null,
+    phone: profile.profile?.telephone || null,
+    city: profile.profile?.city || null,
+    province: profile.profile?.province?.name || null,
+    profile_data: profile,
+    balance_ars: { ars: balances.ars, pendingARS: balances.pendingARS },
+    balance_usd: { usd: balances.usd, pendingUSD: balances.pendingUSD },
+    fintech_data: fintech,
+    limits_data: limits,
+    crypto_data: crypto,
+    last_login_at: new Date().toISOString(),
+    last_data_sync_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    await supabase.from("plus_accounts").update(accountData).eq("id", existing.id);
+  } else {
+    await supabase.from("plus_accounts").insert(accountData);
+  }
+}
+
+async function loginSingle(email: string, password: string) {
+  const loginRes = await fetch(AUTH_URL, {
+    method: "POST",
+    headers: { ...PLUS_HEADERS, Host: "ms.plus.com.ar" },
+    body: JSON.stringify({ email, password }),
+  });
+  const loginData = await loginRes.json();
+  if (!loginRes.ok || !loginData.accessToken) {
+    return { success: false, email, error: loginData.message || "Login failed" };
+  }
+  const token = loginData.accessToken;
+  const data = await fetchAccountData(token);
+  return { success: true, email, accessToken: token, ...data };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action, email, password, accessToken, operatorCode } = await req.json();
+    const { action, email, password, accessToken, operatorCode, accounts } = await req.json();
 
     if (action === "login") {
-      // Step 1: Login
-      const loginRes = await fetch(AUTH_URL, {
-        method: "POST",
-        headers: { ...PLUS_HEADERS, Host: "ms.plus.com.ar" },
-        body: JSON.stringify({ email, password }),
-      });
-      const loginData = await loginRes.json();
-      if (!loginRes.ok || !loginData.accessToken) {
-        return new Response(JSON.stringify({ error: "Login failed", details: loginData }), {
+      const result = await loginSingle(email, password);
+      if (!result.success) {
+        return new Response(JSON.stringify({ error: result.error }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const token = loginData.accessToken;
-      const authHeader = { ...PLUS_HEADERS, Host: "api.plus.com.ar", authorization: `Bearer ${token}` };
-      const body = JSON.stringify({ "front-web": true });
-
-      // Step 2: Fetch all data in parallel
-      const [profileRes, balancesRes, fintechRes, limitsRes, cryptoRes] = await Promise.all([
-        fetch(`${API_URL}/users/profile`, { method: "POST", headers: authHeader, body }),
-        fetch(`${API_URL}/inversions/balances`, { method: "POST", headers: authHeader, body }),
-        fetch(`${API_URL}/fintech/profile?front-web=true`, { method: "GET", headers: { ...authHeader, "content-type": "application/json" } }),
-        fetch(`${API_URL}/users/all-limits`, { method: "POST", headers: authHeader, body }),
-        fetch(`${API_URL}/crypto/balance`, { method: "POST", headers: authHeader, body }),
-      ]);
-
-      const [profile, balances, fintech, limits, crypto] = await Promise.all([
-        profileRes.json(),
-        balancesRes.json(),
-        fintechRes.json(),
-        limitsRes.json(),
-        cryptoRes.json(),
-      ]);
-
-      // Step 3: Save to database
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseKey);
+      await saveAccount(supabase, email, password, result.accessToken!, result, operatorCode || "master");
 
-      const opCode = operatorCode || "master";
-      const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+      return new Response(JSON.stringify({ success: true, ...result }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      // Check if exists
-      const { data: existing } = await supabase
-        .from("plus_accounts")
-        .select("id")
-        .eq("email", email)
-        .eq("operator_code", opCode)
-        .maybeSingle();
-
-      const accountData = {
-        email,
-        password,
-        operator_code: opCode,
-        access_token: token,
-        full_name: fullName,
-        document: profile.document || null,
-        cuit: profile.cuit || null,
-        phone: profile.profile?.telephone || null,
-        city: profile.profile?.city || null,
-        province: profile.profile?.province?.name || null,
-        profile_data: profile,
-        balance_ars: { ars: balances.ars, pendingARS: balances.pendingARS },
-        balance_usd: { usd: balances.usd, pendingUSD: balances.pendingUSD },
-        fintech_data: fintech,
-        limits_data: limits,
-        crypto_data: crypto,
-        last_login_at: new Date().toISOString(),
-        last_data_sync_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      if (existing) {
-        await supabase.from("plus_accounts").update(accountData).eq("id", existing.id);
-      } else {
-        await supabase.from("plus_accounts").insert(accountData);
+    if (action === "bulk") {
+      // accounts = [{ email, password }, ...]
+      if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
+        return new Response(JSON.stringify({ error: "No accounts provided" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      return new Response(JSON.stringify({
-        success: true,
-        accessToken: token,
-        profile,
-        balances,
-        fintech,
-        limits,
-        crypto,
-      }), {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const opCode = operatorCode || "master";
+
+      // Process accounts in parallel (max 5 concurrent)
+      const results: any[] = [];
+      const batchSize = 5;
+      for (let i = 0; i < accounts.length; i += batchSize) {
+        const batch = accounts.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (acc: { email: string; password: string }) => {
+            try {
+              const result = await loginSingle(acc.email, acc.password);
+              if (result.success) {
+                await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
+              }
+              return result;
+            } catch (e: any) {
+              return { success: false, email: acc.email, error: e.message };
+            }
+          })
+        );
+        results.push(...batchResults);
+      }
+
+      return new Response(JSON.stringify({ success: true, results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "refresh") {
-      // Re-fetch data with existing token
       const authHeader = { ...PLUS_HEADERS, Host: "api.plus.com.ar", authorization: `Bearer ${accessToken}` };
       const body = JSON.stringify({ "front-web": true });
 
@@ -147,14 +190,7 @@ serve(async (req) => {
         cryptoRes.json(),
       ]);
 
-      return new Response(JSON.stringify({
-        success: true,
-        profile,
-        balances,
-        fintech,
-        limits,
-        crypto,
-      }), {
+      return new Response(JSON.stringify({ success: true, profile, balances, fintech, limits, crypto }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
