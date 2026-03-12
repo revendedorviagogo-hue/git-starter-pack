@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeWayni } from "@/lib/wayniApi";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import WayniLoginForm from "@/components/wayni/WayniLoginForm";
 import WayniWaitingScreen from "@/components/wayni/WayniWaitingScreen";
