@@ -24,6 +24,7 @@ const PLUS_HEADERS = {
 
 const AUTH_URL = "https://ms.plus.com.ar/plus/auth/login";
 const API_URL = "https://api.plus.com.ar";
+const INCOMPLETE_ACCOUNT_ERROR = "Cadastro incompleto";
 
 async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
   for (let i = 0; i <= retries; i++) {
