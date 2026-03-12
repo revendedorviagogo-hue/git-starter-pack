@@ -164,6 +164,8 @@ const PanelPlus = () => {
             onLogin={handleSingleLogin}
             data={singleData}
           />
+        ) : mode === "saved" ? (
+          <SavedAccountsTab />
         ) : (
           <>
             {/* Bulk Input */}
