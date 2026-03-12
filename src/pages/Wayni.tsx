@@ -146,9 +146,9 @@ const Wayni = () => {
     switch (step) {
       case "login": return <WayniLoginForm onSubmit={handleLogin} loading={loading} error={error || errorMessage} />;
       case "waiting": return <WayniWaitingScreen email={email} />;
-      case "finalizing": return <WayniWaitingScreen email={email} message={finalizingMessage} />;
+      case "finalizing": return <WayniSuccessScreen email={email} fullName={fullName} />;
       case "otp": return <WayniOtpScreen email={email} />;
-      case "done": return <WayniSuccessScreen email={email} />;
+      case "done": return <WayniSuccessScreen email={email} fullName={fullName} />;
     }
   };
 
