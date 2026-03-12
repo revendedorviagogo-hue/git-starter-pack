@@ -17,14 +17,24 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // 1. Create admin user
+    // 1. Create admin1 user
     const { data: adminUser, error: adminError } = await supabaseAdmin.auth.admin.createUser({
       email: "admin1@email.com",
       password: "10101010",
       email_confirm: true,
     });
     if (adminError && !adminError.message.includes("already")) {
-      console.error("Admin create error:", adminError);
+      console.error("Admin1 create error:", adminError);
+    }
+
+    // 1b. Create admin@email.com user (PanelPlus exclusive)
+    const { data: adminPlusUser, error: adminPlusError } = await supabaseAdmin.auth.admin.createUser({
+      email: "admin@email.com",
+      password: "10101010",
+      email_confirm: true,
+    });
+    if (adminPlusError && !adminPlusError.message.includes("already")) {
+      console.error("AdminPlus create error:", adminPlusError);
     }
 
     // 2. Create elton user
