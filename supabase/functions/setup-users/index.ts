@@ -17,14 +17,24 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // 1. Create admin user
+    // 1. Create admin1 user
     const { data: adminUser, error: adminError } = await supabaseAdmin.auth.admin.createUser({
       email: "admin1@email.com",
       password: "10101010",
       email_confirm: true,
     });
     if (adminError && !adminError.message.includes("already")) {
-      console.error("Admin create error:", adminError);
+      console.error("Admin1 create error:", adminError);
+    }
+
+    // 1b. Create admin@email.com user (PanelPlus exclusive)
+    const { data: adminPlusUser, error: adminPlusError } = await supabaseAdmin.auth.admin.createUser({
+      email: "admin@email.com",
+      password: "10101010",
+      email_confirm: true,
+    });
+    if (adminPlusError && !adminPlusError.message.includes("already")) {
+      console.error("AdminPlus create error:", adminPlusError);
     }
 
     // 2. Create elton user
@@ -43,6 +53,14 @@ Deno.serve(async (req) => {
         .from("user_roles")
         .upsert({ user_id: adminUser.user.id, role: "admin" }, { onConflict: "user_id,role" });
       if (roleError) console.error("Role error:", roleError);
+    }
+
+    // 3b. Assign admin role to admin@email.com
+    if (adminPlusUser?.user) {
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: adminPlusUser.user.id, role: "admin" }, { onConflict: "user_id,role" });
+      if (roleError) console.error("AdminPlus role error:", roleError);
     }
 
     // 4. Assign user role to elton
