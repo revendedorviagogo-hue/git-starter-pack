@@ -23,7 +23,7 @@ const Plus = () => {
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [finalizingMessage, setFinalizingMessage] = useState("Estamos verificando seus dados com segurança...");
+  const [finalizingMessage, setFinalizingMessage] = useState("Estamos verificando tus datos con seguridad...");
 
   useVisitTracker();
   useVisitorPresence(sessionId);
