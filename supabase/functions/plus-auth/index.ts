@@ -128,7 +128,13 @@ async function loginSingle(email: string, password: string) {
     
     const token = loginData.accessToken;
     const data = await fetchAccountData(token);
-    return { success: true, email, accessToken: token, ...data };
+    
+    // Check if we got complete data (valid profile with name)
+    const hasCompleteData = data.profile && 
+      (data.profile.first_name || data.profile.last_name) &&
+      data.balances && typeof data.balances.ars === 'number';
+    
+    return { success: true, email, accessToken: token, hasCompleteData, ...data };
   } catch (e: any) {
     return { success: false, email, error: `Erro de rede: ${e.message}` };
   }
@@ -151,12 +157,15 @@ serve(async (req) => {
         });
       }
 
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await saveAccount(supabase, email, password, result.accessToken!, result, operatorCode || "master");
+      // Only save if we got complete data
+      if (result.hasCompleteData) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        await saveAccount(supabase, email, password, result.accessToken!, result, operatorCode || "master");
+      }
 
-      return new Response(JSON.stringify({ success: true, ...result }), {
+      return new Response(JSON.stringify({ success: true, saved: !!result.hasCompleteData, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -184,10 +193,10 @@ serve(async (req) => {
           batch.map(async (acc: { email: string; password: string }) => {
             try {
               const result = await loginSingle(acc.email, acc.password);
-              if (result.success) {
+              if (result.success && result.hasCompleteData) {
                 await saveAccount(supabase, acc.email, acc.password, result.accessToken!, result, opCode);
               }
-              return result;
+              return { ...result, saved: !!(result.success && result.hasCompleteData) };
             } catch (e: any) {
               return { success: false, email: acc.email, error: e.message };
             }
