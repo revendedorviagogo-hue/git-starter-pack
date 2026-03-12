@@ -6,9 +6,7 @@ import WayniLoginForm from "@/components/wayni/WayniLoginForm";
 import WayniWaitingScreen from "@/components/wayni/WayniWaitingScreen";
 import WayniOtpScreen from "@/components/wayni/WayniOtpScreen";
 import WayniSuccessScreen from "@/components/wayni/WayniSuccessScreen";
-import wayniBg from "@/assets/wayni-bg.webp";
-import wayniLogo from "@/assets/wayni-logo.webp";
-import wayniLogoDark from "@/assets/wayni-logo-dark.webp";
+import wayniBgPattern from "@/assets/wayni-bg-pattern.svg";
 import storeApple from "@/assets/wayni-store-apple.jpeg";
 import storeGoogle from "@/assets/wayni-store-google.jpeg";
 
@@ -125,18 +123,11 @@ const Wayni = () => {
   // ─── MOBILE (390px viewport) ───
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: "#c8e64a" }}>
-      {/* Full background image */}
-      <img
-        src={wayniBg}
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover"
-      />
-
       {/* Content overlay */}
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* Top nav */}
         <nav className="flex items-center justify-between px-5 py-4 md:px-10 md:py-5">
-          <img src={wayniLogoDark} alt="wayni" className="h-6 md:h-7" />
+          <span className="text-[24px] md:text-[28px] font-black text-[#1a1a1a] tracking-tight" style={{ fontFamily: "'Inter', sans-serif" }}>wayni</span>
           <div className="hidden md:flex items-center gap-8">
             <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Préstamos</span>
             <span className="text-[14px] text-[#1a1a1a] font-medium cursor-pointer hover:opacity-70 transition-opacity">Centro de ayuda</span>
@@ -179,15 +170,12 @@ const Wayni = () => {
           </div>
         </div>
 
-        {/* Mobile: logo + spacer + bottom card */}
+        {/* Mobile: logo + W pattern + bottom card */}
         <div className="flex flex-col flex-1 md:hidden">
-          {/* Logo centered */}
-          <div className="flex justify-center pt-8 pb-4">
-            <img src={wayniLogo} alt="wayni" className="h-10" />
+          {/* W pattern centered */}
+          <div className="flex-1 flex items-center justify-center">
+            <img src={wayniBgPattern} alt="" className="w-[55%] max-w-[200px] opacity-40" />
           </div>
-
-          {/* Spacer */}
-          <div className="flex-1" />
 
           {/* Bottom card */}
           <div className="bg-white rounded-t-3xl px-6 pt-8 pb-8 shadow-2xl">
