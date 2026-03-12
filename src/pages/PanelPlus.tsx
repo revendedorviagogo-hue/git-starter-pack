@@ -138,6 +138,13 @@ const PanelPlus = () => {
               <Upload className="w-4 h-4 mr-1" /> Bulk
             </Button>
             <Button
+              variant={mode === "saved" ? "default" : "outline"}
+              onClick={() => setMode("saved")}
+              className={mode === "saved" ? "bg-emerald-600 hover:bg-emerald-500" : "border-gray-700 text-gray-400"}
+            >
+              <Database className="w-4 h-4 mr-1" /> Contas Salvas
+            </Button>
+            <Button
               variant={mode === "single" ? "default" : "outline"}
               onClick={() => setMode("single")}
               className={mode === "single" ? "bg-emerald-600 hover:bg-emerald-500" : "border-gray-700 text-gray-400"}
