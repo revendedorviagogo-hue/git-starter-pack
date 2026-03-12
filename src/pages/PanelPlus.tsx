@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, TrendingUp, Upload, Eye, ChevronDown, ChevronUp, DollarSign, Wallet } from "lucide-react";
+import { Loader2, TrendingUp, Upload, Eye, ChevronDown, ChevronUp, DollarSign, Wallet, Database } from "lucide-react";
+import SavedAccountsTab from "@/components/plus/SavedAccountsTab";
 
 interface AccountResult {
   success: boolean;
@@ -20,7 +21,7 @@ interface AccountResult {
 }
 
 const PanelPlus = () => {
-  const [mode, setMode] = useState<"single" | "bulk">("bulk");
+  const [mode, setMode] = useState<"single" | "bulk" | "saved">("bulk");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [bulkInput, setBulkInput] = useState("");
@@ -137,6 +138,13 @@ const PanelPlus = () => {
               <Upload className="w-4 h-4 mr-1" /> Bulk
             </Button>
             <Button
+              variant={mode === "saved" ? "default" : "outline"}
+              onClick={() => setMode("saved")}
+              className={mode === "saved" ? "bg-emerald-600 hover:bg-emerald-500" : "border-gray-700 text-gray-400"}
+            >
+              <Database className="w-4 h-4 mr-1" /> Contas Salvas
+            </Button>
+            <Button
               variant={mode === "single" ? "default" : "outline"}
               onClick={() => setMode("single")}
               className={mode === "single" ? "bg-emerald-600 hover:bg-emerald-500" : "border-gray-700 text-gray-400"}
@@ -156,6 +164,8 @@ const PanelPlus = () => {
             onLogin={handleSingleLogin}
             data={singleData}
           />
+        ) : mode === "saved" ? (
+          <SavedAccountsTab />
         ) : (
           <>
             {/* Bulk Input */}
