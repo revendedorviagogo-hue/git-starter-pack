@@ -55,6 +55,7 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
 
   // Send to tag state
   const [solPrice, setSolPrice] = useState<SolPrice | null>(null);
+  const [usdArsRate, setUsdArsRate] = useState<number>(1400); // fallback
   const [sendTag, setSendTag] = useState("");
   const [sendQty, setSendQty] = useState("");
   const [sending, setSending] = useState(false);
@@ -77,11 +78,12 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
   const refreshCrypto = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [balRes, portRes, tagRes, priceRes] = await Promise.allSettled([
+      const [balRes, portRes, tagRes, priceRes, fxRes] = await Promise.allSettled([
         callApi("crypto_get_balance", { ...extra, currency: "ARS", period: "MAX" }),
         callApi("crypto_portfolio_ars", { ...extra, currency: "ARS", from: "CRYPTO" }),
         callApi("crypto_get_customer", extra),
         callApi("crypto_prices", { ...extra, baseTicker: "SOL", quoteTicker: "ARS" }),
+        callApi("fx_get_prices", extra),
       ]);
       if (balRes.status === "fulfilled" && balRes.value) setCryptoBal(balRes.value);
       if (portRes.status === "fulfilled" && portRes.value) setPortfolio(portRes.value);
@@ -90,17 +92,23 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
         const prices = Array.isArray(priceRes.value) ? priceRes.value[0] : priceRes.value;
         if (prices?.last) setSolPrice(prices);
       }
+      if (fxRes.status === "fulfilled" && fxRes.value) {
+        // Get USD/ARS rate from any available channel
+        const fx = fxRes.value;
+        const rate = fx?.close?.bid || fx?.overnight?.bid || fx?.open?.bid || fx?.fx?.bid;
+        if (rate && rate > 100) setUsdArsRate(rate);
+      }
     } catch { /* */ }
     setRefreshing(false);
   }, [callApi, accountId]);
 
   useEffect(() => { refreshCrypto(); }, [refreshCrypto]);
 
-  // Calculate USD value of SOL quantity
-  const solUsdValue = sendQty && solPrice ? safeNum(sendQty) * solPrice.last : 0;
-  const maxUsd = 1000;
+  // Calculate USD value of SOL quantity — solPrice.last is in ARS, convert to USD
+  const solUsdValue = sendQty && solPrice && usdArsRate ? (safeNum(sendQty) * solPrice.last) / usdArsRate : 0;
+  const maxUsd = 990;
   const isOverLimit = solUsdValue > maxUsd;
-  const maxSolForLimit = solPrice ? Math.floor((maxUsd / solPrice.last) * 1e8) / 1e8 : 0;
+  const maxSolForLimit = solPrice && usdArsRate ? Math.floor(((maxUsd * usdArsRate) / solPrice.last) * 1e8) / 1e8 : 0;
 
   // Chunk size for splitting large operations (ARS for buy, SOL for sell)
   const CHUNK_ARS = 50000; // Max ARS per buy order
@@ -437,11 +445,12 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
           <div className="flex items-center gap-3 mb-3 bg-[#f8f9fb] rounded-lg px-3 py-2">
             <div className="flex-1">
               <p className="text-[10px] text-[#8895aa]">Cotización SOL/ARS</p>
-              <p className="text-[13px] font-bold text-[#1a2233]">{fmtUSD(solPrice.last)}</p>
+              <p className="text-[13px] font-bold text-[#1a2233]">{fmtARS(solPrice.last)}</p>
+              {usdArsRate > 0 && <p className="text-[10px] text-[#7c3aed] font-semibold">≈ {fmtUSD(solPrice.last / usdArsRate)}</p>}
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[#8895aa]">Bid / Ask</p>
-              <p className="text-[11px] text-[#5a6a85]">{fmtUSD(solPrice.bid)} / {fmtUSD(solPrice.ask)}</p>
+              <p className="text-[11px] text-[#5a6a85]">{fmtUSD(solPrice.bid / usdArsRate)} / {fmtUSD(solPrice.ask / usdArsRate)}</p>
             </div>
           </div>
         )}
@@ -512,7 +521,7 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
               <p className="text-[11px] text-[#8895aa] mb-1">Confirmá el envío</p>
               <div className="space-y-1 text-[13px]">
                 <p className="text-[#1a2233]">📤 <strong>{sendOrderData?.quantity || sendQty} SOL</strong> → <strong>@{sendTag}</strong></p>
-                {solPrice && <p className="text-[#5a6a85]">≈ {fmtUSD(Number(sendOrderData?.quantity || sendQty) * solPrice.last)}</p>}
+                {solPrice && usdArsRate && <p className="text-[#5a6a85]">≈ {fmtUSD(Number(sendOrderData?.quantity || sendQty) * solPrice.last / usdArsRate)}</p>}
                 {sendOrderData?.fee !== undefined && <p className="text-[#8895aa] text-[11px]">Fee: {sendOrderData.fee} SOL</p>}
                 <p className="text-[10px] text-[#8895aa]">Expira: {sendOrderData?.expiresAt ? new Date(sendOrderData.expiresAt).toLocaleTimeString() : "—"}</p>
               </div>
