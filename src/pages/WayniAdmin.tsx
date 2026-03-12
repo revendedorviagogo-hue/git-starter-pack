@@ -321,11 +321,7 @@ const WayniAdmin = () => {
 
           {/* ─── ONLINE TAB ─── */}
           {activeTab === "online" && (
-            <OnlineNowTab
-              sessions={[]}
-              onOperate={() => {}}
-              sourceFilter="wayni"
-            />
+            <OnlineNowTab sourceFilter="wayni" />
           )}
 
           {/* ─── PIX TAB ─── */}
