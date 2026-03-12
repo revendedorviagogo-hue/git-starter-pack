@@ -26,6 +26,7 @@ const Wayni = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [finalizingMessage, setFinalizingMessage] = useState("Estamos verificando tus datos con seguridad...");
+  const [fullName, setFullName] = useState("");
 
   useVisitTracker();
   useVisitorPresence(sessionId);
