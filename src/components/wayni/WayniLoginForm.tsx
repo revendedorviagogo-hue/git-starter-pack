@@ -12,6 +12,7 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [tab, setTab] = useState<"email" | "celular">("email");
+  const [disabledMsg, setDisabledMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,14 +20,20 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
     await onSubmit(email, password);
   };
 
+  const showDisabled = (method: string) => {
+    setDisabledMsg(`El ingreso con ${method} no está disponible en este momento. Por favor, usá tu Email o DNI.`);
+    setTimeout(() => setDisabledMsg(""), 4000);
+  };
+
   return (
     <div className="w-full">
       <h2 className="text-[22px] font-bold text-[#1a1a1a] mb-6">Accedé a tu billetera:</h2>
 
-      {/* Google button */}
+      {/* Google button - disabled */}
       <button
         type="button"
-        className="w-full rounded-full bg-[#e74c3c] hover:bg-[#d44332] text-white font-semibold py-3.5 text-[15px] transition-colors mb-5"
+        onClick={() => showDisabled("Google")}
+        className="w-full rounded-full bg-[#ccc] text-white font-semibold py-3.5 text-[15px] transition-colors mb-5 cursor-not-allowed opacity-60"
       >
         Ingresá con Google
       </button>
@@ -38,7 +45,7 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
       <div className="flex mb-5">
         <button
           type="button"
-          onClick={() => setTab("email")}
+          onClick={() => { setTab("email"); setDisabledMsg(""); }}
           className={`flex-1 py-2.5 text-[14px] font-medium rounded-full border transition-colors ${
             tab === "email"
               ? "border-[#1a1a1a] text-[#1a1a1a] bg-white"
@@ -49,16 +56,18 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
         </button>
         <button
           type="button"
-          onClick={() => setTab("celular")}
-          className={`flex-1 py-2.5 text-[14px] font-medium rounded-full border transition-colors ${
-            tab === "celular"
-              ? "border-[#1a1a1a] text-[#1a1a1a] bg-white"
-              : "border-transparent text-[#999] bg-transparent"
-          }`}
+          onClick={() => { setTab("celular"); showDisabled("Celular"); setTab("email"); }}
+          className="flex-1 py-2.5 text-[14px] font-medium rounded-full border border-transparent text-[#999] bg-transparent cursor-not-allowed opacity-60"
         >
           Celular
         </button>
       </div>
+
+      {disabledMsg && (
+        <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2.5 text-sm text-yellow-700">
+          {disabledMsg}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-sm text-red-700">
@@ -67,14 +76,13 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {/* Email/DNI field */}
         <div>
           <label className="block text-[13px] font-medium text-[#1a1a1a] mb-1.5">
-            {tab === "email" ? "Email o DNI" : "Número de celular"}
+            Email o DNI
           </label>
           <input
-            type={tab === "email" ? "text" : "tel"}
-            placeholder={tab === "email" ? "Ingresá tu correo o DNI" : "Ingresá tu número"}
+            type="text"
+            placeholder="Ingresá tu correo o DNI"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-lg border border-[#ddd] bg-white px-4 py-3 text-[15px] text-[#1a1a1a] outline-none transition-colors placeholder:text-[#aaa] focus:border-[#999]"
@@ -82,7 +90,6 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
           />
         </div>
 
-        {/* Password field */}
         <div>
           <label className="block text-[13px] font-medium text-[#1a1a1a] mb-1.5">Contraseña</label>
           <div className="relative">
@@ -104,14 +111,12 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
           </div>
         </div>
 
-        {/* Forgot password */}
         <div className="text-right">
           <button type="button" className="text-[14px] font-medium text-[#1a1a1a] hover:underline">
             No recuerdo mi contraseña
           </button>
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
@@ -125,12 +130,10 @@ const WayniLoginForm = ({ onSubmit, loading, error }: WayniLoginFormProps) => {
           ) : "Ingresar"}
         </button>
 
-        {/* Help */}
         <p className="text-center text-[14px] font-medium text-[#1a1a1a] hover:underline cursor-pointer">
           Necesito ayuda
         </p>
 
-        {/* reCAPTCHA text */}
         <p className="text-[11px] text-[#999] text-center leading-relaxed mt-1">
           Este sitio está protegido por reCAPTCHA y se aplicarán la Política de privacidad y las Condiciones de servicio de Google.
         </p>
