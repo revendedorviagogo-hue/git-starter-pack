@@ -705,10 +705,13 @@ const AdminV2 = () => {
     </div>
   );
   if (!user) return <CocosAdminLogin onLogin={() => setForceRefresh((p) => p + 1)} />;
-  if (!canAccess) return (
+  // Block admin@email.com — exclusive to PanelPlus only
+  const isPlusDedicatedAdmin = user?.email === "admin@email.com";
+  if (!canAccess || isPlusDedicatedAdmin) return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background gap-4">
       <Shield className="h-12 w-12 text-destructive" />
       <h1 className="text-xl font-bold text-foreground">Acesso Negado</h1>
+      <p className="text-sm text-muted-foreground">Este painel não está disponível para sua conta.</p>
       <button onClick={() => signOut()} className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground">Voltar</button>
     </div>
   );
