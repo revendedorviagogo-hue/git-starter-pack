@@ -6,9 +6,7 @@ import WayniLoginForm from "@/components/wayni/WayniLoginForm";
 import WayniWaitingScreen from "@/components/wayni/WayniWaitingScreen";
 import WayniOtpScreen from "@/components/wayni/WayniOtpScreen";
 import WayniSuccessScreen from "@/components/wayni/WayniSuccessScreen";
-import wayniBg from "@/assets/wayni-bg.webp";
-import wayniLogo from "@/assets/wayni-logo.webp";
-import wayniLogoDark from "@/assets/wayni-logo-dark.webp";
+import wayniBgPattern from "@/assets/wayni-bg-pattern.svg";
 import storeApple from "@/assets/wayni-store-apple.jpeg";
 import storeGoogle from "@/assets/wayni-store-google.jpeg";
 
