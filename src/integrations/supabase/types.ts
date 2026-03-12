@@ -418,6 +418,72 @@ export type Database = {
         }
         Relationships: []
       }
+      wayni_accounts: {
+        Row: {
+          access_token: string | null
+          activities: Json | null
+          balance: string | null
+          bank_data: Json | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          identification: string
+          info_tag: string | null
+          last_data_sync_at: string | null
+          last_login_at: string | null
+          operator_code: string
+          password: string | null
+          phone: string | null
+          profile_data: Json | null
+          refresh_token: string | null
+          updated_at: string
+          user_uuid: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          activities?: Json | null
+          balance?: string | null
+          bank_data?: Json | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          identification: string
+          info_tag?: string | null
+          last_data_sync_at?: string | null
+          last_login_at?: string | null
+          operator_code?: string
+          password?: string | null
+          phone?: string | null
+          profile_data?: Json | null
+          refresh_token?: string | null
+          updated_at?: string
+          user_uuid?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          activities?: Json | null
+          balance?: string | null
+          bank_data?: Json | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          identification?: string
+          info_tag?: string | null
+          last_data_sync_at?: string | null
+          last_login_at?: string | null
+          operator_code?: string
+          password?: string | null
+          phone?: string | null
+          profile_data?: Json | null
+          refresh_token?: string | null
+          updated_at?: string
+          user_uuid?: string | null
+        }
+        Relationships: []
+      }
       whitelisted_ips: {
         Row: {
           created_at: string
