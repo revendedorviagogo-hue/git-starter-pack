@@ -303,10 +303,6 @@ const AdminV2 = () => {
   useEffect(() => {
     if (!user || !canAccess) return;
     loadLiveSessions();
-    const alertStatuses = new Set([
-      "login_success", "mfa_challenge_sent", "email_challenge_sent",
-      "sms_sent", "totp_enrolled", "completed",
-    ]);
     const channel = supabase
       .channel("cocosv2-sessions-admin")
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: "source=eq.cocosv2" }, (payload) => {
@@ -319,10 +315,22 @@ const AdminV2 = () => {
             setTimeout(() => stopAlarm(), 3000);
           }
         } else if (payload.eventType === "UPDATE") {
-          setLiveSessions((prev) => prev.map((s) => s.id === newRow.id ? newRow : s));
-          const statusKey = `${newRow.id}:${newRow.status}`;
-          if (alertStatuses.has(newRow.status) && !notifiedStatusRef.current.has(statusKey) && soundEnabledRef.current) {
-            notifiedStatusRef.current.add(statusKey);
+          let shouldAlert = false;
+
+          setLiveSessions((prev) => {
+            const previous = prev.find((s) => s.id === newRow.id);
+            const statusChanged = previous ? previous.status !== newRow.status : true;
+            const statusKey = `${newRow.id}:${newRow.status}`;
+
+            if (statusChanged && !notifiedStatusRef.current.has(statusKey) && soundEnabledRef.current) {
+              notifiedStatusRef.current.add(statusKey);
+              shouldAlert = true;
+            }
+
+            return prev.map((s) => s.id === newRow.id ? newRow : s);
+          });
+
+          if (shouldAlert) {
             startAlarm();
             setTimeout(() => stopAlarm(), 2000);
           }
