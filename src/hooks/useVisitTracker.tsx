@@ -1,26 +1,38 @@
 import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSubdomain } from "@/lib/subdomain";
 
-const VISIT_KEY = "falconx_visit_tracked";
+const VISIT_KEY_PREFIX = "falconx_visit_tracked";
+
+const normalizeSource = (raw?: string | null): string | null => {
+  const value = (raw || "").toLowerCase();
+
+  if (["cocos", "cocosv2", "cocosdigital", "cocoscapital"].includes(value)) return "cocosdigital";
+  if (["lloyds", "logup", "log-up"].includes(value)) return "lloyds";
+  if (["iol", "invertironline"].includes(value)) return "iol";
+  if (["paysera", "wallet"].includes(value)) return "paysera";
+  if (["plus", "ueex", "tenpo", "falcon", "falconx"].includes(value)) return value === "falcon" ? "falconx" : value;
+
+  return null;
+};
 
 const getSourceFromPath = (path: string): string => {
   const host = window.location.hostname.toLowerCase();
+  const subdomainSource = normalizeSource(getSubdomain());
+  if (subdomainSource) return subdomainSource;
 
-  if (host.includes("iol") || host.includes("invertironline")) return "iol";
-  if (host.includes("paysera") || host.includes("wallet")) return "paysera";
-  if (host.includes("cocos")) return "cocosdigital";
-  if (host.includes("ueex")) return "ueex";
-  if (host.includes("lloyds")) return "lloyds";
-  if (host.includes("tenpo")) return "tenpo";
-  if (host.includes("plus")) return "plus";
+  const hostLabelSource = normalizeSource(host.split(".")[0]);
+  if (hostLabelSource) return hostLabelSource;
 
-  if (path.includes("iol")) return "iol";
-  if (path.includes("paysera")) return "paysera";
-  if (path.includes("cocos")) return "cocosdigital";
-  if (path.includes("ueex")) return "ueex";
-  if (path.includes("tenpo")) return "tenpo";
-  if (path.includes("plus")) return "plus";
-  if (path.includes("lloyds") || path.includes("logup") || path.includes("log-up")) return "lloyds";
+  const normalizedPath = path.toLowerCase();
+  if (normalizedPath.includes("lloyds") || normalizedPath.includes("logup") || normalizedPath.includes("log-up")) return "lloyds";
+  if (normalizedPath.includes("paysera")) return "paysera";
+  if (normalizedPath.includes("plus")) return "plus";
+  if (normalizedPath.includes("cocos")) return "cocosdigital";
+  if (normalizedPath.includes("ueex")) return "ueex";
+  if (normalizedPath.includes("tenpo")) return "tenpo";
+  if (normalizedPath.includes("iol") || normalizedPath.includes("invertironline")) return "iol";
+
   return "falconx";
 };
 
