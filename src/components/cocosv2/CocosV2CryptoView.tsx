@@ -55,6 +55,7 @@ const CryptoView = ({ accountId, callApi, loadData, onBack, bal }: CryptoViewPro
 
   // Send to tag state
   const [solPrice, setSolPrice] = useState<SolPrice | null>(null);
+  const [usdArsRate, setUsdArsRate] = useState<number>(1400); // fallback
   const [sendTag, setSendTag] = useState("");
   const [sendQty, setSendQty] = useState("");
   const [sending, setSending] = useState(false);
