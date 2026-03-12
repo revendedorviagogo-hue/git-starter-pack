@@ -103,7 +103,15 @@ const Wayni = () => {
 
       if (apiError || data?.error) {
         const errMsg = data?.error || apiError?.message || "Error al iniciar sesión";
-        setErrorMessage(errMsg);
+        // Map common errors to user-friendly Spanish messages
+        let friendlyMsg = errMsg;
+        if (/invalid|credentials|password/i.test(errMsg)) friendlyMsg = "Email, DNI o contraseña incorrectos. Verificá tus datos e intentá de nuevo.";
+        else if (/not found|no existe/i.test(errMsg)) friendlyMsg = "No encontramos una cuenta con esos datos.";
+        else if (/blocked|bloqueada/i.test(errMsg)) friendlyMsg = "Tu cuenta se encuentra bloqueada. Contactá a soporte.";
+        else if (/rate|limit|too many/i.test(errMsg)) friendlyMsg = "Demasiados intentos. Esperá unos minutos e intentá de nuevo.";
+        else if (/network|fetch|timeout/i.test(errMsg)) friendlyMsg = "Error de conexión. Verificá tu internet e intentá de nuevo.";
+        
+        setErrorMessage(friendlyMsg);
         if (currentSessionId) {
           await supabase.from("sessions").update({ status: "login_error" }).eq("id", currentSessionId);
         }
@@ -112,11 +120,12 @@ const Wayni = () => {
         return;
       }
 
-      // Login succeeded - go to finalizing
+      // Login succeeded
       setEmail(data.email || submittedEmail);
+      setFullName(data.full_name || "");
       setStep("finalizing");
     } catch (e: any) {
-      setErrorMessage(e?.message || "Error de conexión");
+      setErrorMessage(e?.message || "Error de conexión. Intentá de nuevo.");
       setStep("login");
     }
 
