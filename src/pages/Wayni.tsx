@@ -172,9 +172,9 @@ const Wayni = () => {
 
         {/* Mobile: logo + W pattern + bottom card */}
         <div className="flex flex-col flex-1 md:hidden">
-          {/* W pattern centered */}
-          <div className="flex-1 flex items-center justify-center">
-            <img src={wayniBgPattern} alt="" className="w-[55%] max-w-[200px] opacity-40" />
+          {/* W pattern centered in green area */}
+          <div className="flex-1 flex items-start justify-center pt-6">
+            <img src={wayniBgPattern} alt="" className="w-[140px] h-[140px] opacity-40" />
           </div>
 
           {/* Bottom card */}
