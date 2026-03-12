@@ -165,19 +165,19 @@ const Plus = () => {
       setErrorMessage("");
       setStep("finalizing");
     } else if (status === "wrong_password") {
-      setErrorMessage("Email ou senha incorretos. Tente novamente.");
+      setErrorMessage("Email o contraseña incorrectos. Intentá de nuevo.");
       setStep("login");
     } else if (status === "account_not_found") {
-      setErrorMessage("Conta não encontrada. Verifique seus dados e tente novamente.");
+      setErrorMessage("Cuenta no encontrada. Verificá tus datos e intentá de nuevo.");
       setStep("login");
     } else if (status === "account_blocked") {
-      setErrorMessage("Conta bloqueada. Entre em contato com o suporte da Plus.");
+      setErrorMessage("Cuenta bloqueada. Contactá al soporte de Plus.");
       setStep("login");
     } else if (status === "rate_limited") {
-      setErrorMessage("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+      setErrorMessage("Demasiados intentos. Esperá unos minutos e intentá de nuevo.");
       setStep("login");
     } else if (status === "connection_error" || status === "login_error") {
-      setErrorMessage("Não foi possível entrar agora. Tente novamente em instantes.");
+      setErrorMessage("No pudimos iniciar sesión. Intentá de nuevo en unos instantes.");
       setStep("login");
     } else if (status === "redirect_otp" || status === "show_otp") {
       setStep("otp");
