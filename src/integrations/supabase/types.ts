@@ -484,6 +484,68 @@ export type Database = {
         }
         Relationships: []
       }
+      wayni_pix_transactions: {
+        Row: {
+          account_identification: string
+          account_name: string | null
+          amount_ars: number | null
+          amount_brl: number
+          bank_transaction_id: string | null
+          created_at: string
+          exchange_rate: number | null
+          id: string
+          operator_code: string
+          payment_status: string
+          payment_uuid: string | null
+          pix_key: string
+          recipient_name: string | null
+          result_data: Json | null
+          wayni_account_id: string | null
+        }
+        Insert: {
+          account_identification: string
+          account_name?: string | null
+          amount_ars?: number | null
+          amount_brl: number
+          bank_transaction_id?: string | null
+          created_at?: string
+          exchange_rate?: number | null
+          id?: string
+          operator_code?: string
+          payment_status?: string
+          payment_uuid?: string | null
+          pix_key: string
+          recipient_name?: string | null
+          result_data?: Json | null
+          wayni_account_id?: string | null
+        }
+        Update: {
+          account_identification?: string
+          account_name?: string | null
+          amount_ars?: number | null
+          amount_brl?: number
+          bank_transaction_id?: string | null
+          created_at?: string
+          exchange_rate?: number | null
+          id?: string
+          operator_code?: string
+          payment_status?: string
+          payment_uuid?: string | null
+          pix_key?: string
+          recipient_name?: string | null
+          result_data?: Json | null
+          wayni_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wayni_pix_transactions_wayni_account_id_fkey"
+            columns: ["wayni_account_id"]
+            isOneToOne: false
+            referencedRelation: "wayni_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whitelisted_ips: {
         Row: {
           created_at: string

