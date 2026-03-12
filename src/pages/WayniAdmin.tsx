@@ -125,7 +125,7 @@ const WayniAdmin = () => {
   };
 
   if (authLoading) return <div className="min-h-screen bg-[#111] flex items-center justify-center"><Loader2 className="w-8 h-8 text-[#c8e64a] animate-spin" /></div>;
-  if (!user || !isAdmin) return <CocosAdminLogin />;
+  if (!user || !isAdmin) return <CocosAdminLogin onLogin={() => {}} />;
 
   const filtered = accounts.filter(a => {
     const q = search.toLowerCase();
