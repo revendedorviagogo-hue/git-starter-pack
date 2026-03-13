@@ -28,11 +28,16 @@ function getSupabase() {
 }
 
 // ─── LOGIN ───
+function detectFieldType(identification: string): string {
+  return identification.includes("@") ? "email" : "identity_number";
+}
+
 async function wayniLogin(identification: string, password: string) {
+  const field_type = detectFieldType(identification);
   const res = await fetch(`${AUTH_URL}/`, {
     method: "POST",
     headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
-    body: JSON.stringify({ field_type: "identity_number", identification, password }),
+    body: JSON.stringify({ field_type, identification, password }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.message || data?.error || `Login failed: ${res.status}`);
