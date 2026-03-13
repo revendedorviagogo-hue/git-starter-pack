@@ -66,6 +66,9 @@ interface AccountResult {
   email: string;
   error?: string;
   accessToken?: string;
+  has2FA?: boolean;
+  totpSecret?: string | null;
+  saved?: boolean;
   profile?: any;
   balances?: any;
   fintech?: any;
@@ -760,9 +763,11 @@ const BulkTab = ({ bulkInput, setBulkInput, loading, results, progress, paused, 
   paused: boolean; onCheck: () => void; onTogglePause: () => void;
   parseBulkInput: (t: string) => { email: string; password: string }[];
 }) => {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const successCount = results.filter((r) => r.success).length;
   const totalARS = results.filter(r => r.success).reduce((s, r) => s + (r.balances?.ars || 0) + (r.fintech?.balance || 0), 0);
   const totalUSD = results.filter(r => r.success).reduce((s, r) => s + (r.balances?.usd || 0), 0);
+  const mfaCount = results.filter(r => r.has2FA).length;
 
   return (
     <div className="space-y-4">
@@ -810,32 +815,105 @@ const BulkTab = ({ bulkInput, setBulkInput, loading, results, progress, paused, 
 
       {results.length > 0 && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             <MetricCard label="Sucesso" value={`${successCount}/${results.length}`} color="text-emerald-400" icon="✓" />
             <MetricCard label="Falha" value={String(results.length - successCount)} color="text-red-400" icon="✕" />
+            <MetricCard label="MFA" value={String(mfaCount)} color="text-amber-400" icon="🔐" />
             <MetricCard label="Total ARS" value={fmtARS(totalARS)} color="text-emerald-400" icon="💰" />
             <MetricCard label="Total USD" value={fmtUSD(totalUSD)} color="text-blue-400" icon="🇺🇸" />
           </div>
           <div className="space-y-1">
-            {results.map((r, i) => (
-              <div key={r.email + i} className={`rounded-lg border px-3 py-2 text-xs flex items-center gap-3 ${
-                r.success ? "border-border bg-card" : "border-red-500/20 bg-red-500/5"
-              }`}>
-                <span className="text-muted-foreground font-mono w-6">{i + 1}</span>
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${r.success ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                  {r.success ? "✓" : "✕"}
-                </span>
-                <span className="font-mono text-foreground flex-1 truncate">{r.email}</span>
-                {r.success ? (
-                  <>
-                    <span className="text-emerald-400 font-mono">{fmtARS(r.balances?.ars)}</span>
-                    <span className="text-blue-400 font-mono">{fmtUSD(r.balances?.usd)}</span>
-                  </>
-                ) : (
-                  <span className="text-red-400">{r.error}</span>
-                )}
-              </div>
-            ))}
+            {results.map((r, i) => {
+              const isExpanded = expandedIdx === i;
+              const fullName = r.profile ? `${r.profile.first_name || ""} ${r.profile.last_name || ""}`.trim() : "";
+              const doc = r.profile?.document || "";
+              const cuit = r.profile?.cuit || "";
+              const phone = r.profile?.profile?.telephone || "";
+              const city = r.profile?.profile?.city || "";
+              const province = r.profile?.profile?.province?.name || "";
+              const fintechBal = r.fintech?.balance ?? r.fintech?.availableBalance ?? null;
+              const cryptoItems = r.crypto?.items || r.crypto?.balances || [];
+
+              return (
+                <div key={r.email + i} className={`rounded-lg border overflow-hidden ${
+                  r.success ? "border-border bg-card" : "border-red-500/20 bg-red-500/5"
+                }`}>
+                  <div
+                    className="px-3 py-2 text-xs flex items-center gap-3 cursor-pointer hover:bg-secondary/50 transition-colors"
+                    onClick={() => r.success && setExpandedIdx(isExpanded ? null : i)}
+                  >
+                    <span className="text-muted-foreground font-mono w-6">{i + 1}</span>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${r.success ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                      {r.success ? "✓" : "✕"}
+                    </span>
+                    {r.has2FA && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">MFA</span>
+                    )}
+                    <span className="font-mono text-foreground truncate" style={{ minWidth: 0, flex: 1 }}>{r.email}</span>
+                    {r.success && fullName && (
+                      <span className="text-muted-foreground text-[10px] truncate max-w-[120px]">{fullName}</span>
+                    )}
+                    {r.success ? (
+                      <>
+                        <span className="text-emerald-400 font-mono whitespace-nowrap">{fmtARS(r.balances?.ars)}</span>
+                        <span className="text-blue-400 font-mono whitespace-nowrap">{fmtUSD(r.balances?.usd)}</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                      </>
+                    ) : (
+                      <span className="text-red-400">{r.error}</span>
+                    )}
+                  </div>
+
+                  {isExpanded && r.success && (
+                    <div className="px-4 pb-3 pt-1 border-t border-border/50 space-y-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-0.5">
+                        {fullName && <DataItem label="Nome" value={fullName} />}
+                        {doc && <DataItem label="Documento" value={doc} />}
+                        {cuit && <DataItem label="CUIT" value={cuit} />}
+                        {phone && <DataItem label="Telefone" value={phone} />}
+                        {city && <DataItem label="Cidade" value={city} />}
+                        {province && <DataItem label="Província" value={province} />}
+                        <DataItem label="MFA" value={r.has2FA ? "Sim ✅" : "Não"} color={r.has2FA ? "text-amber-400" : "text-muted-foreground"} />
+                        {r.saved !== undefined && <DataItem label="Salvo" value={r.saved ? "Sim ✅" : "Não ❌"} color={r.saved ? "text-emerald-400" : "text-red-400"} />}
+                      </div>
+
+                      <div className="pt-1">
+                        <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Saldos</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-0.5 mt-0.5">
+                          <DataItem label="ARS" value={fmtARS(r.balances?.ars)} color="text-emerald-400" />
+                          <DataItem label="USD" value={fmtUSD(r.balances?.usd)} color="text-blue-400" />
+                          <DataItem label="ARS Pendente" value={fmtARS(r.balances?.pendingARS)} />
+                          <DataItem label="USD Pendente" value={fmtUSD(r.balances?.pendingUSD)} />
+                          {fintechBal !== null && <DataItem label="Fintech" value={fmtARS(fintechBal)} color="text-emerald-400" />}
+                        </div>
+                      </div>
+
+                      {r.limits && typeof r.limits === "object" && !r.limits.error && (
+                        <div className="pt-1">
+                          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Limites</span>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-0.5 mt-0.5">
+                            {Object.entries(r.limits).slice(0, 9).map(([k, v]) => (
+                              <DataItem key={k} label={k} value={typeof v === "number" ? fmtARS(v) : String(v ?? "-")} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(cryptoItems) && cryptoItems.length > 0 && (
+                        <div className="pt-1">
+                          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Crypto</span>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-0.5 mt-0.5">
+                            {cryptoItems.map((c: any, ci: number) => (
+                              <DataItem key={ci} label={c.currency || c.symbol || `#${ci}`} value={`${c.balance ?? c.amount ?? 0}`} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </>
       )}
