@@ -706,6 +706,48 @@ const AccountRow = ({ account: a, onDelete, onUpdateTag }: {
   );
 };
 
+// ── TOTP Live Code ──
+const TotpLiveCode = ({ secret, copyText, copied }: {
+  secret: string;
+  copyText: (text: string, label: string) => void;
+  copied: string;
+}) => {
+  const [code, setCode] = useState("------");
+  const [remaining, setRemaining] = useState(30);
+
+  useEffect(() => {
+    let mounted = true;
+    const update = async () => {
+      try {
+        const c = await generateTOTP(secret);
+        if (mounted) setCode(c);
+      } catch { if (mounted) setCode("ERROR"); }
+      if (mounted) setRemaining(getTimeRemaining());
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [secret]);
+
+  return (
+    <div className="flex items-center justify-between py-0.5 mt-1">
+      <span className="text-muted-foreground text-[10px]">Código</span>
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-bold font-mono text-emerald-400 tracking-[0.2em]">{code}</span>
+        <button onClick={(e) => { e.stopPropagation(); copyText(code, "totp_code"); }}
+          className="text-muted-foreground hover:text-foreground transition-colors">
+          {copied === "totp_code" ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
+        </button>
+        <div className="flex items-center gap-1">
+          <div className="w-5 h-5 rounded-full border-2 border-amber-500/30 flex items-center justify-center">
+            <span className={`text-[8px] font-bold font-mono ${remaining <= 5 ? "text-red-400" : "text-amber-400"}`}>{remaining}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Data Item ──
 const DataItem = ({ label, value, color }: { label: string; value: string; color?: string }) => (
   <div className="flex items-center justify-between py-1 border-b border-border/50 last:border-0">
