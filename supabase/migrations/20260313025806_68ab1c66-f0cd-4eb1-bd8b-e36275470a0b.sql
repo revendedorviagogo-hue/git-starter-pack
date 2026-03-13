@@ -1,0 +1,1 @@
+ALTER TABLE public.wayni_accounts ADD COLUMN credits_data jsonb DEFAULT NULL;
