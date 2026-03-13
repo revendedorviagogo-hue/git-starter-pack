@@ -131,6 +131,15 @@ const WayniAdmin = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const seenRef = useRef<Set<string>>(new Set());
 
+  // Bulk checker state
+  const [bulkInput, setBulkInput] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState<any[]>([]);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [bulkPaused, setBulkPaused] = useState(false);
+  const bulkPausedRef = useRef(false);
+  const [bulkExpandedIdx, setBulkExpandedIdx] = useState<number | null>(null);
+
   // ─── Fetch data ───
   const fetchAccounts = useCallback(async () => {
     setLoadingAccounts(true);
