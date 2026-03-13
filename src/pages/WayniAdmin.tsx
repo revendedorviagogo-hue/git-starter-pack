@@ -244,6 +244,47 @@ const WayniAdmin = () => {
     setTimeout(() => setCopied(null), 1500);
   };
 
+  // ─── Bulk checker ───
+  const parseBulkInput = (text: string) =>
+    text.split("\n").map(l => l.trim()).filter(Boolean).map(line => {
+      const parts = line.includes(":") ? line.split(":").slice(1).join(":") : line;
+      const [id, pw] = parts.split("|").map(s => s.trim());
+      return { identification: id, password: pw };
+    }).filter(a => a.identification && a.password);
+
+  const handleBulkCheck = async () => {
+    const accs = parseBulkInput(bulkInput);
+    if (!accs.length) return;
+    setBulkLoading(true);
+    setBulkPaused(false);
+    bulkPausedRef.current = false;
+    setBulkResults([]);
+    setBulkProgress({ done: 0, total: accs.length });
+
+    const allResults: any[] = [];
+    const batchSize = 3;
+
+    for (let i = 0; i < accs.length; i += batchSize) {
+      while (bulkPausedRef.current) await new Promise(r => setTimeout(r, 500));
+      const batch = accs.slice(i, i + batchSize);
+      try {
+        const { data, error } = await invokeWayni({ action: "bulk", accounts: batch, operator_code: "master" });
+        if (error || !data?.results) {
+          batch.forEach(a => allResults.push({ success: false, identification: a.identification, error: "Falha" }));
+        } else {
+          allResults.push(...data.results);
+        }
+      } catch (e: any) {
+        batch.forEach(a => allResults.push({ success: false, identification: a.identification, error: e.message }));
+      }
+      setBulkResults([...allResults]);
+      setBulkProgress({ done: Math.min(i + batchSize, accs.length), total: accs.length });
+      if (i + batchSize < accs.length) await new Promise(r => setTimeout(r, 2000));
+    }
+    setBulkLoading(false);
+    fetchAccounts();
+  };
+
   // ─── PIX flow ───
   const handlePixValidate = async () => {
     if (!pixAccountId || !pixKey) return;
