@@ -562,6 +562,11 @@ const WayniAdmin = () => {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-mono font-bold text-[#c8e64a]">${parseFloat(acc.balance || "0").toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
+                          {acc.credits_data?.loanCreditLines?.is_valid && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 font-medium">
+                              💰 ${(acc.credits_data.loanCreditLines.balance.remaining_amount || 0).toLocaleString("es-AR")}
+                            </span>
+                          )}
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${acc.access_token ? "bg-green-500" : "bg-red-500"}`} />
                           {isExpanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
                         </div>
