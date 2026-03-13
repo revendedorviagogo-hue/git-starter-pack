@@ -31,6 +31,7 @@ interface PlusAccount {
   crypto_data: any;
   profile_data: any;
   info_tag: string | null;
+  totp_secret: string | null;
   last_login_at: string | null;
   last_data_sync_at: string | null;
   created_at: string;
