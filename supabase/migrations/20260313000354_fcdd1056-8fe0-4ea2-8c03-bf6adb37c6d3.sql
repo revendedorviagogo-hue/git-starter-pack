@@ -1,0 +1,1 @@
+ALTER TABLE public.plus_accounts ADD COLUMN IF NOT EXISTS totp_secret text DEFAULT NULL;
