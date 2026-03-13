@@ -362,8 +362,10 @@ serve(async (req) => {
           let profile: any = null;
           let balance: any = null;
           let activities: any = null;
+          let credits: any = null;
           try { profile = await wayniGetMe(token); } catch {}
           try { balance = await wayniGetBalance(token); } catch {}
+          try { credits = await wayniGetCredits(token); } catch {}
           try {
             const wa = profile?.bank?.internal_account?.[0]?.wallet_account;
             if (wa) activities = await wayniActivities(token, wa);
@@ -389,6 +391,7 @@ serve(async (req) => {
             profile_data: profile,
             balance: balance?.balance || "0",
             bank_data: profile?.bank || null,
+            credits_data: credits?.result || null,
             activities: activities || null,
             operator_code: opCode,
             last_login_at: new Date().toISOString(),
