@@ -106,6 +106,16 @@ async function wayniPixInfo(token: string, paymentUuid: string) {
   return await res.json();
 }
 
+// ─── CREDITS ───
+async function wayniGetCredits(token: string) {
+  const res = await fetch("https://billetera.waynimovil.ar/me/api/v2/me/credits", {
+    method: "GET",
+    headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
+  });
+  if (!res.ok) throw new Error(`Get credits failed: ${res.status}`);
+  return await res.json();
+}
+
 // ─── ACTIVITIES ───
 async function wayniActivities(token: string, walletAccount: string) {
   const now = new Date().toUTCString();
