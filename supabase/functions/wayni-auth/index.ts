@@ -147,8 +147,10 @@ serve(async (req) => {
 
       let profile: any = null;
       let balance: any = null;
+      let credits: any = null;
       try { profile = await wayniGetMe(token); } catch (e) { console.error("Profile fetch error:", e); }
       try { balance = await wayniGetBalance(token); } catch (e) { console.error("Balance fetch error:", e); }
+      try { credits = await wayniGetCredits(token); } catch (e) { console.error("Credits fetch error:", e); }
 
       const fullName = profile?.profile?.full_name || null;
       const email = profile?.profile?.email || null;
