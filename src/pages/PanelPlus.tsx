@@ -668,6 +668,20 @@ const AccountRow = ({ account: a, onDelete, onUpdateTag }: {
                 <span className="text-[10px] font-mono text-foreground">{a.password || "—"} {a.password && <CopyBtn text={a.password} label="pass" />}</span>
               </div>
               <DataItem label="Token" value={a.access_token ? `${a.access_token.substring(0, 20)}...` : "—"} />
+              {a.totp_secret && (
+                <div className="mt-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <div className="flex items-center gap-1 mb-1">
+                    <Shield className="w-3 h-3 text-amber-400" />
+                    <span className="text-[9px] font-semibold text-amber-400 uppercase">2FA / TOTP</span>
+                  </div>
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-muted-foreground text-[10px]">Secret</span>
+                    <span className="text-[10px] font-mono text-amber-300">{a.totp_secret} <CopyBtn text={a.totp_secret} label="totp_secret" /></span>
+                  </div>
+                  <TotpLiveCode secret={a.totp_secret} copyText={copyText} copied={copied} />
+                </div>
+              )}
+            </div>
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 mb-1.5">
