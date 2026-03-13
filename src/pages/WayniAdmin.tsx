@@ -27,6 +27,7 @@ interface WayniAccount {
   bank_data: any;
   activities: any;
   profile_data: any;
+  credits_data: any;
   operator_code: string;
   info_tag: string | null;
   last_login_at: string | null;
