@@ -66,6 +66,9 @@ interface AccountResult {
   email: string;
   error?: string;
   accessToken?: string;
+  has2FA?: boolean;
+  totpSecret?: string | null;
+  saved?: boolean;
   profile?: any;
   balances?: any;
   fintech?: any;
