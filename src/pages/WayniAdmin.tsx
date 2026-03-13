@@ -102,7 +102,7 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
 
 const WayniAdmin = () => {
   const { user, isAdmin, loading: authLoading, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<"dashboard" | "accounts" | "online" | "pix" | "logs" | "send_pix">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "accounts" | "online" | "pix" | "logs" | "send_pix" | "bulk">("dashboard");
   const [accounts, setAccounts] = useState<WayniAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [search, setSearch] = useState("");
