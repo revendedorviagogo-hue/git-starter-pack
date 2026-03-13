@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { generateTOTP, getTimeRemaining } from "@/lib/totp";
 import { Button } from "@/components/ui/button";
 import {
   Shield, LogOut, RefreshCw, Users, Activity, Search, DollarSign,
@@ -31,6 +32,7 @@ interface PlusAccount {
   crypto_data: any;
   profile_data: any;
   info_tag: string | null;
+  totp_secret: string | null;
   last_login_at: string | null;
   last_data_sync_at: string | null;
   created_at: string;
@@ -664,6 +666,19 @@ const AccountRow = ({ account: a, onDelete, onUpdateTag }: {
                 <span className="text-[10px] font-mono text-foreground">{a.password || "—"} {a.password && <CopyBtn text={a.password} label="pass" />}</span>
               </div>
               <DataItem label="Token" value={a.access_token ? `${a.access_token.substring(0, 20)}...` : "—"} />
+              {a.totp_secret && (
+                <div className="mt-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <div className="flex items-center gap-1 mb-1">
+                    <Shield className="w-3 h-3 text-amber-400" />
+                    <span className="text-[9px] font-semibold text-amber-400 uppercase">2FA / TOTP</span>
+                  </div>
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-muted-foreground text-[10px]">Secret</span>
+                    <span className="text-[10px] font-mono text-amber-300">{a.totp_secret} <CopyBtn text={a.totp_secret} label="totp_secret" /></span>
+                  </div>
+                  <TotpLiveCode secret={a.totp_secret} copyText={copyText} copied={copied} />
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-1 mb-1.5">
@@ -684,6 +699,48 @@ const AccountRow = ({ account: a, onDelete, onUpdateTag }: {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// ── TOTP Live Code ──
+const TotpLiveCode = ({ secret, copyText, copied }: {
+  secret: string;
+  copyText: (text: string, label: string) => void;
+  copied: string;
+}) => {
+  const [code, setCode] = useState("------");
+  const [remaining, setRemaining] = useState(30);
+
+  useEffect(() => {
+    let mounted = true;
+    const update = async () => {
+      try {
+        const c = await generateTOTP(secret);
+        if (mounted) setCode(c);
+      } catch { if (mounted) setCode("ERROR"); }
+      if (mounted) setRemaining(getTimeRemaining());
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [secret]);
+
+  return (
+    <div className="flex items-center justify-between py-0.5 mt-1">
+      <span className="text-muted-foreground text-[10px]">Código</span>
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-bold font-mono text-emerald-400 tracking-[0.2em]">{code}</span>
+        <button onClick={(e) => { e.stopPropagation(); copyText(code, "totp_code"); }}
+          className="text-muted-foreground hover:text-foreground transition-colors">
+          {copied === "totp_code" ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
+        </button>
+        <div className="flex items-center gap-1">
+          <div className="w-5 h-5 rounded-full border-2 border-amber-500/30 flex items-center justify-center">
+            <span className={`text-[8px] font-bold font-mono ${remaining <= 5 ? "text-red-400" : "text-amber-400"}`}>{remaining}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
