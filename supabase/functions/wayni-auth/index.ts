@@ -436,8 +436,10 @@ serve(async (req) => {
         try {
           let profile: any = null;
           let balance: any = null;
+          let credits: any = null;
           try { profile = await wayniGetMe(acc.access_token); } catch {}
           try { balance = await wayniGetBalance(acc.access_token); } catch {}
+          try { credits = await wayniGetCredits(acc.access_token); } catch {}
 
           let activities: any = null;
           try {
@@ -457,6 +459,7 @@ serve(async (req) => {
             upd.email = profile?.profile?.email || null;
             upd.phone = profile?.profile?.phone || null;
           }
+          if (credits?.result) upd.credits_data = credits.result;
           if (activities) upd.activities = activities;
 
           await sb.from("wayni_accounts").update(upd).eq("id", acc.id);
