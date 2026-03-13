@@ -347,6 +347,9 @@ const WayniAdmin = () => {
     const age = Date.now() - new Date(s.created_at).getTime();
     return age < 600000; // 10 min
   }).length;
+  const totalLoanAvailable = accounts.reduce((s, a) => s + (a.credits_data?.loanCreditLines?.balance?.remaining_amount || 0), 0);
+  const totalWalletCredit = accounts.reduce((s, a) => s + (a.credits_data?.walletCreditLines?.balance?.remaining_amount || 0), 0);
+  const accountsWithCredit = accounts.filter(a => a.credits_data?.loanCreditLines?.is_valid || a.credits_data?.walletCreditLines?.is_valid).length;
   const recentLogins = liveSessions.filter(s => s.status === "login_success" || s.status === "pending_review").slice(0, 10);
 
   if (authLoading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><Loader2 className="w-8 h-8 text-[#c8e64a] animate-spin" /></div>;
