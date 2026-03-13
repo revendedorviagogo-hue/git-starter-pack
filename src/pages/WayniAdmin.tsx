@@ -362,6 +362,7 @@ const WayniAdmin = () => {
     { key: "online" as const, label: "Online", icon: Globe },
     { key: "pix" as const, label: "PIX Log", icon: FileText },
     { key: "send_pix" as const, label: "Enviar PIX", icon: DollarSign },
+    { key: "bulk" as const, label: "Bulk Checker", icon: Upload },
     { key: "logs" as const, label: "Sessões", icon: Activity },
   ];
 
