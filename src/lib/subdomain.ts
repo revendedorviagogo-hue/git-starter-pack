@@ -16,6 +16,7 @@ const HOSTNAME_OVERRIDES: Record<string, string> = {
   "paysera.actualizar.org": "paysera",
   "plus.actualizarcocos.com": "plus",
   "wayni.ingresarahora.com": "wayni",
+  "global66.ingresarahora.com": "global66",
 };
 
 /**
