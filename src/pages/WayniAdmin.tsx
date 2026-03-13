@@ -1077,4 +1077,12 @@ function getSessionStatusLabel(status: string): { label: string; color: string }
   return map[status] || { label: status, color: "text-gray-400 bg-gray-500/10" };
 }
 
+// ─── BulkDataItem Component ───
+const BulkDataItem = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+  <div className="flex items-center justify-between py-1 border-b border-[#1a1a1a]/50 last:border-0">
+    <span className="text-gray-500 text-[10px]">{label}</span>
+    <span className={`text-[10px] font-mono ${color || "text-white"}`}>{value}</span>
+  </div>
+);
+
 export default WayniAdmin;
