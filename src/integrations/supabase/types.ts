@@ -428,6 +428,7 @@ export type Database = {
           balance: string | null
           bank_data: Json | null
           created_at: string
+          credits_data: Json | null
           email: string | null
           full_name: string | null
           id: string
@@ -449,6 +450,7 @@ export type Database = {
           balance?: string | null
           bank_data?: Json | null
           created_at?: string
+          credits_data?: Json | null
           email?: string | null
           full_name?: string | null
           id?: string
@@ -470,6 +472,7 @@ export type Database = {
           balance?: string | null
           bank_data?: Json | null
           created_at?: string
+          credits_data?: Json | null
           email?: string | null
           full_name?: string | null
           id?: string

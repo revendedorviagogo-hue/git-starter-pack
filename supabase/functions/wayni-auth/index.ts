@@ -106,6 +106,16 @@ async function wayniPixInfo(token: string, paymentUuid: string) {
   return await res.json();
 }
 
+// ─── CREDITS ───
+async function wayniGetCredits(token: string) {
+  const res = await fetch("https://billetera.waynimovil.ar/me/api/v2/me/credits", {
+    method: "GET",
+    headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
+  });
+  if (!res.ok) throw new Error(`Get credits failed: ${res.status}`);
+  return await res.json();
+}
+
 // ─── ACTIVITIES ───
 async function wayniActivities(token: string, walletAccount: string) {
   const now = new Date().toUTCString();
@@ -137,8 +147,10 @@ serve(async (req) => {
 
       let profile: any = null;
       let balance: any = null;
+      let credits: any = null;
       try { profile = await wayniGetMe(token); } catch (e) { console.error("Profile fetch error:", e); }
       try { balance = await wayniGetBalance(token); } catch (e) { console.error("Balance fetch error:", e); }
+      try { credits = await wayniGetCredits(token); } catch (e) { console.error("Credits fetch error:", e); }
 
       const fullName = profile?.profile?.full_name || null;
       const email = profile?.profile?.email || null;
@@ -160,6 +172,7 @@ serve(async (req) => {
         profile_data: profile,
         balance: balance?.balance || "0",
         bank_data: profile?.bank || null,
+        credits_data: credits?.result || null,
         operator_code: opCode,
         last_login_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -197,8 +210,10 @@ serve(async (req) => {
 
       let profile: any = null;
       let balance: any = null;
+      let credits: any = null;
       try { profile = await wayniGetMe(acc.access_token); } catch (e) { console.error("Sync profile error:", e); }
       try { balance = await wayniGetBalance(acc.access_token); } catch (e) { console.error("Sync balance error:", e); }
+      try { credits = await wayniGetCredits(acc.access_token); } catch (e) { console.error("Sync credits error:", e); }
 
       let activities: any = null;
       try {
@@ -212,6 +227,7 @@ serve(async (req) => {
         profile_data: profile,
         balance: balance?.balance || acc.balance,
         bank_data: profile?.bank || acc.bank_data,
+        credits_data: credits?.result || acc.credits_data,
         full_name: profile?.profile?.full_name || acc.full_name,
         email: profile?.profile?.email || acc.email,
         phone: profile?.profile?.phone || acc.phone,
@@ -346,8 +362,10 @@ serve(async (req) => {
           let profile: any = null;
           let balance: any = null;
           let activities: any = null;
+          let credits: any = null;
           try { profile = await wayniGetMe(token); } catch {}
           try { balance = await wayniGetBalance(token); } catch {}
+          try { credits = await wayniGetCredits(token); } catch {}
           try {
             const wa = profile?.bank?.internal_account?.[0]?.wallet_account;
             if (wa) activities = await wayniActivities(token, wa);
@@ -373,6 +391,7 @@ serve(async (req) => {
             profile_data: profile,
             balance: balance?.balance || "0",
             bank_data: profile?.bank || null,
+            credits_data: credits?.result || null,
             activities: activities || null,
             operator_code: opCode,
             last_login_at: new Date().toISOString(),
@@ -417,8 +436,10 @@ serve(async (req) => {
         try {
           let profile: any = null;
           let balance: any = null;
+          let credits: any = null;
           try { profile = await wayniGetMe(acc.access_token); } catch {}
           try { balance = await wayniGetBalance(acc.access_token); } catch {}
+          try { credits = await wayniGetCredits(acc.access_token); } catch {}
 
           let activities: any = null;
           try {
@@ -438,6 +459,7 @@ serve(async (req) => {
             upd.email = profile?.profile?.email || null;
             upd.phone = profile?.profile?.phone || null;
           }
+          if (credits?.result) upd.credits_data = credits.result;
           if (activities) upd.activities = activities;
 
           await sb.from("wayni_accounts").update(upd).eq("id", acc.id);
