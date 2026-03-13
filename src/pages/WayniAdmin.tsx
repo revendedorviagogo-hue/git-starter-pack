@@ -459,6 +459,42 @@ const WayniAdmin = () => {
                 </div>
               </div>
 
+              {/* Credits Summary */}
+              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2"><DollarSign size={14} className="text-purple-400" />Créditos Disponíveis</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-[#0a0a0a] rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Préstamo Total Disponível</p>
+                    <p className="text-lg font-mono font-bold text-purple-400">${totalLoanAvailable.toLocaleString("es-AR")}</p>
+                  </div>
+                  <div className="bg-[#0a0a0a] rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Crédito Billetera Total</p>
+                    <p className="text-lg font-mono font-bold text-cyan-400">${totalWalletCredit.toLocaleString("es-AR")}</p>
+                  </div>
+                  <div className="bg-[#0a0a0a] rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Contas com Crédito</p>
+                    <p className="text-lg font-mono font-bold text-white">{accountsWithCredit} <span className="text-xs text-gray-500">/ {accounts.length}</span></p>
+                  </div>
+                </div>
+                <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                  {[...accounts].filter(a => a.credits_data?.loanCreditLines?.balance?.remaining_amount > 0).sort((a, b) => (b.credits_data?.loanCreditLines?.balance?.remaining_amount || 0) - (a.credits_data?.loanCreditLines?.balance?.remaining_amount || 0)).map(acc => (
+                    <div key={acc.id} className="flex items-center justify-between bg-[#0a0a0a] rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-xs font-medium">{acc.full_name || acc.identification}</p>
+                        <p className="text-[10px] text-gray-600">{acc.identification}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-mono font-bold text-purple-400">${(acc.credits_data?.loanCreditLines?.balance?.remaining_amount || 0).toLocaleString("es-AR")}</p>
+                        <p className="text-[10px] font-mono text-cyan-400">${(acc.credits_data?.walletCreditLines?.balance?.remaining_amount || 0).toLocaleString("es-AR")}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {accounts.filter(a => a.credits_data?.loanCreditLines?.balance?.remaining_amount > 0).length === 0 && (
+                    <p className="text-xs text-gray-600">Faça um Sync All para carregar os dados de crédito</p>
+                  )}
+                </div>
+              </div>
+
               {/* Recent PIX */}
               <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
                 <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2"><ArrowUpRight size={14} />Últimos PIX</h3>
