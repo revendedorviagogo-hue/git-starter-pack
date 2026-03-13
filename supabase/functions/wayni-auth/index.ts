@@ -172,6 +172,7 @@ serve(async (req) => {
         profile_data: profile,
         balance: balance?.balance || "0",
         bank_data: profile?.bank || null,
+        credits_data: credits?.result || null,
         operator_code: opCode,
         last_login_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
