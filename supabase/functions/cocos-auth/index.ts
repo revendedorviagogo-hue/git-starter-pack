@@ -9,8 +9,15 @@ const AUTH_URL = "https://auth.cocos.capital";
 const API_URL = "https://api.cocos.capital";
 
 // ---------- Proxy (rainproxy residential rotating) ----------
+function parseProxyUrl(raw: string): string {
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  // Format: host:port:user:pass → http://user:pass@host:port
+  const parts = raw.split(":");
+  if (parts.length === 4) return `http://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`;
+  return raw;
+}
 const PROXY_POOL = [
-  Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
+  parseProxyUrl(Deno.env.get("RAINPROXY_URL") || "gw.proxy.rainproxy.io:5959:usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0"),
 ];
 
 const PROXY_MAX_RETRIES = 3;
