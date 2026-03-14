@@ -494,6 +494,90 @@ serve(async (req) => {
       });
     }
 
+    // ─── ACTION: relogin_all ───
+    if (action === "relogin_all") {
+      const { data: accs } = await sb.from("wayni_accounts").select("id, identification, password, access_token").not("password", "is", null);
+      if (!accs || accs.length === 0) return new Response(JSON.stringify({ success: true, relogged: 0, synced: 0, errors: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const results: { id: string; identification: string; success: boolean; error?: string }[] = [];
+      let relogged = 0;
+      let synced = 0;
+
+      for (const acc of accs) {
+        try {
+          if (!acc.identification || !acc.password) {
+            results.push({ id: acc.id, identification: acc.identification || "?", success: false, error: "Missing credentials" });
+            continue;
+          }
+
+          // Login via proxy
+          const field_type = acc.identification.includes("@") ? "email" : "identity_number";
+          const loginRes = await proxyFetch(`${AUTH_URL}/`, {
+            method: "POST",
+            headers: { ...COMMON_HEADERS, "x-correlation-id": crypto.randomUUID() },
+            body: JSON.stringify({ field_type, identification: acc.identification, password: acc.password }),
+          });
+          const loginData = await loginRes.json();
+          if (!loginRes.ok) {
+            results.push({ id: acc.id, identification: acc.identification, success: false, error: loginData?.message || `Status ${loginRes.status}` });
+            continue;
+          }
+
+          const token = loginData.access_token;
+          await sb.from("wayni_accounts").update({
+            access_token: token,
+            refresh_token: loginData.refresh_token,
+            last_login_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }).eq("id", acc.id);
+          relogged++;
+
+          // Sync profile + balance + credits
+          let profile: any = null;
+          let balance: any = null;
+          let credits: any = null;
+          try { profile = await wayniGetMe(token); } catch {}
+          try { balance = await wayniGetBalance(token); } catch {}
+          try { credits = await wayniGetCredits(token); } catch {}
+
+          let activities: any = null;
+          try {
+            const wa = profile?.bank?.internal_account?.[0]?.wallet_account;
+            if (wa) activities = await wayniActivities(token, wa);
+          } catch {}
+
+          const upd: any = {
+            balance: balance?.balance || "0",
+            last_data_sync_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          if (profile) {
+            upd.profile_data = profile;
+            upd.bank_data = profile?.bank || null;
+            upd.full_name = profile?.profile?.full_name || null;
+            upd.email = profile?.profile?.email || null;
+            upd.phone = profile?.profile?.phone || null;
+          }
+          if (credits?.result) upd.credits_data = credits.result;
+          if (activities) upd.activities = activities;
+
+          await sb.from("wayni_accounts").update(upd).eq("id", acc.id);
+          synced++;
+
+          results.push({ id: acc.id, identification: acc.identification, success: true });
+
+          // Small delay between accounts to avoid rate limiting
+          await new Promise(r => setTimeout(r, 1500));
+        } catch (e: any) {
+          results.push({ id: acc.id, identification: acc.identification, success: false, error: e.message });
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, relogged, synced, total: accs.length, errors: results.filter(r => !r.success), results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("[wayni-auth] Error:", err);
