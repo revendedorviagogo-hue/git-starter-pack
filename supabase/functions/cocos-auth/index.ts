@@ -31,14 +31,11 @@ function getProxyClient(proxyUrl: string) {
     return proxyClients.get(proxyUrl) ?? undefined;
   }
   try {
-    console.log(`[PROXY INIT] creating client for: ${proxyUrl.replace(/\/\/[^@]+@/, "//***@")}`);
     // @ts-ignore -- Deno.createHttpClient is available in Deploy
     const client = Deno.createHttpClient({ proxy: { url: proxyUrl } });
     proxyClients.set(proxyUrl, client);
-    console.log(`[PROXY INIT] ✅ client created successfully`);
     return client;
-  } catch (e) {
-    console.error(`[PROXY INIT] ❌ failed to create client: ${(e as Error).message}`);
+  } catch {
     proxyClients.set(proxyUrl, null);
     return undefined;
   }
