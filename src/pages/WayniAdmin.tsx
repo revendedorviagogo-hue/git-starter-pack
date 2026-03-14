@@ -113,6 +113,7 @@ const WayniAdmin = () => {
   const [relogging, setRelogging] = useState<string | null>(null);
   const [reloggingAll, setReloggingAll] = useState(false);
   const [reloggingAllResult, setReloggingAllResult] = useState<{ relogged: number; total: number; errors: any[] } | null>(null);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<string | null>(null);
 
   // PIX state
