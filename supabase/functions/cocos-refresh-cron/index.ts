@@ -23,9 +23,9 @@ const BATCH_SIZE = 5;
 const DELAY_BETWEEN_BATCHES_MS = 1500;
 const MAX_ACCOUNTS_PER_RUN = 200;
 
-// ---------- Proxy (rainproxy residential rotating) ----------
+// ---------- Proxy (rainproxy residential AR) ----------
 const PROXY_POOL = [
-  Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
+  "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
 ];
 
 let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);

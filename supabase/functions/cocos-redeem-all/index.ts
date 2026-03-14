@@ -20,7 +20,7 @@ const corsHeaders = {
 };
 
 const PROXY_POOL = [
-  Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
+  "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
 ];
 
 let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);
