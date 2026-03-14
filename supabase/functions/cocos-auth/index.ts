@@ -8,9 +8,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const AUTH_URL = "https://auth.cocos.capital";
 const API_URL = "https://api.cocos.capital";
 
-// ---------- Proxy (rainproxy ISP rotating) ----------
+// ---------- Proxy (rainproxy residential rotating) ----------
 const PROXY_POOL = [
-  "http://x7gp3cl1hp-package-isp:rlbg07vmxj@isp-us.rainproxy.io:30",
+  Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
 ];
 
 const PROXY_MAX_RETRIES = 3;

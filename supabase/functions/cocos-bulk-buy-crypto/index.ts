@@ -9,8 +9,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ---------- Proxy (rainproxy ISP rotating) ----------
-const PROXY_URL = "http://x7gp3cl1hp-package-isp:rlbg07vmxj@isp-us.rainproxy.io:30";
+// ---------- Proxy (rainproxy residential rotating) ----------
+const PROXY_URL = Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
 let proxyClient: Deno.HttpClient | undefined;
 let proxyEnabled = true;
 
