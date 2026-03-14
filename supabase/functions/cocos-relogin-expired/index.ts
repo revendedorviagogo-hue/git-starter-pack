@@ -18,7 +18,7 @@ const corsHeaders = {
 };
 
 const PROXY_POOL = [
-  "http://x7gp3cl1hp-package-isp:rlbg07vmxj@isp-us.rainproxy.io:30",
+  Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
 ];
 
 let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);
