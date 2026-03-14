@@ -568,9 +568,13 @@ const WayniAdmin = () => {
                     className="w-full pl-10 pr-4 py-2.5 bg-[#111] border border-[#222] rounded-lg text-sm text-white placeholder:text-gray-600 outline-none focus:border-[#c8e64a] transition-colors"
                   />
                 </div>
-                <button onClick={handleSyncAll} disabled={syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-[#c8e64a]/10 text-[#c8e64a] border border-[#c8e64a]/20 rounded-lg text-xs font-medium hover:bg-[#c8e64a]/20 disabled:opacity-50 transition-colors">
+                <button onClick={handleSyncAll} disabled={syncingAll || reloggingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-[#c8e64a]/10 text-[#c8e64a] border border-[#c8e64a]/20 rounded-lg text-xs font-medium hover:bg-[#c8e64a]/20 disabled:opacity-50 transition-colors">
                   <Zap size={14} className={syncingAll ? "animate-spin" : ""} />
                   Sync All
+                </button>
+                <button onClick={handleReloginAll} disabled={reloggingAll || syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-xs font-medium hover:bg-purple-500/20 disabled:opacity-50 transition-colors">
+                  {reloggingAll ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  Relogin Todas
                 </button>
                 <button onClick={fetchAccounts} className="p-2.5 bg-[#111] border border-[#222] rounded-lg hover:bg-[#1a1a1a] transition-colors">
                   <RefreshCw size={14} className={loadingAccounts ? "animate-spin" : ""} />
