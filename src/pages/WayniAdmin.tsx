@@ -221,6 +221,18 @@ const WayniAdmin = () => {
     setSyncingAll(false);
   };
 
+  const handleReloginAll = async () => {
+    if (!confirm("Relogar TODAS as contas via proxy AR e atualizar saldos? Isso pode demorar alguns minutos.")) return;
+    setReloggingAll(true);
+    setReloggingAllResult(null);
+    const { data, error } = await invokeWayni({ action: "relogin_all" });
+    if (!error && data) {
+      setReloggingAllResult({ relogged: data.relogged || 0, total: data.total || 0, errors: data.errors || [] });
+    }
+    await fetchAccounts();
+    setReloggingAll(false);
+  };
+
   const handleRelogin = async (id: string) => {
     setRelogging(id);
     const { data, error } = await invokeWayni({ action: "relogin", account_id: id });
