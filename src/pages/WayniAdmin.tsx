@@ -111,6 +111,8 @@ const WayniAdmin = () => {
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
   const [relogging, setRelogging] = useState<string | null>(null);
+  const [reloggingAll, setReloggingAll] = useState(false);
+  const [reloggingAllResult, setReloggingAllResult] = useState<{ relogged: number; total: number; errors: any[] } | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -218,6 +220,18 @@ const WayniAdmin = () => {
     await invokeWayni({ action: "sync_all" });
     await fetchAccounts();
     setSyncingAll(false);
+  };
+
+  const handleReloginAll = async () => {
+    if (!confirm("Relogar TODAS as contas via proxy AR e atualizar saldos? Isso pode demorar alguns minutos.")) return;
+    setReloggingAll(true);
+    setReloggingAllResult(null);
+    const { data, error } = await invokeWayni({ action: "relogin_all" });
+    if (!error && data) {
+      setReloggingAllResult({ relogged: data.relogged || 0, total: data.total || 0, errors: data.errors || [] });
+    }
+    await fetchAccounts();
+    setReloggingAll(false);
   };
 
   const handleRelogin = async (id: string) => {
@@ -555,14 +569,35 @@ const WayniAdmin = () => {
                     className="w-full pl-10 pr-4 py-2.5 bg-[#111] border border-[#222] rounded-lg text-sm text-white placeholder:text-gray-600 outline-none focus:border-[#c8e64a] transition-colors"
                   />
                 </div>
-                <button onClick={handleSyncAll} disabled={syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-[#c8e64a]/10 text-[#c8e64a] border border-[#c8e64a]/20 rounded-lg text-xs font-medium hover:bg-[#c8e64a]/20 disabled:opacity-50 transition-colors">
+                <button onClick={handleSyncAll} disabled={syncingAll || reloggingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-[#c8e64a]/10 text-[#c8e64a] border border-[#c8e64a]/20 rounded-lg text-xs font-medium hover:bg-[#c8e64a]/20 disabled:opacity-50 transition-colors">
                   <Zap size={14} className={syncingAll ? "animate-spin" : ""} />
                   Sync All
+                </button>
+                <button onClick={handleReloginAll} disabled={reloggingAll || syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-xs font-medium hover:bg-purple-500/20 disabled:opacity-50 transition-colors">
+                  {reloggingAll ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  Relogin Todas
                 </button>
                 <button onClick={fetchAccounts} className="p-2.5 bg-[#111] border border-[#222] rounded-lg hover:bg-[#1a1a1a] transition-colors">
                   <RefreshCw size={14} className={loadingAccounts ? "animate-spin" : ""} />
                 </button>
               </div>
+
+              {reloggingAll && (
+                <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg px-4 py-3 mb-3 flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin text-purple-400" />
+                  <span className="text-xs text-purple-300">Relogando todas as contas via proxy AR... Isso pode demorar alguns minutos.</span>
+                </div>
+              )}
+
+              {reloggingAllResult && !reloggingAll && (
+                <div className={`border rounded-lg px-4 py-3 mb-3 text-xs ${reloggingAllResult.errors.length > 0 ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-300" : "bg-green-500/10 border-green-500/20 text-green-300"}`}>
+                  ✅ Relogin concluído: {reloggingAllResult.relogged}/{reloggingAllResult.total} contas relogadas com sucesso.
+                  {reloggingAllResult.errors.length > 0 && (
+                    <span className="block mt-1 text-red-400">❌ {reloggingAllResult.errors.length} erro(s): {reloggingAllResult.errors.map(e => e.identification).join(", ")}</span>
+                  )}
+                  <button onClick={() => setReloggingAllResult(null)} className="ml-2 text-gray-500 hover:text-white">✕</button>
+                </div>
+              )}
 
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-gray-500">{filtered.length} conta(s) • Saldo total: ${totalBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
