@@ -19,14 +19,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function parseProxyUrl(raw: string): string {
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-  const parts = raw.split(":");
-  if (parts.length === 4) return `http://${parts[2]}:${parts[3]}@${parts[0]}:${parts[1]}`;
-  return raw;
-}
 const PROXY_POOL = [
-  parseProxyUrl(Deno.env.get("RAINPROXY_URL") || "gw.proxy.rainproxy.io:5959:usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0"),
+  "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
 ];
 
 let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);
