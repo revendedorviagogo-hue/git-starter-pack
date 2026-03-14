@@ -111,7 +111,8 @@ const WayniAdmin = () => {
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
   const [relogging, setRelogging] = useState<string | null>(null);
-  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [reloggingAll, setReloggingAll] = useState(false);
+  const [reloggingAllResult, setReloggingAllResult] = useState<{ relogged: number; total: number; errors: any[] } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   // PIX state
