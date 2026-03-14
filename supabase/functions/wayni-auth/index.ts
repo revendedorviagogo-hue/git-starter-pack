@@ -1,6 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ─── PROXY CONFIG (Argentina residential) ───
+const PROXY_URL = Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+
+let proxyClient: Deno.HttpClient | null = null;
+function getProxyClient(): Deno.HttpClient {
+  if (!proxyClient) {
+    proxyClient = Deno.createHttpClient({ proxy: { url: PROXY_URL } });
+  }
+  return proxyClient;
+}
+
+async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, client: getProxyClient() } as any);
+  } catch {
+    console.warn("[wayni] proxy fetch failed, falling back to direct");
+    return await fetch(url, init);
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
