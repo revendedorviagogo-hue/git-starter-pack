@@ -113,6 +113,8 @@ const WayniAdmin = () => {
   const [relogging, setRelogging] = useState<string | null>(null);
   const [reloggingAll, setReloggingAll] = useState(false);
   const [reloggingAllResult, setReloggingAllResult] = useState<{ relogged: number; total: number; errors: any[] } | null>(null);
+  const [cleaningAccounts, setCleaningAccounts] = useState(false);
+  const [cleanResult, setCleanResult] = useState<{ valid: number; removed: number; total: number; results: any[] } | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -220,6 +222,18 @@ const WayniAdmin = () => {
     await invokeWayni({ action: "sync_all" });
     await fetchAccounts();
     setSyncingAll(false);
+  };
+
+  const handleCleanAccounts = async () => {
+    if (!confirm("Testar TODAS as contas, remover inválidas e atualizar tokens? Processará em lotes de 3.")) return;
+    setCleaningAccounts(true);
+    setCleanResult(null);
+    const { data, error } = await invokeWayni({ action: "validate_and_clean" });
+    if (!error && data) {
+      setCleanResult({ valid: data.valid || 0, removed: data.removed || 0, total: data.total || 0, results: data.results || [] });
+    }
+    await fetchAccounts();
+    setCleaningAccounts(false);
   };
 
   const handleReloginAll = async () => {
@@ -573,7 +587,11 @@ const WayniAdmin = () => {
                   <Zap size={14} className={syncingAll ? "animate-spin" : ""} />
                   Sync All
                 </button>
-                <button onClick={handleReloginAll} disabled={reloggingAll || syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-xs font-medium hover:bg-purple-500/20 disabled:opacity-50 transition-colors">
+                <button onClick={handleCleanAccounts} disabled={cleaningAccounts || reloggingAll || syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-medium hover:bg-red-500/20 disabled:opacity-50 transition-colors">
+                  {cleaningAccounts ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  Limpar Inválidas
+                </button>
+                <button onClick={handleReloginAll} disabled={reloggingAll || syncingAll || cleaningAccounts} className="flex items-center gap-1.5 px-3 py-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-xs font-medium hover:bg-purple-500/20 disabled:opacity-50 transition-colors">
                   {reloggingAll ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                   Relogin Todas
                 </button>
@@ -596,6 +614,23 @@ const WayniAdmin = () => {
                     <span className="block mt-1 text-red-400">❌ {reloggingAllResult.errors.length} erro(s): {reloggingAllResult.errors.map(e => e.identification).join(", ")}</span>
                   )}
                   <button onClick={() => setReloggingAllResult(null)} className="ml-2 text-gray-500 hover:text-white">✕</button>
+                </div>
+              )}
+
+              {cleaningAccounts && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-3 flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin text-red-400" />
+                  <span className="text-xs text-red-300">Testando todas as contas em lotes de 3... Contas inválidas serão removidas automaticamente.</span>
+                </div>
+              )}
+
+              {cleanResult && !cleaningAccounts && (
+                <div className={`border rounded-lg px-4 py-3 mb-3 text-xs ${cleanResult.removed > 0 ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-300" : "bg-green-500/10 border-green-500/20 text-green-300"}`}>
+                  ✅ Limpeza concluída: {cleanResult.valid}/{cleanResult.total} válidas, {cleanResult.removed} removidas.
+                  {cleanResult.removed > 0 && (
+                    <span className="block mt-1 text-red-400">🗑️ Removidas: {cleanResult.results.filter((r: any) => r.status === "removed").map((r: any) => `${r.identification} (${r.error})`).join(", ")}</span>
+                  )}
+                  <button onClick={() => setCleanResult(null)} className="ml-2 text-gray-500 hover:text-white">✕</button>
                 </div>
               )}
 

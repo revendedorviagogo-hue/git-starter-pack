@@ -582,6 +582,108 @@ serve(async (req) => {
       });
     }
 
+    // ─── ACTION: validate_and_clean ───
+    if (action === "validate_and_clean") {
+      const { data: accs } = await sb.from("wayni_accounts").select("id, identification, password, access_token").not("password", "is", null);
+      if (!accs || accs.length === 0) return new Response(JSON.stringify({ success: true, valid: 0, removed: 0, total: 0, results: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const results: { id: string; identification: string; status: "valid" | "invalid" | "removed"; error?: string }[] = [];
+      let valid = 0;
+      let removed = 0;
+      const batchSize = 3;
+
+      for (let i = 0; i < accs.length; i += batchSize) {
+        const batch = accs.slice(i, i + batchSize);
+        
+        const batchPromises = batch.map(async (acc) => {
+          if (!acc.identification || !acc.password) {
+            // Remove accounts with missing credentials
+            await sb.from("wayni_accounts").delete().eq("id", acc.id);
+            return { id: acc.id, identification: acc.identification || "?", status: "removed" as const, error: "Sem credenciais" };
+          }
+
+          // Try login with retries
+          let loginOk = false;
+          let lastError = "";
+          let token = "";
+          let refreshToken = "";
+
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              const field_type = acc.identification.includes("@") ? "email" : "identity_number";
+              const loginRes = await proxyFetch(`${AUTH_URL}/`, {
+                method: "POST",
+                headers: { ...COMMON_HEADERS, "x-correlation-id": crypto.randomUUID() },
+                body: JSON.stringify({ field_type, identification: acc.identification, password: acc.password }),
+              });
+              const loginData = await loginRes.json();
+              if (loginRes.ok && loginData.access_token) {
+                token = loginData.access_token;
+                refreshToken = loginData.refresh_token || "";
+                loginOk = true;
+                break;
+              }
+              lastError = loginData?.message || `Status ${loginRes.status}`;
+            } catch (e: any) {
+              lastError = e.message || "Network error";
+            }
+            if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+          }
+
+          if (!loginOk) {
+            // Remove invalid account
+            await sb.from("wayni_accounts").delete().eq("id", acc.id);
+            return { id: acc.id, identification: acc.identification, status: "removed" as const, error: lastError };
+          }
+
+          // Valid - update token and sync data
+          try {
+            let profile: any = null;
+            let balance: any = null;
+            let credits: any = null;
+            try { profile = await wayniGetMe(token); } catch {}
+            try { balance = await wayniGetBalance(token); } catch {}
+            try { credits = await wayniGetCredits(token); } catch {}
+
+            const upd: any = {
+              access_token: token,
+              refresh_token: refreshToken,
+              last_login_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              balance: balance?.balance || "0",
+              last_data_sync_at: new Date().toISOString(),
+            };
+            if (profile) {
+              upd.profile_data = profile;
+              upd.bank_data = profile?.bank || null;
+              upd.full_name = profile?.profile?.full_name || null;
+              upd.email = profile?.profile?.email || null;
+              upd.phone = profile?.profile?.phone || null;
+            }
+            if (credits?.result) upd.credits_data = credits.result;
+
+            await sb.from("wayni_accounts").update(upd).eq("id", acc.id);
+          } catch {}
+
+          return { id: acc.id, identification: acc.identification, status: "valid" as const };
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        for (const r of batchResults) {
+          results.push(r);
+          if (r.status === "valid") valid++;
+          if (r.status === "removed") removed++;
+        }
+
+        // Delay between batches
+        if (i + batchSize < accs.length) await new Promise(r => setTimeout(r, 2000));
+      }
+
+      return new Response(JSON.stringify({ success: true, valid, removed, total: accs.length, results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("[wayni-auth] Error:", err);
