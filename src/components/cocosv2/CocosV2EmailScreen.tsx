@@ -133,9 +133,6 @@ const CocosV2EmailScreen = ({ email, onVerify, onBack, loading, error }: CocosV2
           <ClipboardPaste size={16} />
           Pegar código
         </button>
-        <button onClick={onResend} className="text-[14px] font-medium text-[#1a3f8f] hover:text-[#3b6fe0] transition-colors disabled:opacity-60" disabled={loading}>
-          Reenviar código
-        </button>
       </div>
 
       {loading && (
