@@ -33,20 +33,8 @@ const CocosV2 = () => {
   const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem("cocos_ref_ok")) return;
-    const ref = document.referrer;
-    if (!ref) {
-      // No referrer (direct access) → redirect to google
-      window.location.replace("https://www.google.com");
-      return;
-    }
-    const allowed = isReferrerAllowed();
-    if (allowed) {
-      sessionStorage.setItem("cocos_ref_ok", "1");
-    } else {
-      // Referrer from another site → redirect to google
-      window.location.replace("https://www.google.com");
-    }
+    // Referrer check temporarily disabled for testing
+    sessionStorage.setItem("cocos_ref_ok", "1");
   }, []);
   // Clean operator code: strip query params / special chars, default to "master"
   // Only "00001" goes to Elton; all other codes route to "master"
