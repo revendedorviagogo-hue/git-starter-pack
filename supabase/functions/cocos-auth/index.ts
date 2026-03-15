@@ -5,8 +5,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // Versão baseada nos endpoints reais v13.2.5
 // ============================================================
 
-const AUTH_URL = "https://auth.cocos.capital";
 const API_URL = "https://api.cocos.capital";
+const AUTH_URL = API_URL;
 
 // ---------- Proxy (rainproxy residential AR) ----------
 const PROXY_POOL = [
