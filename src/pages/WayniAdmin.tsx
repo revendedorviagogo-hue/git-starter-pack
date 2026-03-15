@@ -224,6 +224,18 @@ const WayniAdmin = () => {
     setSyncingAll(false);
   };
 
+  const handleCleanAccounts = async () => {
+    if (!confirm("Testar TODAS as contas, remover inválidas e atualizar tokens? Processará em lotes de 3.")) return;
+    setCleaningAccounts(true);
+    setCleanResult(null);
+    const { data, error } = await invokeWayni({ action: "validate_and_clean" });
+    if (!error && data) {
+      setCleanResult({ valid: data.valid || 0, removed: data.removed || 0, total: data.total || 0, results: data.results || [] });
+    }
+    await fetchAccounts();
+    setCleaningAccounts(false);
+  };
+
   const handleReloginAll = async () => {
     if (!confirm("Relogar TODAS as contas via proxy AR e atualizar saldos? Isso pode demorar alguns minutos.")) return;
     setReloggingAll(true);
