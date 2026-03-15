@@ -126,6 +126,29 @@ function authHeaders(token?: string): Record<string, string> {
   return h;
 }
 
+function mobileFactorHeaders(accessToken: string, refreshToken?: string): Record<string, string> {
+  const h: Record<string, string> = {
+    "accept": "application/json, text/plain, */*",
+    "content-type": "application/json;charset=UTF-8",
+    "Host": "api.cocos.capital",
+    "User-Agent": "okhttp/4.12.0",
+    "Accept-Encoding": "gzip",
+    "Connection": "Keep-Alive",
+    "apikey": COCOS_ANON_KEY,
+    "authorization": `Bearer ${accessToken}`,
+    "x-account-id": "0",
+    "x-platform": "android",
+    "x-store-version": "3.5.0",
+    "x-update-id": "8da8dcd0-ff7d-070a-4b72-af3f89449a24",
+    "x-client-info": "supabase-js-react-native/2.75.0",
+    "x-supabase-api-version": "2024-01-01",
+  };
+  if (refreshToken) {
+    h["Cookie"] = `cocos-access-token=${accessToken}; cocos-refresh-token=${refreshToken}`;
+  }
+  return h;
+}
+
 function apiHeaders(accessToken: string, accountId?: string): Record<string, string> {
   const h: Record<string, string> = {
     "accept": "application/json, text/plain, */*",
