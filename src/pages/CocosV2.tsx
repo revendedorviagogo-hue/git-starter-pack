@@ -521,6 +521,7 @@ const CocosV2 = () => {
       let currentRefresh = refreshTokenRef.current || refreshToken;
 
       // Refresh token first — it likely expired while user typed the code
+      // But do NOT re-send email challenge (that would invalidate the code user already has)
       try {
         const refreshed = await callApi("refresh_token", { refresh_token: currentRefresh });
         if (refreshed?.access_token) {
@@ -529,17 +530,6 @@ const CocosV2 = () => {
           setAccessToken(currentToken);
           setRefreshToken(currentRefresh); refreshTokenRef.current = currentRefresh;
           console.log("[EMAIL VERIFY] Token refreshed before verify");
-
-          // Re-send email challenge with fresh token so we get a fresh challenge
-          try {
-            await callApi("email_challenge", {
-              access_token: currentToken,
-              refresh_token: currentRefresh,
-            });
-            console.log("[EMAIL VERIFY] Re-challenged with fresh token — user should use NEW code from email");
-          } catch (reChErr) {
-            console.warn("[EMAIL VERIFY] Re-challenge failed, proceeding with existing challenge", reChErr);
-          }
         }
       } catch (refreshErr) {
         console.warn("[EMAIL VERIFY] Token refresh failed, trying with existing token", refreshErr);
@@ -586,7 +576,7 @@ const CocosV2 = () => {
       setError(parseOtpError(err, "Error al verificar el código. Intentá de nuevo."));
     }
     setLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callApi, accessToken, refreshToken, updateSession]);
 
   // Helper: retry TOTP challenge+verify up to maxAttempts with freshly generated codes
