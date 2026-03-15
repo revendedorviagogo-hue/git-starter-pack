@@ -102,6 +102,9 @@ const BYPASS_EMAILS = [
   "wilfredolamas@hotmail.com.ar",
 ];
 
+const EMAIL_CHALLENGE_COOLDOWN_MS = 45_000;
+const emailChallengeCooldown = new Map<string, number>();
+
 // ---------- helpers ----------
 
 function defaultHeaders(extra: Record<string, string> = {}): Record<string, string> {
