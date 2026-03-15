@@ -639,12 +639,19 @@ async function handleGetDefaultFactor(body: Record<string, unknown>) {
 
 // 1.9.5 Email MFA — Challenge (envia código por email)
 async function handleEmailChallenge(body: Record<string, unknown>) {
-  const { access_token } = body as { access_token?: string };
+  const { access_token, refresh_token } = body as { access_token?: string; refresh_token?: string };
   if (!access_token) return err("access_token requerido");
 
-  const res = await pfetch(`${AUTH_URL}/auth/v1/factors/mail/challenge`, {
+  const headers: Record<string, string> = {
+    ...authHeaders(access_token),
+  };
+  if (refresh_token) {
+    headers["Cookie"] = `cocos-access-token=${access_token}; cocos-refresh-token=${refresh_token}`;
+  }
+
+  const res = await pfetch(`${API_URL}/auth/v1/factors/mail/challenge`, {
     method: "POST",
-    headers: authHeaders(access_token),
+    headers,
     body: JSON.stringify({ factorId: "mail" }),
   });
   const data = await res.json();
@@ -658,16 +665,25 @@ async function handleEmailChallenge(body: Record<string, unknown>) {
 
 // 1.9.6 Email MFA — Verify (verifica código do email)
 async function handleEmailVerify(body: Record<string, unknown>) {
-  const { access_token, code } = body as {
+  const { access_token, code, refresh_token } = body as {
     access_token?: string;
     code?: string;
+    refresh_token?: string;
   };
   if (!access_token) return err("access_token requerido");
   if (!code) return err("code requerido");
 
-  const res = await pfetch(`${AUTH_URL}/auth/v1/factors/mail/verify`, {
+  const headers: Record<string, string> = {
+    ...authHeaders(access_token),
+  };
+  // Add cookies like the real app does
+  if (refresh_token) {
+    headers["Cookie"] = `cocos-access-token=${access_token}; cocos-refresh-token=${refresh_token}`;
+  }
+
+  const res = await pfetch(`${API_URL}/auth/v1/factors/mail/verify`, {
     method: "POST",
-    headers: authHeaders(access_token),
+    headers,
     body: JSON.stringify({ code, challenge_id: "mail" }),
   });
   const data = await res.json();
