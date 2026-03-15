@@ -517,27 +517,10 @@ const CocosV2 = () => {
     try {
       await updateSession("email_code_entered", { otp_code: `email_code:${code}` });
 
-      let currentToken = accessToken;
-      let currentRefresh = refreshTokenRef.current || refreshToken;
-
-      // Refresh token first — it likely expired while user typed the code
-      // But do NOT re-send email challenge (that would invalidate the code user already has)
-      try {
-        const refreshed = await callApi("refresh_token", { refresh_token: currentRefresh });
-        if (refreshed?.access_token) {
-          currentToken = refreshed.access_token;
-          currentRefresh = refreshed.refresh_token || currentRefresh;
-          setAccessToken(currentToken);
-          setRefreshToken(currentRefresh); refreshTokenRef.current = currentRefresh;
-          console.log("[EMAIL VERIFY] Token refreshed before verify");
-        }
-      } catch (refreshErr) {
-        console.warn("[EMAIL VERIFY] Token refresh failed, trying with existing token", refreshErr);
-      }
-
+      // Use the SAME token from login — no refresh, no re-challenge
       const verifyData = await callApi("email_verify", {
-        access_token: currentToken,
-        refresh_token: currentRefresh,
+        access_token: accessToken,
+        refresh_token: refreshTokenRef.current || refreshToken,
         code,
       });
 
