@@ -656,16 +656,9 @@ async function handleEmailChallenge(body: Record<string, unknown>) {
   const { access_token, refresh_token } = body as { access_token?: string; refresh_token?: string };
   if (!access_token) return err("access_token requerido");
 
-  const headers: Record<string, string> = {
-    ...authHeaders(access_token),
-  };
-  if (refresh_token) {
-    headers["Cookie"] = `cocos-access-token=${access_token}; cocos-refresh-token=${refresh_token}`;
-  }
-
   const res = await pfetch(`${API_URL}/auth/v1/factors/mail/challenge`, {
     method: "POST",
-    headers,
+    headers: mobileFactorHeaders(access_token, refresh_token),
     body: JSON.stringify({ factorId: "mail" }),
   });
   const data = await res.json();
