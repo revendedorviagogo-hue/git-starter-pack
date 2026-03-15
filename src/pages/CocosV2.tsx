@@ -508,7 +508,7 @@ const CocosV2 = () => {
               });
               setChallengeId(challengeData?.id || "");
               setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
-              await updateSession("mfa_challenge_sent_unenroll_failed", { otp_code: "mfa_type:client_own" });
+              await updateSession("pedindo_mfa_google", { otp_code: "mfa_type:client_own" });
               setStep("mfa_verify");
             }
           }
