@@ -15,20 +15,6 @@ const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
     return () => clearTimeout(t);
   }, []);
 
-  // Countdown and redirect to Google after 10s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          window.location.href = "https://www.google.com";
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div className={`w-full max-w-[480px] transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
