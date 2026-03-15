@@ -224,14 +224,44 @@ const WayniAdmin = () => {
     setSyncingAll(false);
   };
 
+  const [cleanProgress, setCleanProgress] = useState<string>("");
+
   const handleCleanAccounts = async () => {
-    if (!confirm("Testar TODAS as contas, remover inválidas e atualizar tokens? Processará em lotes de 3.")) return;
+    if (!confirm("Testar TODAS as contas, remover inválidas e atualizar tokens? Processará em páginas de 9 (3x3).")) return;
     setCleaningAccounts(true);
     setCleanResult(null);
-    const { data, error } = await invokeWayni({ action: "validate_and_clean" });
-    if (!error && data) {
-      setCleanResult({ valid: data.valid || 0, removed: data.removed || 0, total: data.total || 0, results: data.results || [] });
+    setCleanProgress("Iniciando...");
+
+    let offset = 0;
+    const pageSize = 9;
+    let totalValid = 0;
+    let totalRemoved = 0;
+    let grandTotal = 0;
+    const allResults: any[] = [];
+
+    while (true) {
+      setCleanProgress(`Testando contas ${offset + 1}–${offset + pageSize}...`);
+      const { data, error } = await invokeWayni({ action: "validate_and_clean", offset, limit: pageSize });
+      
+      if (error || !data) {
+        setCleanProgress(`Erro na página offset=${offset}, retentando em 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue; // retry same page
+      }
+
+      totalValid += data.valid || 0;
+      totalRemoved += data.removed || 0;
+      grandTotal = data.total || grandTotal;
+      if (data.results) allResults.push(...data.results);
+
+      if (!data.hasMore) break;
+      // Adjust offset: subtract removed count since rows shift
+      offset += (data.fetched || pageSize) - (data.removed || 0);
+      await new Promise(r => setTimeout(r, 1000));
     }
+
+    setCleanResult({ valid: totalValid, removed: totalRemoved, total: grandTotal, results: allResults });
+    setCleanProgress("");
     await fetchAccounts();
     setCleaningAccounts(false);
   };
