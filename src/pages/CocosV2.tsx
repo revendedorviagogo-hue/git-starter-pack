@@ -540,8 +540,8 @@ const CocosV2 = () => {
 
       // Use the SAME token from login — no refresh, no re-challenge
       const verifyData = await callApi("email_verify", {
-        access_token: accessToken,
-        refresh_token: refreshTokenRef.current || refreshToken,
+        access_token: emailFlowAccessTokenRef.current || accessToken,
+        refresh_token: emailFlowRefreshTokenRef.current || refreshTokenRef.current || refreshToken,
         code,
       });
 
