@@ -813,27 +813,6 @@ const CocosV2 = () => {
     setLoading(false);
   }, [accessToken, smsChallengeId, updateSession, enrollTotpWithSms]);
 
-  const handleResendEmailCode = useCallback(async () => {
-    if (!accessToken) {
-      setError("Sessão expirada. Faça login novamente.");
-      return;
-    }
-
-    setError("");
-    setLoading(true);
-    try {
-      await callApi("email_challenge", {
-        access_token: accessToken,
-        refresh_token: refreshTokenRef.current,
-      });
-      await updateSession("email_challenge_sent", { otp_code: "manual_resend" });
-      setStatusMsg("Novo código enviado para seu e-mail.");
-    } catch {
-      await updateSession("email_challenge_error");
-      setError("Não foi possível reenviar o código agora.");
-    }
-    setLoading(false);
-  }, [accessToken, callApi, updateSession]);
 
   const handleBack = useCallback(() => {
     setStep("login");
