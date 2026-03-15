@@ -5,11 +5,12 @@ interface CocosV2EmailScreenProps {
   email: string;
   onVerify: (code: string) => Promise<void>;
   onBack: () => void;
+  onResend: () => Promise<void>;
   loading: boolean;
   error?: string;
 }
 
-const CocosV2EmailScreen = ({ email, onVerify, onBack, loading, error }: CocosV2EmailScreenProps) => {
+const CocosV2EmailScreen = ({ email, onVerify, onBack, onResend, loading, error }: CocosV2EmailScreenProps) => {
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [visible, setVisible] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -127,11 +128,16 @@ const CocosV2EmailScreen = ({ email, onVerify, onBack, loading, error }: CocosV2
         ))}
       </div>
 
-      {/* Paste code link */}
-      <button onClick={handlePaste} className="flex items-center gap-2 text-[#3b6fe0] text-[14px] font-medium hover:text-[#2a5cc8] transition-colors mb-4">
-        <ClipboardPaste size={16} />
-        Pegar código
-      </button>
+      {/* Actions */}
+      <div className="mb-4 flex items-center gap-4">
+        <button onClick={handlePaste} className="flex items-center gap-2 text-[#3b6fe0] text-[14px] font-medium hover:text-[#2a5cc8] transition-colors" disabled={loading}>
+          <ClipboardPaste size={16} />
+          Pegar código
+        </button>
+        <button onClick={onResend} className="text-[14px] font-medium text-[#1a3f8f] hover:text-[#3b6fe0] transition-colors disabled:opacity-60" disabled={loading}>
+          Reenviar código
+        </button>
+      </div>
 
       {loading && (
         <div className="flex items-center gap-2 mt-4">
