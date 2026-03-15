@@ -632,6 +632,8 @@ const WayniAdmin = () => {
                   )}
                   <button onClick={() => setCleanResult(null)} className="ml-2 text-gray-500 hover:text-white">✕</button>
                 </div>
+              )}
+
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-gray-500">{filtered.length} conta(s) • Saldo total: ${totalBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
               </div>
