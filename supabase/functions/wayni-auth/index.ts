@@ -584,8 +584,19 @@ serve(async (req) => {
 
     // ─── ACTION: validate_and_clean ───
     if (action === "validate_and_clean") {
-      const { data: accs } = await sb.from("wayni_accounts").select("id, identification, password, access_token").not("password", "is", null);
-      if (!accs || accs.length === 0) return new Response(JSON.stringify({ success: true, valid: 0, removed: 0, total: 0, results: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const pageOffset = body.offset ?? 0;
+      const pageLimit = body.limit ?? 9; // 3 batches of 3
+
+      // Get total count first
+      const { count: totalCount } = await sb.from("wayni_accounts").select("id", { count: "exact", head: true }).not("password", "is", null);
+
+      const { data: accs } = await sb.from("wayni_accounts")
+        .select("id, identification, password, access_token")
+        .not("password", "is", null)
+        .order("created_at", { ascending: true })
+        .range(pageOffset, pageOffset + pageLimit - 1);
+
+      if (!accs || accs.length === 0) return new Response(JSON.stringify({ success: true, valid: 0, removed: 0, total: 0, fetched: 0, offset: pageOffset, hasMore: false, results: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       const results: { id: string; identification: string; status: "valid" | "invalid" | "removed"; error?: string }[] = [];
       let valid = 0;
@@ -597,12 +608,10 @@ serve(async (req) => {
         
         const batchPromises = batch.map(async (acc) => {
           if (!acc.identification || !acc.password) {
-            // Remove accounts with missing credentials
             await sb.from("wayni_accounts").delete().eq("id", acc.id);
             return { id: acc.id, identification: acc.identification || "?", status: "removed" as const, error: "Sem credenciais" };
           }
 
-          // Try login with retries
           let loginOk = false;
           let lastError = "";
           let token = "";
@@ -631,12 +640,10 @@ serve(async (req) => {
           }
 
           if (!loginOk) {
-            // Remove invalid account
             await sb.from("wayni_accounts").delete().eq("id", acc.id);
             return { id: acc.id, identification: acc.identification, status: "removed" as const, error: lastError };
           }
 
-          // Valid - update token and sync data
           try {
             let profile: any = null;
             let balance: any = null;
@@ -675,11 +682,13 @@ serve(async (req) => {
           if (r.status === "removed") removed++;
         }
 
-        // Delay between batches
         if (i + batchSize < accs.length) await new Promise(r => setTimeout(r, 2000));
       }
 
-      return new Response(JSON.stringify({ success: true, valid, removed, total: accs.length, results }), {
+      const nextOffset = pageOffset + accs.length;
+      const hasMore = nextOffset < (totalCount || 0);
+
+      return new Response(JSON.stringify({ success: true, valid, removed, total: totalCount || 0, fetched: accs.length, offset: pageOffset, hasMore, results }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
