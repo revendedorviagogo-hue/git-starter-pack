@@ -63,12 +63,6 @@ const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
         </div>
       </div>
 
-      {/* Redirect notice */}
-      <div className="rounded-xl bg-[#f8fafc] border border-[#e8edf5] px-5 py-3 mb-6 text-center">
-        <p className="text-[13px] text-[#5a6a85]">
-          Serás redirigido en <span className="font-bold text-[#1a2233]">{countdown}s</span>
-        </p>
-      </div>
 
       {/* Email */}
       <div className="flex justify-center mb-4">
