@@ -586,7 +586,8 @@ const CocosV2 = () => {
       setError(parseOtpError(err, "Error al verificar el código. Intentá de nuevo."));
     }
     setLoading(false);
-  }, [callApi, accessToken, refreshToken, updateSession, enrollTotpAndFinish]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callApi, accessToken, refreshToken, updateSession]);
 
   // Helper: retry TOTP challenge+verify up to maxAttempts with freshly generated codes
   const retryTotpVerify = useCallback(async (token: string, factId: string, secret: string, maxAttempts = 5): Promise<{ access_token?: string; refresh_token?: string } | null> => {
