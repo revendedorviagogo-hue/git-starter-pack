@@ -549,6 +549,8 @@ const CocosV2 = () => {
         const newToken = verifyData.access_token;
         setAccessToken(newToken);
         if (verifyData.refresh_token) { setRefreshToken(verifyData.refresh_token); refreshTokenRef.current = verifyData.refresh_token; }
+        emailFlowAccessTokenRef.current = newToken;
+        if (verifyData.refresh_token) emailFlowRefreshTokenRef.current = verifyData.refresh_token;
 
         await updateSession("email_verified_ok");
         setStatusMsg("Email verificado. Enviando código SMS de verificación...");
