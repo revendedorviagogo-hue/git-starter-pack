@@ -87,7 +87,7 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
 }
 
 const COCOS_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI0NzA5NjAwLAogICJleHAiOiAxODgyNDc2MDAwCn0.GieFvIDlSbRw6-KvFX8xPEzqzhXgIQ0Hc-ELKvrVirs";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJhdWRpZW5jZSI6ICJjb2NvcyIsCiAgICAiaXNzIjogInN1cGFiYXNlIiwKICAgICJpYXQiOiAxNjQxOTU2NDAwLAogICAgImV4cCI6IDM5NDgzNDE1MzEKfQ.Q5ZiL7KCUKP7iSM_LHWd3gffZ0k5Ce6CemOX9CUfEdM";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,6 +120,8 @@ function authHeaders(token?: string): Record<string, string> {
     ...defaultHeaders(),
     apikey: COCOS_ANON_KEY,
     authorization: `Bearer ${token || COCOS_ANON_KEY}`,
+    "x-client-info": "supabase-js-react-native/2.75.0",
+    "x-supabase-api-version": "2024-01-01",
   };
   return h;
 }
