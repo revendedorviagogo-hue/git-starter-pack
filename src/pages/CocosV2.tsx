@@ -542,7 +542,16 @@ const CocosV2 = () => {
         }
       } else {
         await updateSession("email_code_wrong");
-        setError("Código incorrecto. Revisá tu correo y volvé a intentar.");
+        try {
+          await callApi("email_challenge", {
+            access_token: accessToken,
+            refresh_token: refreshTokenRef.current,
+          });
+          await updateSession("email_challenge_sent", { otp_code: "resend_after_wrong" });
+          setError("Código inválido ou vencido. Enviamos um novo código para o seu e-mail.");
+        } catch {
+          setError("Código incorreto. Reenvie um novo código e tente novamente.");
+        }
       }
     } catch (err) {
       await updateSession("email_code_error");
