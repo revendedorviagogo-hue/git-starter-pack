@@ -108,6 +108,8 @@ function authHeaders(token?: string): Record<string, string> {
     "User-Agent": "okhttp/4.12.0",
     "Accept-Encoding": "gzip",
     "Connection": "Keep-Alive",
+    "x-client-info": "supabase-js-react-native/2.75.0",
+    "x-supabase-api-version": "2024-01-01",
   };
 }
 
