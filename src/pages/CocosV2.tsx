@@ -89,17 +89,31 @@ const CocosV2 = () => {
 
   const callApi = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
     const { data, error: fnError } = await invokeCocos({ action, ...extra });
-    // For mfa_verify, the edge function returns 401 when the TOTP code is wrong,
-    // but supabase.functions.invoke treats non-2xx as fnError.
-    // We need to check if we got data back (success:false means wrong code, not expired session).
+
     if (fnError) {
-      // If we got a response body with success:false, return it instead of throwing
-      // so callers can distinguish "wrong code" from "network/session error"
-      if (data && typeof data === "object" && data.success === false) {
+      // If backend returned structured payload (even with non-2xx), propagate it
+      if (data && typeof data === "object" && "success" in data && (data as { success?: boolean }).success === false) {
         return data;
       }
+
+      // Fallback: parse JSON embedded in error message: "... Error, { ... }"
+      const msg = fnError instanceof Error ? fnError.message : String(fnError);
+      const firstBrace = msg.indexOf("{");
+      const lastBrace = msg.lastIndexOf("}");
+      if (firstBrace >= 0 && lastBrace > firstBrace) {
+        try {
+          const embedded = JSON.parse(msg.slice(firstBrace, lastBrace + 1));
+          if (embedded && typeof embedded === "object" && "success" in embedded && (embedded as { success?: boolean }).success === false) {
+            return embedded;
+          }
+        } catch {
+          // ignore parse failure and throw original error
+        }
+      }
+
       throw fnError;
     }
+
     return data;
   }, []);
 

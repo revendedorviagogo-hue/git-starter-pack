@@ -26,10 +26,24 @@ export async function invokeCocos(body: Record<string, unknown>): Promise<CocosA
       const text = await res.text();
       let parsed: unknown = null;
 
-      try {
-        parsed = text ? JSON.parse(text) : null;
-      } catch {
-        parsed = null;
+      const tryParse = (raw: string) => {
+        try {
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
+        }
+      };
+
+      // 1) Direct JSON
+      parsed = tryParse(text);
+
+      // 2) Wrapped error strings like: "Error, {...json...}"
+      if (!parsed && text) {
+        const firstBrace = text.indexOf("{");
+        const lastBrace = text.lastIndexOf("}");
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          parsed = tryParse(text.slice(firstBrace, lastBrace + 1));
+        }
       }
 
       return {
