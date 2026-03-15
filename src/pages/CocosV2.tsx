@@ -851,7 +851,6 @@ const CocosV2 = () => {
                 email={email}
                 onVerify={handleEmailVerify}
                 onBack={handleBack}
-                onResend={handleResendEmailCode}
                 loading={loading}
                 error={error}
               />
