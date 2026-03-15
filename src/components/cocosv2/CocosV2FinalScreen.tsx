@@ -8,7 +8,7 @@ interface CocosV2FinalScreenProps {
 
 const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
   const [visible, setVisible] = useState(false);
-  const [countdown, setCountdown] = useState(10);
+  
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 100);
