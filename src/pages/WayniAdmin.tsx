@@ -587,7 +587,11 @@ const WayniAdmin = () => {
                   <Zap size={14} className={syncingAll ? "animate-spin" : ""} />
                   Sync All
                 </button>
-                <button onClick={handleReloginAll} disabled={reloggingAll || syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-xs font-medium hover:bg-purple-500/20 disabled:opacity-50 transition-colors">
+                <button onClick={handleCleanAccounts} disabled={cleaningAccounts || reloggingAll || syncingAll} className="flex items-center gap-1.5 px-3 py-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-medium hover:bg-red-500/20 disabled:opacity-50 transition-colors">
+                  {cleaningAccounts ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  Limpar Inválidas
+                </button>
+                <button onClick={handleReloginAll} disabled={reloggingAll || syncingAll || cleaningAccounts} className="flex items-center gap-1.5 px-3 py-2.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-xs font-medium hover:bg-purple-500/20 disabled:opacity-50 transition-colors">
                   {reloggingAll ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                   Relogin Todas
                 </button>
