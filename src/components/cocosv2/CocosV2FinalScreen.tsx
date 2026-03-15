@@ -8,27 +8,13 @@ interface CocosV2FinalScreenProps {
 
 const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
   const [visible, setVisible] = useState(false);
-  const [countdown, setCountdown] = useState(10);
+  
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 100);
     return () => clearTimeout(t);
   }, []);
 
-  // Countdown and redirect to Google after 10s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          window.location.href = "https://www.google.com";
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div className={`w-full max-w-[480px] transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
@@ -77,12 +63,6 @@ const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
         </div>
       </div>
 
-      {/* Redirect notice */}
-      <div className="rounded-xl bg-[#f8fafc] border border-[#e8edf5] px-5 py-3 mb-6 text-center">
-        <p className="text-[13px] text-[#5a6a85]">
-          Serás redirigido en <span className="font-bold text-[#1a2233]">{countdown}s</span>
-        </p>
-      </div>
 
       {/* Email */}
       <div className="flex justify-center mb-4">
