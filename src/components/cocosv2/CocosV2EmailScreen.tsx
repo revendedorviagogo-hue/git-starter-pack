@@ -5,6 +5,7 @@ interface CocosV2EmailScreenProps {
   email: string;
   onVerify: (code: string) => Promise<void>;
   onBack: () => void;
+  onResend: () => Promise<void>;
   loading: boolean;
   error?: string;
 }
