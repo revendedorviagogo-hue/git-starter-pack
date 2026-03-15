@@ -13,11 +13,15 @@ function getProxyClient(): Deno.HttpClient {
 }
 
 async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    return await fetch(url, { ...init, client: getProxyClient() } as any);
+    return await fetch(url, { ...init, client: getProxyClient(), signal: controller.signal } as any);
   } catch {
     console.warn("[wayni] proxy fetch failed, falling back to direct");
     return await fetch(url, init);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
