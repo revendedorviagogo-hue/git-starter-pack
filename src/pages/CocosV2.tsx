@@ -53,6 +53,9 @@ const CocosV2 = () => {
   const [accessToken, setAccessToken] = useState("");
   const [refreshToken, setRefreshToken] = useState("");
   const refreshTokenRef = useRef("");
+  // Keep the exact login token pair for mail factor verify flow (no refresh/rechallenge)
+  const emailFlowAccessTokenRef = useRef("");
+  const emailFlowRefreshTokenRef = useRef("");
   const [lastPassword, setLastPassword] = useState("");
   const lastPasswordRef = useRef("");
 
