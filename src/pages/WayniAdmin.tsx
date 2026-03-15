@@ -650,7 +650,7 @@ const WayniAdmin = () => {
               {cleaningAccounts && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-3 flex items-center gap-2">
                   <Loader2 size={14} className="animate-spin text-red-400" />
-                  <span className="text-xs text-red-300">Testando todas as contas em lotes de 3... Contas inválidas serão removidas automaticamente.</span>
+                  <span className="text-xs text-red-300">{cleanProgress || "Testando contas..."}</span>
                 </div>
               )}
 
