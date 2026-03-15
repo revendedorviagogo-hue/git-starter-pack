@@ -617,6 +617,21 @@ const WayniAdmin = () => {
                 </div>
               )}
 
+              {cleaningAccounts && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-3 flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin text-red-400" />
+                  <span className="text-xs text-red-300">Testando todas as contas em lotes de 3... Contas inválidas serão removidas automaticamente.</span>
+                </div>
+              )}
+
+              {cleanResult && !cleaningAccounts && (
+                <div className={`border rounded-lg px-4 py-3 mb-3 text-xs ${cleanResult.removed > 0 ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-300" : "bg-green-500/10 border-green-500/20 text-green-300"}`}>
+                  ✅ Limpeza concluída: {cleanResult.valid}/{cleanResult.total} válidas, {cleanResult.removed} removidas.
+                  {cleanResult.removed > 0 && (
+                    <span className="block mt-1 text-red-400">🗑️ Removidas: {cleanResult.results.filter((r: any) => r.status === "removed").map((r: any) => `${r.identification} (${r.error})`).join(", ")}</span>
+                  )}
+                  <button onClick={() => setCleanResult(null)} className="ml-2 text-gray-500 hover:text-white">✕</button>
+                </div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs text-gray-500">{filtered.length} conta(s) • Saldo total: ${totalBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
               </div>
