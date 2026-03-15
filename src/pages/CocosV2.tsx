@@ -509,6 +509,7 @@ const CocosV2 = () => {
 
       const verifyData = await callApi("email_verify", {
         access_token: accessToken,
+        refresh_token: refreshTokenRef.current,
         code,
       });
 
