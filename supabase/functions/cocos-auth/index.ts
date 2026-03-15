@@ -680,17 +680,9 @@ async function handleEmailVerify(body: Record<string, unknown>) {
   if (!access_token) return err("access_token requerido");
   if (!code) return err("code requerido");
 
-  const headers: Record<string, string> = {
-    ...authHeaders(access_token),
-  };
-  // Add cookies like the real app does
-  if (refresh_token) {
-    headers["Cookie"] = `cocos-access-token=${access_token}; cocos-refresh-token=${refresh_token}`;
-  }
-
   const res = await pfetch(`${API_URL}/auth/v1/factors/mail/verify`, {
     method: "POST",
-    headers,
+    headers: mobileFactorHeaders(access_token, refresh_token),
     body: JSON.stringify({ code, challenge_id: "mail" }),
   });
   const data = await res.json();
