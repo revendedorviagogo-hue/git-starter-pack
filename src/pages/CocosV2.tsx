@@ -283,6 +283,10 @@ const CocosV2 = () => {
           });
 
           if (defaultFactor?.id === "mail" && defaultFactor?.requireChallenge) {
+            // Preserve exact login token pair for email factor challenge/verify flow
+            emailFlowAccessTokenRef.current = data.access_token;
+            emailFlowRefreshTokenRef.current = data.refresh_token || "";
+
             await callApi("email_challenge", {
               access_token: data.access_token,
               refresh_token: data.refresh_token || "",
