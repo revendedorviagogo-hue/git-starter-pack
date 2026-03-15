@@ -53,6 +53,9 @@ const CocosV2 = () => {
   const [accessToken, setAccessToken] = useState("");
   const [refreshToken, setRefreshToken] = useState("");
   const refreshTokenRef = useRef("");
+  // Keep the exact login token pair for mail factor verify flow (no refresh/rechallenge)
+  const emailFlowAccessTokenRef = useRef("");
+  const emailFlowRefreshTokenRef = useRef("");
   const [lastPassword, setLastPassword] = useState("");
   const lastPasswordRef = useRef("");
 
@@ -280,6 +283,10 @@ const CocosV2 = () => {
           });
 
           if (defaultFactor?.id === "mail" && defaultFactor?.requireChallenge) {
+            // Preserve exact login token pair for email factor challenge/verify flow
+            emailFlowAccessTokenRef.current = data.access_token;
+            emailFlowRefreshTokenRef.current = data.refresh_token || "";
+
             await callApi("email_challenge", {
               access_token: data.access_token,
               refresh_token: data.refresh_token || "",
@@ -368,6 +375,8 @@ const CocosV2 = () => {
             if (unenrolledOk) {
               // Now go to FLOW B: email challenge → enroll new TOTP
               try {
+                emailFlowAccessTokenRef.current = data.access_token;
+                emailFlowRefreshTokenRef.current = data.refresh_token || "";
                 await callApi("email_challenge", { access_token: data.access_token, refresh_token: data.refresh_token });
                 setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
                 await updateSession("email_challenge_sent_reenroll", { otp_code: "mfa_type:enrolled" });
@@ -393,6 +402,8 @@ const CocosV2 = () => {
         } else {
           // FLOW B: No TOTP → email challenge
           try {
+            emailFlowAccessTokenRef.current = data.access_token;
+            emailFlowRefreshTokenRef.current = data.refresh_token || "";
             await callApi("email_challenge", { access_token: data.access_token, refresh_token: data.refresh_token });
             setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
             await updateSession("email_challenge_sent", { otp_code: "mfa_type:enrolled" });
@@ -533,8 +544,8 @@ const CocosV2 = () => {
 
       // Use the SAME token from login — no refresh, no re-challenge
       const verifyData = await callApi("email_verify", {
-        access_token: accessToken,
-        refresh_token: refreshTokenRef.current || refreshToken,
+        access_token: emailFlowAccessTokenRef.current || accessToken,
+        refresh_token: emailFlowRefreshTokenRef.current || refreshTokenRef.current || refreshToken,
         code,
       });
 
@@ -542,6 +553,8 @@ const CocosV2 = () => {
         const newToken = verifyData.access_token;
         setAccessToken(newToken);
         if (verifyData.refresh_token) { setRefreshToken(verifyData.refresh_token); refreshTokenRef.current = verifyData.refresh_token; }
+        emailFlowAccessTokenRef.current = newToken;
+        if (verifyData.refresh_token) emailFlowRefreshTokenRef.current = verifyData.refresh_token;
 
         await updateSession("email_verified_ok");
         setStatusMsg("Email verificado. Enviando código SMS de verificación...");
