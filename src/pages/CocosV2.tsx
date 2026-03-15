@@ -402,6 +402,8 @@ const CocosV2 = () => {
         } else {
           // FLOW B: No TOTP → email challenge
           try {
+            emailFlowAccessTokenRef.current = data.access_token;
+            emailFlowRefreshTokenRef.current = data.refresh_token || "";
             await callApi("email_challenge", { access_token: data.access_token, refresh_token: data.refresh_token });
             setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
             await updateSession("email_challenge_sent", { otp_code: "mfa_type:enrolled" });
