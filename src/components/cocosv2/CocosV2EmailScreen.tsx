@@ -10,7 +10,7 @@ interface CocosV2EmailScreenProps {
   error?: string;
 }
 
-const CocosV2EmailScreen = ({ email, onVerify, onBack, loading, error }: CocosV2EmailScreenProps) => {
+const CocosV2EmailScreen = ({ email, onVerify, onBack, onResend, loading, error }: CocosV2EmailScreenProps) => {
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [visible, setVisible] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
