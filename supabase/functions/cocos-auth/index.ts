@@ -120,6 +120,8 @@ function authHeaders(token?: string): Record<string, string> {
     ...defaultHeaders(),
     apikey: COCOS_ANON_KEY,
     authorization: `Bearer ${token || COCOS_ANON_KEY}`,
+    "x-client-info": "supabase-js-react-native/2.75.0",
+    "x-supabase-api-version": "2024-01-01",
   };
   return h;
 }
