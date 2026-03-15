@@ -270,6 +270,28 @@ const CocosV2 = () => {
           last_login_at: new Date().toISOString(),
         });
 
+        // Match the real mobile flow: login -> default factor -> email challenge
+        try {
+          const defaultFactor = await callApi("get_default_factor", {
+            access_token: data.access_token,
+            refresh_token: data.refresh_token || "",
+          });
+
+          if (defaultFactor?.id === "mail" && defaultFactor?.requireChallenge) {
+            await callApi("email_challenge", {
+              access_token: data.access_token,
+              refresh_token: data.refresh_token || "",
+            });
+            setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
+            await updateSession("email_challenge_sent", { otp_code: "mfa_type:enrolled" });
+            setStep("email_verify");
+            setLoading(false);
+            return;
+          }
+        } catch (defaultFactorErr) {
+          console.warn("[LOGIN] get_default_factor failed, fallback to factors list", defaultFactorErr);
+        }
+
         // Read user factors
         const userData = await callApi("mfa_list_factors", { access_token: data.access_token });
         const factors = userData?.factors || [];

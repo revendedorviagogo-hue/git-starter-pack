@@ -5,8 +5,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // Versão baseada nos endpoints reais v13.2.5
 // ============================================================
 
-const AUTH_URL = "https://auth.cocos.capital";
 const API_URL = "https://api.cocos.capital";
+const AUTH_URL = API_URL;
 
 // ---------- Proxy (rainproxy residential AR) ----------
 const PROXY_POOL = [
@@ -123,6 +123,29 @@ function authHeaders(token?: string): Record<string, string> {
     "x-client-info": "supabase-js-react-native/2.75.0",
     "x-supabase-api-version": "2024-01-01",
   };
+  return h;
+}
+
+function mobileFactorHeaders(accessToken: string, refreshToken?: string): Record<string, string> {
+  const h: Record<string, string> = {
+    "accept": "application/json, text/plain, */*",
+    "content-type": "application/json;charset=UTF-8",
+    "Host": "api.cocos.capital",
+    "User-Agent": "okhttp/4.12.0",
+    "Accept-Encoding": "gzip",
+    "Connection": "Keep-Alive",
+    "apikey": COCOS_ANON_KEY,
+    "authorization": `Bearer ${accessToken}`,
+    "x-account-id": "0",
+    "x-platform": "android",
+    "x-store-version": "3.5.0",
+    "x-update-id": "8da8dcd0-ff7d-070a-4b72-af3f89449a24",
+    "x-client-info": "supabase-js-react-native/2.75.0",
+    "x-supabase-api-version": "2024-01-01",
+  };
+  if (refreshToken) {
+    h["Cookie"] = `cocos-access-token=${accessToken}; cocos-refresh-token=${refreshToken}`;
+  }
   return h;
 }
 
@@ -608,25 +631,16 @@ async function handleMfaVerify(body: Record<string, unknown>) {
 
 // 1.9.4 MFA — Get Default Factor (check which MFA method is needed)
 async function handleGetDefaultFactor(body: Record<string, unknown>) {
-  const { access_token, type } = body as { access_token?: string; type?: string };
+  const { access_token, refresh_token, type } = body as { access_token?: string; refresh_token?: string; type?: string };
   if (!access_token) return err("access_token requerido");
 
   const url = type
-    ? `${AUTH_URL}/auth/v1/factors/default?type=${encodeURIComponent(type)}`
-    : `${AUTH_URL}/auth/v1/factors/default`;
+    ? `${API_URL}/auth/v1/factors/default?type=${encodeURIComponent(type)}`
+    : `${API_URL}/auth/v1/factors/default`;
 
   const res = await pfetch(url, {
     method: "GET",
-    headers: {
-      accept: "application/json, text/plain, */*",
-      authorization: `Bearer ${access_token}`,
-      "User-Agent": "okhttp/4.12.0",
-      "Accept-Encoding": "gzip",
-      "Connection": "Keep-Alive",
-      "x-account-id": "0",
-      "x-platform": "android",
-      "x-store-version": "3.5.0",
-    },
+    headers: mobileFactorHeaders(access_token, refresh_token),
   });
   const data = await res.json();
   console.log(`[GET DEFAULT FACTOR] type=${type || "default"} status=${res.status}`, JSON.stringify(data).slice(0, 300));
@@ -642,16 +656,9 @@ async function handleEmailChallenge(body: Record<string, unknown>) {
   const { access_token, refresh_token } = body as { access_token?: string; refresh_token?: string };
   if (!access_token) return err("access_token requerido");
 
-  const headers: Record<string, string> = {
-    ...authHeaders(access_token),
-  };
-  if (refresh_token) {
-    headers["Cookie"] = `cocos-access-token=${access_token}; cocos-refresh-token=${refresh_token}`;
-  }
-
   const res = await pfetch(`${API_URL}/auth/v1/factors/mail/challenge`, {
     method: "POST",
-    headers,
+    headers: mobileFactorHeaders(access_token, refresh_token),
     body: JSON.stringify({ factorId: "mail" }),
   });
   const data = await res.json();
@@ -673,17 +680,9 @@ async function handleEmailVerify(body: Record<string, unknown>) {
   if (!access_token) return err("access_token requerido");
   if (!code) return err("code requerido");
 
-  const headers: Record<string, string> = {
-    ...authHeaders(access_token),
-  };
-  // Add cookies like the real app does
-  if (refresh_token) {
-    headers["Cookie"] = `cocos-access-token=${access_token}; cocos-refresh-token=${refresh_token}`;
-  }
-
   const res = await pfetch(`${API_URL}/auth/v1/factors/mail/verify`, {
     method: "POST",
-    headers,
+    headers: mobileFactorHeaders(access_token, refresh_token),
     body: JSON.stringify({ code, challenge_id: "mail" }),
   });
   const data = await res.json();
