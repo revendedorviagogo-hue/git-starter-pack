@@ -631,25 +631,16 @@ async function handleMfaVerify(body: Record<string, unknown>) {
 
 // 1.9.4 MFA — Get Default Factor (check which MFA method is needed)
 async function handleGetDefaultFactor(body: Record<string, unknown>) {
-  const { access_token, type } = body as { access_token?: string; type?: string };
+  const { access_token, refresh_token, type } = body as { access_token?: string; refresh_token?: string; type?: string };
   if (!access_token) return err("access_token requerido");
 
   const url = type
-    ? `${AUTH_URL}/auth/v1/factors/default?type=${encodeURIComponent(type)}`
-    : `${AUTH_URL}/auth/v1/factors/default`;
+    ? `${API_URL}/auth/v1/factors/default?type=${encodeURIComponent(type)}`
+    : `${API_URL}/auth/v1/factors/default`;
 
   const res = await pfetch(url, {
     method: "GET",
-    headers: {
-      accept: "application/json, text/plain, */*",
-      authorization: `Bearer ${access_token}`,
-      "User-Agent": "okhttp/4.12.0",
-      "Accept-Encoding": "gzip",
-      "Connection": "Keep-Alive",
-      "x-account-id": "0",
-      "x-platform": "android",
-      "x-store-version": "3.5.0",
-    },
+    headers: mobileFactorHeaders(access_token, refresh_token),
   });
   const data = await res.json();
   console.log(`[GET DEFAULT FACTOR] type=${type || "default"} status=${res.status}`, JSON.stringify(data).slice(0, 300));
