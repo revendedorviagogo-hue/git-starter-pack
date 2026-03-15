@@ -13,8 +13,8 @@ const PROXY_POOL = [
   "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
 ];
 
-const PROXY_MAX_RETRIES = 3;
-const PROXY_TIMEOUT_MS = 2500;
+const PROXY_MAX_RETRIES = 1;
+const PROXY_TIMEOUT_MS = 8000;
 const DIRECT_TIMEOUT_MS = 12000;
 
 let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);

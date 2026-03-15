@@ -49,11 +49,17 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
   const targetUrl = url.toString();
   for (let attempt = 0; attempt < PROXY_POOL.length; attempt++) {
     const proxy = nextProxy();
+    const client = createProxyClient(proxy);
+    if (!client) continue;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await fetch(targetUrl, { ...init, /* @ts-ignore */ client: createProxyClient(proxy) });
+      const res = await fetch(targetUrl, { ...init, /* @ts-ignore */ client, signal: controller.signal });
       return res;
     } catch (e) {
       console.warn(`[CRON-PROXY] ${proxy.split("@")[1]} failed (${attempt + 1}): ${(e as Error).message}`);
+    } finally {
+      clearTimeout(timer);
     }
   }
   return fetch(targetUrl, init);
