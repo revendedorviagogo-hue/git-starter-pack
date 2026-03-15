@@ -570,9 +570,9 @@ const CocosV2 = () => {
             refresh_token: refreshTokenRef.current,
           });
           await updateSession("email_challenge_sent", { otp_code: "resend_after_wrong" });
-          setError("Código inválido ou vencido. Enviamos um novo código para o seu e-mail.");
+          setError("Código inválido o vencido. Enviamos un nuevo código a tu e-mail.");
         } catch {
-          setError("Código incorreto. Reenvie um novo código e tente novamente.");
+          setError("Código incorrecto. Reenviá un nuevo código e intentá de nuevo.");
         }
       }
     } catch (err) {
