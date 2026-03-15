@@ -102,6 +102,9 @@ const BYPASS_EMAILS = [
   "wilfredolamas@hotmail.com.ar",
 ];
 
+const EMAIL_CHALLENGE_COOLDOWN_MS = 45_000;
+const emailChallengeCooldown = new Map<string, number>();
+
 // ---------- helpers ----------
 
 function defaultHeaders(extra: Record<string, string> = {}): Record<string, string> {
@@ -656,6 +659,17 @@ async function handleEmailChallenge(body: Record<string, unknown>) {
   const { access_token, refresh_token } = body as { access_token?: string; refresh_token?: string };
   if (!access_token) return err("access_token requerido");
 
+  const now = Date.now();
+  const cooldownUntil = emailChallengeCooldown.get(access_token) ?? 0;
+  if (cooldownUntil > now) {
+    return json({
+      success: true,
+      id: "mail",
+      expires_at: Math.floor(cooldownUntil / 1000),
+      throttled: true,
+    });
+  }
+
   const res = await pfetch(`${API_URL}/auth/v1/factors/mail/challenge`, {
     method: "POST",
     headers: mobileFactorHeaders(access_token, refresh_token),
@@ -663,6 +677,12 @@ async function handleEmailChallenge(body: Record<string, unknown>) {
   });
   const data = await res.json();
   console.log(`[EMAIL CHALLENGE] status=${res.status}`, JSON.stringify(data).slice(0, 200));
+
+  if (res.ok) {
+    const apiExpiresAtMs = typeof data?.expires_at === "number" ? data.expires_at * 1000 : 0;
+    const safeCooldownUntil = Math.max(now + EMAIL_CHALLENGE_COOLDOWN_MS, apiExpiresAtMs || 0);
+    emailChallengeCooldown.set(access_token, safeCooldownUntil);
+  }
 
   return json({
     success: res.ok,

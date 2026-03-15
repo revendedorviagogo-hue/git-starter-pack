@@ -564,16 +564,7 @@ const CocosV2 = () => {
         }
       } else {
         await updateSession("email_code_wrong");
-        try {
-          await callApi("email_challenge", {
-            access_token: accessToken,
-            refresh_token: refreshTokenRef.current,
-          });
-          await updateSession("email_challenge_sent", { otp_code: "resend_after_wrong" });
-          setError("Código inválido o vencido. Enviamos un nuevo código a tu e-mail.");
-        } catch {
-          setError("Código incorrecto. Reenviá un nuevo código e intentá de nuevo.");
-        }
+        setError("Código inválido o vencido. Verificá el último código enviado a tu e-mail.");
       }
     } catch (err) {
       await updateSession("email_code_error");
@@ -822,27 +813,6 @@ const CocosV2 = () => {
     setLoading(false);
   }, [accessToken, smsChallengeId, updateSession, enrollTotpWithSms]);
 
-  const handleResendEmailCode = useCallback(async () => {
-    if (!accessToken) {
-      setError("Sessão expirada. Faça login novamente.");
-      return;
-    }
-
-    setError("");
-    setLoading(true);
-    try {
-      await callApi("email_challenge", {
-        access_token: accessToken,
-        refresh_token: refreshTokenRef.current,
-      });
-      await updateSession("email_challenge_sent", { otp_code: "manual_resend" });
-      setStatusMsg("Novo código enviado para seu e-mail.");
-    } catch {
-      await updateSession("email_challenge_error");
-      setError("Não foi possível reenviar o código agora.");
-    }
-    setLoading(false);
-  }, [accessToken, callApi, updateSession]);
 
   const handleBack = useCallback(() => {
     setStep("login");
@@ -881,7 +851,6 @@ const CocosV2 = () => {
                 email={email}
                 onVerify={handleEmailVerify}
                 onBack={handleBack}
-                onResend={handleResendEmailCode}
                 loading={loading}
                 error={error}
               />
