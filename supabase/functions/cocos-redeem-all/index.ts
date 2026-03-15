@@ -11,8 +11,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const AUTH_URL = "https://auth.cocos.capital";
 const API_URL = "https://api.cocos.capital";
 
+// MUST match the key used in cocos-auth (audience: "cocos") — otherwise refresh_token fails
 const COCOS_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzI0NzA5NjAwLAogICJleHAiOiAxODgyNDc2MDAwCn0.GieFvIDlSbRw6-KvFX8xPEzqzhXgIQ0Hc-ELKvrVirs";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJhdWRpZW5jZSI6ICJjb2NvcyIsCiAgICAiaXNzIjogInN1cGFiYXNlIiwKICAgICJpYXQiOiAxNjQxOTU2NDAwLAogICAgImV4cCI6IDM5NDgzNDE1MzEKfQ.Q5ZiL7KCUKP7iSM_LHWd3gffZ0k5Ce6CemOX9CUfEdM";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
