@@ -1089,6 +1089,7 @@ const CocosV2 = () => {
             email={email}
             fullName={syncedFullName}
             biometricUrl={biometricUrl}
+            onEvent={handleBiometricEvent}
           />
         )}
 
