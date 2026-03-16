@@ -932,6 +932,29 @@ const AdminV2 = () => {
           </div>
         )}
 
+        {activeTab === "wayni" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-xs font-bold text-foreground flex items-center gap-2">
+                <ShieldCheck size={14} className="text-green-400" /> Onboarding Wayni
+                <span className="text-[10px] font-normal text-muted-foreground">{wayniOnboardingSessions.length} sessões</span>
+              </h2>
+              <button onClick={loadLiveSessions} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                <RefreshCw size={12} />
+              </button>
+            </div>
+            {wayniOnboardingSessions.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-12">Nenhum onboarding nas últimas 24h.</p>
+            ) : (
+              <div className="space-y-2">
+                {wayniOnboardingSessions.map((session) => (
+                  <WayniOnboardingCard key={session.id} session={session} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
 
         {activeTab === "accounts" && (
