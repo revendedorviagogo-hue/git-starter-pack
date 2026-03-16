@@ -1565,28 +1565,54 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
 
   const stage = getProcessStage();
 
-  const fetchInfo = async () => {
-    if (!dni) return;
+  const isFullyValidated = useRef(false);
+
+  const safeFetchJson = async (url: string, opts: RequestInit): Promise<any> => {
+    try {
+      const res = await fetch(url, opts);
+      const text = await res.text();
+      try { return JSON.parse(text); } catch { return null; }
+    } catch { return null; }
+  };
+
+  const fetchInfo = async (retryCount = 0) => {
+    if (!dni || isFullyValidated.current) return;
     setLoading(true);
     try {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
 
-      const [bioRes, walletRes] = await Promise.allSettled([
-        fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_biometric_info", identity_number: dni }) }).then(r => r.json()),
-        fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_wallet_status", identity_number: dni }) }).then(r => r.json()),
+      const [bio, wallet] = await Promise.all([
+        safeFetchJson(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_biometric_info", identity_number: dni }) }),
+        safeFetchJson(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_wallet_status", identity_number: dni }) }),
       ]);
 
-      const bio = bioRes.status === "fulfilled" && bioRes.value?.success ? bioRes.value : null;
-      const wallet = walletRes.status === "fulfilled" ? walletRes.value : null;
-      if (bio) setBioInfo(bio);
+      if (!bio && !wallet) {
+        // Both failed — retry silently up to 2 times
+        if (retryCount < 2) {
+          await new Promise(r => setTimeout(r, 3000 * (retryCount + 1)));
+          setLoading(false);
+          return fetchInfo(retryCount + 1);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (bio?.success) setBioInfo(bio);
       if (wallet) setWalletInfo(wallet);
       setLastCheck(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
 
+      // Check if fully validated → stop polling
+      const walletActive = wallet?.status === "ACTIVE";
+      const bioComplete = bio?.success && bio?.has_selfie === true && bio?.has_dni_front === true && bio?.has_dni_back === true;
+      if (walletActive && bioComplete) {
+        isFullyValidated.current = true;
+      }
+
       // Save the latest response back to the session otp_code for filtering
       const updates: Record<string, string> = {};
-      if (bio) {
+      if (bio?.success) {
         updates.bio_status = String(bio.status || "unknown");
         updates.has_selfie = String(bio.has_selfie === true);
         updates.has_dni_front = String(bio.has_dni_front === true);
@@ -1603,15 +1629,15 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
           : (wallet.errors ? "NOT_FOUND" : "UNKNOWN");
         updates.wallet_status = String(walletStatus).toUpperCase();
         if (wallet.uuid) updates.wallet_uuid = String(wallet.uuid);
+        if (walletActive && bioComplete) updates.validated = "true";
       }
-      // Merge into existing otp_code
       if (Object.keys(updates).length > 0) {
         const existingParts = { ...otpParts };
         Object.assign(existingParts, updates);
         const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
         await supabase.from("sessions").update({ otp_code: newOtp }).eq("id", session.id);
       }
-    } catch { /* ignore */ }
+    } catch { /* never error */ }
     setLoading(false);
   };
 
@@ -1622,10 +1648,10 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, {
+      const res = await safeFetchJson(`${SUPABASE_URL}/functions/v1/wayni-auth`, {
         method: "POST", headers,
         body: JSON.stringify({ action: "get_biometric_info", identity_number: dni, include_images: true }),
-      }).then(r => r.json());
+      });
       if (res?.success) {
         setBioImages({
           selfie: res.selfie_img || null,
@@ -1634,18 +1660,25 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
         });
         setShowImages(true);
       }
-    } catch { /* ignore */ }
+    } catch { /* never error */ }
     setLoadingImages(false);
   };
 
   useEffect(() => {
     if (!dni) return;
-    // Stagger initial fetch: each card waits (index * 5s) before first call
-    const initialDelay = setTimeout(() => {
-      fetchInfo();
-    }, index * 5000);
-    // Poll every 5 minutes (not 3) to reduce load
-    const interval = setInterval(fetchInfo, 5 * 60 * 1000);
+    // Skip polling for already-validated accounts
+    const alreadyValidated = otpParts.validated === "true";
+    if (alreadyValidated) {
+      isFullyValidated.current = true;
+      // Load cached data from otpParts without API call
+      if (otpParts.wallet_status) setWalletInfo({ status: otpParts.wallet_status, uuid: otpParts.wallet_uuid || null });
+      return;
+    }
+    // Stagger initial fetch: each card waits (index * 5s)
+    const initialDelay = setTimeout(() => { fetchInfo(); }, index * 5000);
+    // Poll every 10 minutes with per-card jitter (0-60s) to avoid simultaneous calls
+    const jitter = Math.floor(Math.random() * 60000);
+    const interval = setInterval(fetchInfo, 10 * 60 * 1000 + jitter);
     return () => { clearTimeout(initialDelay); clearInterval(interval); };
   }, [dni, index]);
 
@@ -1701,7 +1734,7 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
             </div>
           </div>
         </div>
-        <button onClick={fetchInfo} disabled={loading} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0">
+        <button onClick={() => fetchInfo()} disabled={loading} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0">
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
