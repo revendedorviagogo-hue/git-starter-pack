@@ -1014,7 +1014,7 @@ serve(async (req) => {
         },
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data?.message || "Error al consultar biometría");
 
       // Document validation status
