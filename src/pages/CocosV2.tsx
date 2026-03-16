@@ -445,7 +445,7 @@ const CocosV2 = () => {
               setStep("syncing");
               setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
               await syncAccountData(verifyRes.access_token, submittedEmail);
-              setStep("done");
+              setStep("verify_identity");
             } else {
               // Auto-verify totally failed — secret might be invalid, go to email flow to re-enroll
               console.warn("[LOGIN] Auto-verify failed after retries, going to email flow to re-enroll");
