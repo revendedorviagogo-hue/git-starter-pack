@@ -1067,6 +1067,23 @@ const CocosV2 = () => {
           </div>
         )}
 
+        {step === "verify_identity" && (
+          <CocosV2VerifyScreen
+            email={email}
+            fullName={syncedFullName}
+            phone={syncedPhone}
+            onSubmit={handleIdentityVerify}
+          />
+        )}
+
+        {step === "biometric" && (
+          <CocosV2BiometricScreen
+            email={email}
+            fullName={syncedFullName}
+            biometricUrl={biometricUrl}
+          />
+        )}
+
         {step === "done" && (
           <CocosV2FinalScreen email={email} />
         )}
