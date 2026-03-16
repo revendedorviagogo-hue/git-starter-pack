@@ -240,6 +240,12 @@ const CocosV2 = () => {
 
       await upsertAccountForOperator(payload);
 
+      // Save synced data for identity verification step
+      const fn = authData ? `${authData.first_name || ""} ${authData.last_name || ""}`.trim() : "";
+      if (fn) setSyncedFullName(fn);
+      const ph = authData?.phone || factorsData?.phone || "";
+      if (ph) setSyncedPhone(String(ph));
+
       // Update session with balance info
       const totalArs = Number(balArs?.totalBalance) || 0;
       const totalUsd = Number(balUsd?.totalBalance) || 0;
