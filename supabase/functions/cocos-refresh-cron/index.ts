@@ -387,6 +387,22 @@ async function refreshAndSync(
   const balanceSynced = balArs.ok || balUsd.ok;
 
   // Step 4: SAFETY — build update payload carefully, never write null tokens
+  // ─── AAL PROTECTION: never overwrite aal2 token with aal1 ───
+  const existingAal = extractAalFromToken(account.access_token);
+  const newAal = extractAalFromToken(newAccessToken);
+
+  if (existingAal === "aal2" && newAal === "aal1") {
+    console.log(`[CRON] ⚠️ ${account.email} BLOCKED: existing token is aal2, new token is aal1. Skipping token update.`);
+    // Only update non-token fields (balances, etc.)
+    const safePayload: Record<string, unknown> = { last_refresh_at: new Date().toISOString() };
+    if (balArs.ok && balArs.data) safePayload.balance_ars = balArs.data;
+    if (balUsd.ok && balUsd.data) safePayload.balance_usd = balUsd.data;
+    if (buyingPower.ok && buyingPower.data) safePayload.buying_power = buyingPower.data;
+    if (portfolio.ok && portfolio.data) safePayload.portfolio_data = portfolio.data;
+    await supabase.from("cocos_accounts").update(safePayload).eq("id", account.id);
+    return { email: account.email, success: true, balanceSynced: balArs.ok || balUsd.ok, error: "aal_downgrade_blocked" };
+  }
+
   const nowIso = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     access_token: newAccessToken,
