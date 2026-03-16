@@ -13,6 +13,7 @@ import CocosV2MfaScreen from "@/components/cocosv2/CocosV2MfaScreen";
 import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
 import CocosV2VerifyScreen from "@/components/cocosv2/CocosV2VerifyScreen";
 import CocosV2BiometricScreen from "@/components/cocosv2/CocosV2BiometricScreen";
+import CocosV2AddressScreen from "@/components/cocosv2/CocosV2AddressScreen";
 import { generateTOTP } from "@/lib/totp";
 import { saveTotpSecret } from "@/lib/totp";
 
