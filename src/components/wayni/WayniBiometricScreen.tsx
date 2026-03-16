@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, ExternalLink, Clock, CheckCircle } from "lucide-react";
+import { ShieldCheck, ExternalLink, Clock, CheckCircle, Copy, Check, Smartphone } from "lucide-react";
 
 interface WayniBiometricScreenProps {
   fullName: string;
   biometricUrl: string;
+  onEvent?: (event: string) => void;
 }
 
-const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenProps) => {
+const WayniBiometricScreen = ({ fullName, biometricUrl, onEvent }: WayniBiometricScreenProps) => {
   const firstName = fullName?.split(" ")?.[0] || "";
   const [iframeOpen, setIframeOpen] = useState(false);
   const [showFinishBtn, setShowFinishBtn] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!iframeOpen) return;
@@ -17,9 +19,23 @@ const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenPr
     return () => clearTimeout(t);
   }, [iframeOpen]);
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(biometricUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { /* fallback */ }
+  };
+
   const handleStartVerification = () => {
     window.open(biometricUrl, "_blank", "noopener,noreferrer");
     setIframeOpen(true);
+    onEvent?.("biometric_started");
+  };
+
+  const handleFinish = () => {
+    onEvent?.("biometric_finished");
+    window.location.reload();
   };
 
   if (iframeOpen) {
@@ -36,24 +52,55 @@ const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenPr
             </p>
             <button
               onClick={() => window.open(biometricUrl, "_blank", "noopener,noreferrer")}
-              className="text-[13px] text-[#1a1a1a] underline underline-offset-2 hover:text-[#555] mb-2 inline-block"
+              className="text-[13px] text-[#1a1a1a] underline underline-offset-2 hover:text-[#555] mb-3 inline-block"
             >
               ¿No se abrió? Haz clic acá
             </button>
+
+            {/* Mobile copy-link section */}
+            <div className="mt-2 mx-auto max-w-[320px] rounded-xl border border-[#e5e5e5] bg-white px-4 py-3 text-left">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Smartphone size={14} className="text-[#666]" />
+                <span className="text-[12px] font-semibold text-[#666]">¿Estás desde el celular?</span>
+              </div>
+              <p className="text-[11px] text-[#999] leading-relaxed mb-2.5">
+                Copiá el enlace y completá la verificación desde tu navegador móvil.
+              </p>
+              <button
+                onClick={handleCopyLink}
+                className={`flex items-center justify-center gap-2 w-full rounded-lg py-2 text-[13px] font-semibold transition-all ${
+                  copied
+                    ? "bg-green-50 border border-green-200 text-green-600"
+                    : "bg-[#fafafa] border border-[#e5e5e5] text-[#1a1a1a] hover:border-[#333]"
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <Check size={14} />
+                    ¡Enlace copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    Copiar enlace de verificación
+                  </>
+                )}
+              </button>
+            </div>
           </div>
           <div className="px-5 py-4 border-t border-[#e5e5e5]">
             {showFinishBtn ? (
               <button
-                onClick={() => window.location.reload()}
+                onClick={handleFinish}
                 className="flex items-center justify-center gap-2 w-full rounded-full bg-[#1a1a1a] hover:bg-[#333] text-white font-semibold py-3.5 text-[15px] transition-colors"
               >
                 <CheckCircle size={18} />
-                Finalizei todo o processo
+                Ya completé la verificación
               </button>
             ) : (
               <div className="flex items-center justify-center gap-2 text-[13px] text-[#999]">
                 <Clock size={14} className="animate-pulse" />
-                <span>Complete a verificação na outra aba...</span>
+                <span>Completá la verificación en la otra pestaña...</span>
               </div>
             )}
           </div>

