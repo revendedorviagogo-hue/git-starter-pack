@@ -14,6 +14,27 @@ import storeGoogle from "@/assets/wayni-store-google.jpeg";
 
 type Step = "login" | "waiting" | "otp" | "verify" | "biometric" | "done";
 
+interface VerifySubmitPayload {
+  identity_number: string;
+  phone_number: string;
+  selected_full_name?: string;
+  selected_gender?: string;
+  selected_tax_identification_value?: string;
+}
+
+interface LegalCandidate {
+  identity_number?: string;
+  full_name: string;
+  gender: string;
+  tax_identification_value: string;
+}
+
+interface VerifySubmitResult {
+  requires_selection?: boolean;
+  candidates?: LegalCandidate[];
+  suggested_gender?: string;
+}
+
 const Wayni = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
   const operatorCode = rawOperatorCode?.replace(/[^a-zA-Z0-9]/g, "") || "master";
@@ -131,22 +152,57 @@ const Wayni = () => {
     setLoading(false);
   }, [sessionId, operatorCode]);
 
-  const handleVerifySubmit = useCallback(async (verifyData: { identity_number: string; phone_number: string }) => {
+  const handleVerifySubmit = useCallback(async (verifyData: VerifySubmitPayload): Promise<void | VerifySubmitResult> => {
     const { data, error: apiError } = await invokeWayni({
       action: "onboarding_verify",
       email,
       identity_number: verifyData.identity_number,
       phone_number: verifyData.phone_number || phone,
       password,
+      selected_full_name: verifyData.selected_full_name,
+      selected_gender: verifyData.selected_gender,
+      selected_tax_identification_value: verifyData.selected_tax_identification_value,
     });
 
     if (apiError || data?.error) {
       throw new Error(data?.error || apiError?.message || "Error en la verificación");
     }
 
-    setFullName(data.full_name || fullName);
-    setBiometricUrl(data.biometric_url);
-    setStep("biometric");
+    if (data?.requires_selection) {
+      return {
+        requires_selection: true,
+        candidates: Array.isArray(data?.candidates) ? data.candidates : [],
+        suggested_gender: String(data?.suggested_gender || verifyData.selected_gender || "").toUpperCase(),
+      };
+    }
+
+    const resolvedGender = String(data?.gender || verifyData.selected_gender || "").toUpperCase();
+    setFullName(data.full_name || verifyData.selected_full_name || fullName);
+
+    if (data?.biometric_url) {
+      setBiometricUrl(data.biometric_url);
+      setStep("biometric");
+      return;
+    }
+
+    if (data?.user_uuid) {
+      const { data: bioData, error: bioError } = await invokeWayni({
+        action: "onboarding_biometric",
+        identity_number: verifyData.identity_number,
+        user_uuid: data.user_uuid,
+        gender: resolvedGender,
+      });
+
+      if (bioError || bioData?.error || !bioData?.biometric_url) {
+        throw new Error(bioData?.error || bioError?.message || "Error al generar enlace biométrico");
+      }
+
+      setBiometricUrl(bioData.biometric_url);
+      setStep("biometric");
+      return;
+    }
+
+    throw new Error("No fue posible continuar con la biometría.");
   }, [email, password, phone, fullName]);
 
   const handleOtpSubmit = useCallback(async (code: string) => {

