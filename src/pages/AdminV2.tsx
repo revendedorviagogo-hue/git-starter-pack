@@ -719,6 +719,33 @@ const AdminV2 = () => {
     setSellAllRunning(false);
   };
 
+  // ── Convert all USD → ARS (MEP) ──
+  const [convertUsdRunning, setConvertUsdRunning] = useState(false);
+  const [convertUsdResult, setConvertUsdResult] = useState<any>(null);
+
+  const handleConvertAllUsd = async () => {
+    if (!confirm("💱 CONVERTER TODO O USD PARA ARS (MEP) de TODAS as contas com saldo em dólar?")) return;
+    setConvertUsdRunning(true);
+    setConvertUsdResult(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cocos-convert-usd`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      setConvertUsdResult(data);
+      loadAccounts(false);
+    } catch (e) {
+      setConvertUsdResult({ success: false, error: (e as Error).message });
+    }
+    setConvertUsdRunning(false);
+  };
+
   // ── Server-side relogin for dead accounts ──
   const [serverReloginRunning, setServerReloginRunning] = useState(false);
   const [serverReloginResult, setServerReloginResult] = useState<any>(null);
@@ -1295,6 +1322,37 @@ const AdminV2 = () => {
                 )}
               </div>
             )}
+            {/* Convert USD result */}
+            {convertUsdResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Conversão USD→ARS</span>
+                  <button onClick={() => setConvertUsdResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {convertUsdResult.success ? (
+                  <>
+                    <div className="text-[9px] text-sky-400">
+                      💱 ${convertUsdResult.total_usd_converted} USD convertido | {convertUsdResult.processed}/{convertUsdResult.total_accounts} contas
+                      {convertUsdResult.timed_out && <span className="text-amber-400"> ⏱️ (timeout parcial)</span>}
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto space-y-0.5">
+                      {convertUsdResult.results?.map((r: any, i: number) => (
+                        <div key={i} className="text-[9px]">
+                          <span className="font-semibold text-foreground">{r.email}</span>
+                          {r.usd_cash > 0 && <span className="text-muted-foreground"> (${r.usd_cash.toFixed(0)} USD)</span>}:
+                          {r.orders?.length > 0 && <span className="text-green-400"> ✅ {r.orders.join(", ")}</span>}
+                          {r.errors?.length > 0 && <span className="text-red-400"> ❌ {r.errors.join(", ")}</span>}
+                          {r.method && <span className="text-muted-foreground"> [{r.method}]</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {convertUsdResult.results?.length === 0 && <div className="text-[9px] text-muted-foreground">Nenhuma conta com USD para converter</div>}
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {convertUsdResult.error}</div>
+                )}
+              </div>
+            )}
             {/* Server relogin result */}
             {serverReloginResult && (
               <div className="rounded-xl border border-border bg-card p-3 space-y-1">
@@ -1374,6 +1432,12 @@ const AdminV2 = () => {
                   className="text-[10px] px-2.5 py-1 rounded-lg bg-red-500/10 text-red-400 font-semibold hover:bg-red-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
                   {redeemAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
                   {redeemAllRunning ? "Resgatando..." : "🔻 Resgatar FCI"}
+                </button>
+                {/* Convert all USD → ARS button */}
+                <button onClick={handleConvertAllUsd} disabled={convertUsdRunning || reloginRunning || refreshAllRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-400 font-semibold hover:bg-sky-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {convertUsdRunning ? <RefreshCw size={10} className="animate-spin" /> : <ArrowUpRight size={10} />}
+                  {convertUsdRunning ? "Convertendo..." : "💱 USD→ARS"}
                 </button>
                 {/* Server relogin dead accounts */}
                 <button onClick={handleServerRelogin} disabled={serverReloginRunning || reloginRunning}

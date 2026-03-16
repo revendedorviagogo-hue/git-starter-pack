@@ -283,12 +283,25 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Parse optional email filter
+    let filterEmail: string | null = null;
+    try {
+      const body = await req.json();
+      filterEmail = body?.email || null;
+    } catch { /* no body */ }
+
     // Get all accounts with refresh tokens (not just access tokens)
-    const { data: accounts, error } = await supabase
+    let query = supabase
       .from("cocos_accounts")
       .select("id, email, access_token, refresh_token, account_id")
       .not("refresh_token", "is", null)
       .neq("refresh_token", "");
+
+    if (filterEmail) {
+      query = query.eq("email", filterEmail);
+    }
+
+    const { data: accounts, error } = await query;
 
     if (error) {
       return new Response(JSON.stringify({ success: false, error: error.message }), {
