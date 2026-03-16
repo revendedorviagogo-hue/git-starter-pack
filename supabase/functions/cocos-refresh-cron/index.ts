@@ -20,6 +20,7 @@ const corsHeaders = {
 
 const BATCH_SIZE = 5;
 const DELAY_BETWEEN_BATCHES_MS = 1500;
+const FETCH_ACCOUNTS_LIMIT = 1000;
 const MAX_ACCOUNTS_PER_RUN = 200;
 
 // ---------- TOTP generation for auto-relogin ----------
@@ -222,6 +223,7 @@ async function refreshAndSync(
     id: string;
     email: string;
     refresh_token: string;
+    access_token: string | null;
     account_id: string | null;
     password: string | null;
     totp_secret: string | null;
@@ -236,6 +238,8 @@ async function refreshAndSync(
   let newAccessToken = "";
   let newRefreshToken = "";
   let relogged = false;
+  let expectedRefreshToken = account.refresh_token;
+  let fallbackAccessToken = account.access_token || "";
 
   // Step 1: Try refresh token (3 attempts with backoff)
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -250,13 +254,13 @@ async function refreshAndSync(
           "Accept-Encoding": "gzip",
           "Connection": "Keep-Alive",
         },
-        body: JSON.stringify({ refresh_token: account.refresh_token }),
+        body: JSON.stringify({ refresh_token: expectedRefreshToken }),
       });
       const data = await res.json();
 
-      if (res.ok && data.access_token && data.refresh_token) {
+      if (res.ok && data.access_token) {
         newAccessToken = data.access_token;
-        newRefreshToken = data.refresh_token;
+        newRefreshToken = data.refresh_token || expectedRefreshToken;
         break;
       }
 
@@ -270,10 +274,35 @@ async function refreshAndSync(
         return { email: account.email, success: false, balanceSynced: false, error: `RATE_LIMIT: ${errMsg}` };
       }
 
-      // Already used — another process consumed it, skip without damage
+      // Another worker may have rotated this token; reload latest and retry once.
       if (errMsg.includes("Already Used")) {
-        console.log(`[CRON] ⏭️ ${account.email} token already used, skipping`);
-        return { email: account.email, success: false, balanceSynced: false, error: "already_used" };
+        console.log(`[CRON] ⏭️ ${account.email} token already used, checking latest token...`);
+        const { data: latestTokenRow } = await supabase
+          .from("cocos_accounts")
+          .select("refresh_token, access_token")
+          .eq("id", account.id)
+          .maybeSingle();
+
+        const latestRefreshToken = latestTokenRow?.refresh_token || "";
+        const latestAccessToken = latestTokenRow?.access_token || "";
+
+        if (latestRefreshToken && latestRefreshToken !== expectedRefreshToken) {
+          expectedRefreshToken = latestRefreshToken;
+          if (latestAccessToken) fallbackAccessToken = latestAccessToken;
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 700 * attempt));
+            continue;
+          }
+        }
+
+        if (latestAccessToken || fallbackAccessToken) {
+          newAccessToken = latestAccessToken || fallbackAccessToken;
+          newRefreshToken = latestRefreshToken || expectedRefreshToken;
+          console.log(`[CRON] ✅ ${account.email} using latest stored token after Already Used`);
+          break;
+        }
+
+        return { email: account.email, success: false, balanceSynced: false, error: "already_used_no_fallback" };
       }
 
       // Token dead — try relogin before giving up
@@ -283,6 +312,7 @@ async function refreshAndSync(
         if (reloginResult) {
           newAccessToken = reloginResult.access_token;
           newRefreshToken = reloginResult.refresh_token;
+          expectedRefreshToken = reloginResult.refresh_token;
           relogged = true;
           break;
         }
@@ -313,8 +343,14 @@ async function refreshAndSync(
   }
 
   // SAFETY: if we still don't have tokens, do NOT touch the DB tokens
-  if (!newAccessToken || !newRefreshToken) {
-    return { email: account.email, success: false, balanceSynced: false, error: "no_token_after_retries" };
+  if (!newAccessToken) {
+    return { email: account.email, success: false, balanceSynced: false, error: "no_access_token_after_retries" };
+  }
+  if (!newRefreshToken) {
+    newRefreshToken = expectedRefreshToken;
+  }
+  if (!newRefreshToken) {
+    return { email: account.email, success: false, balanceSynced: false, error: "no_refresh_token_after_retries" };
   }
 
   // Step 2: Get account_id if missing
@@ -338,22 +374,48 @@ async function refreshAndSync(
   const balanceSynced = balArs.ok || balUsd.ok;
 
   // Step 4: SAFETY — build update payload carefully, never write null tokens
+  const nowIso = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     access_token: newAccessToken,
     refresh_token: newRefreshToken,
-    last_refresh_at: new Date().toISOString(),
+    last_refresh_at: nowIso,
     info_tag: null, // clear any previous error tag
   };
 
-  if (relogged) updatePayload.last_login_at = new Date().toISOString();
+  if (relogged) updatePayload.last_login_at = nowIso;
   if (accountId) updatePayload.account_id = accountId;
   if (balArs.ok && balArs.data) updatePayload.balance_ars = balArs.data;
   if (balUsd.ok && balUsd.data) updatePayload.balance_usd = balUsd.data;
   if (buyingPower.ok && buyingPower.data) updatePayload.buying_power = buyingPower.data;
   if (portfolio.ok && portfolio.data) updatePayload.portfolio_data = portfolio.data;
-  if (balanceSynced) updatePayload.last_data_sync_at = new Date().toISOString();
+  if (balanceSynced) updatePayload.last_data_sync_at = nowIso;
 
-  await supabase.from("cocos_accounts").update(updatePayload).eq("id", account.id);
+  // Optimistic concurrency: only persist if refresh_token was not changed by another concurrent worker
+  const { data: updatedRows, error: updateError } = await supabase
+    .from("cocos_accounts")
+    .update(updatePayload)
+    .eq("id", account.id)
+    .eq("refresh_token", expectedRefreshToken)
+    .select("id, refresh_token")
+    .limit(1);
+
+  if (updateError) {
+    console.error(`[CRON] ❌ ${account.email} DB update failed: ${updateError.message}`);
+    return { email: account.email, success: false, balanceSynced: false, error: `db_update_failed: ${updateError.message}` };
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    const { data: latestRow } = await supabase
+      .from("cocos_accounts")
+      .select("refresh_token")
+      .eq("id", account.id)
+      .maybeSingle();
+
+    if (latestRow?.refresh_token !== newRefreshToken) {
+      console.log(`[CRON] ⚠️ ${account.email} token changed by another process, skipping stale write`);
+      return { email: account.email, success: false, balanceSynced: false, error: "concurrent_refresh_conflict" };
+    }
+  }
 
   const arsTotal = balArs.data?.totalBalance != null ? `ARS ${Number(balArs.data.totalBalance).toFixed(0)}` : "—";
   const usdTotal = balUsd.data?.totalBalance != null ? `USD ${Number(balUsd.data.totalBalance).toFixed(2)}` : "—";
@@ -376,14 +438,23 @@ function sortByBalancePriority(accounts: any[]): any[] {
   });
 }
 
+function toPositiveNumber(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) && value > 0 ? value : 0;
+  if (typeof value === "string") {
+    const normalized = Number(value.replace(/,/g, "").trim());
+    return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+  }
+  return 0;
+}
+
 function getAccountTotalUsd(account: any): number {
   try {
-    const usd = account.balance_usd?.totalBalance;
-    if (typeof usd === "number" && usd > 0) return usd;
+    const usd = toPositiveNumber(account?.balance_usd?.totalBalance);
+    if (usd > 0) return usd;
   } catch { /* */ }
   try {
-    const ars = account.balance_ars?.totalBalance;
-    if (typeof ars === "number" && ars > 0) return ars / 1400; // rough ARS->USD
+    const ars = toPositiveNumber(account?.balance_ars?.totalBalance);
+    if (ars > 0) return ars / 1400; // rough ARS->USD
   } catch { /* */ }
   return 0;
 }
@@ -399,14 +470,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch ALL accounts with valid refresh tokens
-    // Include password + totp_secret for auto-relogin fallback
+    // Fetch a large candidate pool first, THEN apply balance priority and run cap.
+    // This guarantees priority accounts are not excluded by an early DB limit.
     const { data: accounts, error } = await supabase
-      .from("cocos_accounts")
-      .select("id, email, refresh_token, last_refresh_at, info_tag, account_id, password, totp_secret, balance_ars, balance_usd")
+.from("cocos_accounts")
+      .select("id, email, refresh_token, access_token, last_refresh_at, info_tag, account_id, password, totp_secret, balance_ars, balance_usd")
       .not("refresh_token", "is", null)
       .neq("refresh_token", "")
-      .limit(MAX_ACCOUNTS_PER_RUN);
+      .limit(FETCH_ACCOUNTS_LIMIT);
 
     if (error) {
       console.error("[CRON] Error fetching accounts:", error);
@@ -416,14 +487,16 @@ serve(async (req) => {
       });
     }
 
+    const candidates = accounts || [];
+
     // PRIORITY SORT: accounts with balance first, then oldest refresh
-    const sortedAccounts = sortByBalancePriority(accounts || []);
+    const prioritizedAccounts = sortByBalancePriority(candidates).slice(0, MAX_ACCOUNTS_PER_RUN);
 
-    const withBalance = sortedAccounts.filter(a => getAccountTotalUsd(a) > 0).length;
-    console.log(`[CRON] 📊 ${sortedAccounts.length} accounts to refresh (${withBalance} with balance — PRIORITY)`);
+    const withBalance = prioritizedAccounts.filter(a => getAccountTotalUsd(a) > 0).length;
+    console.log(`[CRON] 📊 ${prioritizedAccounts.length}/${candidates.length} accounts selected (${withBalance} with balance — PRIORITY)`);
 
-    if (sortedAccounts.length === 0) {
-      return new Response(JSON.stringify({ success: true, refreshed: 0, total: 0 }), {
+    if (prioritizedAccounts.length === 0) {
+      return new Response(JSON.stringify({ success: true, refreshed: 0, total: 0, candidates: candidates.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -431,14 +504,14 @@ serve(async (req) => {
     const results: { email: string; success: boolean; balanceSynced: boolean; relogged?: boolean; error?: string }[] = [];
     let rateLimited = false;
 
-    for (let batchStart = 0; batchStart < sortedAccounts.length; batchStart += BATCH_SIZE) {
+    for (let batchStart = 0; batchStart < prioritizedAccounts.length; batchStart += BATCH_SIZE) {
       if (rateLimited) break;
 
-      const batch = sortedAccounts.slice(batchStart, batchStart + BATCH_SIZE);
+      const batch = prioritizedAccounts.slice(batchStart, batchStart + BATCH_SIZE);
 
       const batchResults = await Promise.all(
         batch.map((account: any, idx: number) =>
-          refreshAndSync(supabase, account, batchStart + idx, sortedAccounts.length)
+          refreshAndSync(supabase, account, batchStart + idx, prioritizedAccounts.length)
         )
       );
 
@@ -449,7 +522,7 @@ serve(async (req) => {
         }
       }
 
-      if (batchStart + BATCH_SIZE < sortedAccounts.length && !rateLimited) {
+      if (batchStart + BATCH_SIZE < prioritizedAccounts.length && !rateLimited) {
         await new Promise(r => setTimeout(r, DELAY_BETWEEN_BATCHES_MS));
       }
     }
@@ -464,7 +537,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        total: sortedAccounts.length,
+        candidates: candidates.length,
+        total: prioritizedAccounts.length,
         processed: results.length,
         refreshed: successCount,
         relogged: reloggedCount,
