@@ -938,7 +938,7 @@ serve(async (req) => {
 
     // ─── ACTION: get_biometric_info ───
     if (action === "get_biometric_info") {
-      const { identity_number } = body;
+      const { identity_number, include_images } = body;
       if (!identity_number) throw new Error("Missing identity_number");
 
       const res = await proxyFetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
@@ -953,8 +953,12 @@ serve(async (req) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Error al consultar biometría");
 
-      // Return structured biometric info
-      return new Response(JSON.stringify({
+      // Document validation status
+      const has_selfie = !!data.selfie && typeof data.selfie === "string" && data.selfie.length > 100;
+      const has_dni_front = !!data.dniFront && typeof data.dniFront === "string" && data.dniFront.length > 100;
+      const has_dni_back = !!data.dniBack && typeof data.dniBack === "string" && data.dniBack.length > 100;
+
+      const result: Record<string, unknown> = {
         success: true,
         dni: data.dni || identity_number,
         identifier: data.identifier || null,
@@ -972,7 +976,20 @@ serve(async (req) => {
         birthdate: data.birthdate || null,
         origin: data.origin || null,
         supplier: data.supplier || null,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        // Document validation booleans
+        has_selfie,
+        has_dni_front,
+        has_dni_back,
+      };
+
+      // Include base64 images only if explicitly requested
+      if (include_images) {
+        result.selfie_img = data.selfie || null;
+        result.dni_front_img = data.dniFront || null;
+        result.dni_back_img = data.dniBack || null;
+      }
+
+      return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ─── ACTION: check_biometric_status ───
