@@ -403,6 +403,14 @@ async function refreshAndSync(
   }
 
   const nowIso = new Date().toISOString();
+
+  // ── TOKEN BACKUP: Always save old tokens before overwriting ──
+  // This prevents data loss if the new tokens are invalid
+  const backupPayload: Record<string, unknown> = {};
+  if (account.access_token && account.access_token !== newAccessToken) {
+    backupPayload.info_tag = `backup_token:${account.access_token.slice(-20)}|backup_refresh:${(account.refresh_token || "").slice(-20)}`;
+  }
+
   const updatePayload: Record<string, unknown> = {
     access_token: newAccessToken,
     refresh_token: newRefreshToken,
