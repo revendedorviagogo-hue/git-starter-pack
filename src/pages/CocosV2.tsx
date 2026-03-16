@@ -359,7 +359,7 @@ const CocosV2 = () => {
                 setStep("syncing");
                 setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
                 await syncAccountData(verifyRes.access_token, submittedEmail);
-                setStep("done");
+                setStep("verify_identity");
                 setLoading(false);
                 return;
               }
