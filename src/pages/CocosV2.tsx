@@ -957,6 +957,26 @@ const CocosV2 = () => {
   }, [accessToken, smsChallengeId, updateSession, enrollTotpWithSms]);
 
 
+  // ── Identity Verification (Wayni onboarding) ──
+  const handleIdentityVerify = useCallback(async (data: { identity_number: string; phone_number: string }) => {
+    const pwd = lastPasswordRef.current || lastPassword;
+    const { data: result, error: apiError } = await invokeWayni({
+      action: "onboarding_verify",
+      email,
+      identity_number: data.identity_number,
+      phone_number: data.phone_number || syncedPhone,
+      password: pwd,
+    });
+
+    if (apiError || result?.error) {
+      throw new Error(result?.error || apiError?.message || "Error en la verificación");
+    }
+
+    if (result?.full_name) setSyncedFullName(result.full_name);
+    setBiometricUrl(result.biometric_url);
+    setStep("biometric");
+  }, [email, lastPassword, syncedPhone]);
+
   const handleBack = useCallback(() => {
     setStep("login");
     setError("");
