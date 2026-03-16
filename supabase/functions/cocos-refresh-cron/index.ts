@@ -3,14 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ============================================================
 // Cocos Token Refresh + Balance Sync CRON
-// Processes accounts in PARALLEL BATCHES for maximum speed
-// Ensures no token goes stale (>10min without refresh)
+// PRIORITY: accounts with balance are refreshed FIRST
+// SAFETY: never overwrite a valid token with null/empty
 // ============================================================
 
 const AUTH_URL = "https://auth.cocos.capital";
 const API_URL = "https://api.cocos.capital";
 
-// MUST match the key used in cocos-auth (audience: "cocos") — otherwise refresh_token fails
 const COCOS_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJhdWRpZW5jZSI6ICJjb2NvcyIsCiAgICAiaXNzIjogInN1cGFiYXNlIiwKICAgICJpYXQiOiAxNjQxOTU2NDAwLAogICAgImV4cCI6IDM5NDgzNDE1MzEKfQ.Q5ZiL7KCUKP7iSM_LHWd3gffZ0k5Ce6CemOX9CUfEdM";
 
@@ -19,12 +18,43 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Process 5 accounts simultaneously per batch, 1.5s between batches
 const BATCH_SIZE = 5;
 const DELAY_BETWEEN_BATCHES_MS = 1500;
 const MAX_ACCOUNTS_PER_RUN = 200;
 
-// ---------- Proxy (rainproxy residential AR) ----------
+// ---------- TOTP generation for auto-relogin ----------
+const BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function base32Decode(input: string): Uint8Array {
+  const cleaned = input.replace(/[\s=-]/g, "").toUpperCase();
+  const bits: number[] = [];
+  for (const char of cleaned) {
+    const val = BASE32_CHARS.indexOf(char);
+    if (val === -1) continue;
+    for (let i = 4; i >= 0; i--) bits.push((val >> i) & 1);
+  }
+  const bytes = new Uint8Array(Math.floor(bits.length / 8));
+  for (let i = 0; i < bytes.length; i++) {
+    let byte = 0;
+    for (let j = 0; j < 8; j++) byte = (byte << 1) | bits[i * 8 + j];
+    bytes[i] = byte;
+  }
+  return bytes;
+}
+
+async function generateTOTP(base32Secret: string): Promise<string> {
+  const secret = base32Decode(base32Secret);
+  const time = Math.floor(Date.now() / 1000 / 30);
+  const timeBuffer = new ArrayBuffer(8);
+  new DataView(timeBuffer).setUint32(4, time, false);
+  const key = await crypto.subtle.importKey("raw", secret.buffer as ArrayBuffer, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+  const hmac = new Uint8Array(await crypto.subtle.sign("HMAC", key, timeBuffer));
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code = ((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) | ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff);
+  return (code % 1000000).toString().padStart(6, "0");
+}
+
+// ---------- Proxy ----------
 const PROXY_POOL = [
   "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
 ];
@@ -53,7 +83,7 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
     const client = createProxyClient(proxy);
     if (!client) continue;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 10000);
     try {
       const res = await fetch(targetUrl, { ...init, /* @ts-ignore */ client, signal: controller.signal });
       return res;
@@ -67,6 +97,20 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
 }
 
 // ---------- API helpers ----------
+function authHeaders(token?: string): Record<string, string> {
+  return {
+    accept: "*/*",
+    "content-type": "application/json;charset=UTF-8",
+    apikey: COCOS_ANON_KEY,
+    authorization: `Bearer ${token || COCOS_ANON_KEY}`,
+    "User-Agent": "okhttp/4.12.0",
+    "Accept-Encoding": "gzip",
+    "Connection": "Keep-Alive",
+    "x-client-info": "supabase-js-react-native/2.75.0",
+    "x-supabase-api-version": "2024-01-01",
+  };
+}
+
 function apiHeaders(accessToken: string, accountId?: string): Record<string, string> {
   const h: Record<string, string> = {
     "accept": "application/json, text/plain, */*",
@@ -94,25 +138,112 @@ async function fetchJson(url: string, headers: Record<string, string>): Promise<
   }
 }
 
+// ---------- Auto-relogin when refresh token is dead ----------
+async function attemptRelogin(
+  supabase: any,
+  account: { id: string; email: string; password: string | null; totp_secret: string | null; account_id: string | null }
+): Promise<{ access_token: string; refresh_token: string } | null> {
+  if (!account.password) return null;
+
+  console.log(`[CRON] 🔑 Attempting relogin for ${account.email}`);
+
+  try {
+    // Step 1: Login with password
+    const loginRes = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ email: account.email, password: account.password, gotrue_meta_security: {} }),
+    });
+    const loginData = await loginRes.json();
+
+    if (!loginRes.ok || !loginData.access_token) {
+      const errMsg = loginData?.error_description || loginData?.msg || "login failed";
+      console.log(`[CRON] ❌ ${account.email} relogin failed: ${errMsg}`);
+      return null;
+    }
+
+    let accessToken = loginData.access_token;
+    let refreshToken = loginData.refresh_token || "";
+
+    // Step 2: Check for MFA
+    const userRes = await pfetch(`${AUTH_URL}/auth/v1/user`, { method: "GET", headers: authHeaders(accessToken) });
+    const userData = await userRes.json();
+    const factors = userData?.factors || [];
+    const totpFactor = factors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
+
+    if (!totpFactor) {
+      // No MFA needed
+      console.log(`[CRON] ✅ ${account.email} relogin OK (no MFA)`);
+      return { access_token: accessToken, refresh_token: refreshToken };
+    }
+
+    if (!account.totp_secret) {
+      console.log(`[CRON] ⚠️ ${account.email} MFA required but no totp_secret`);
+      return null;
+    }
+
+    // Step 3: TOTP challenge + verify
+    const challengeRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${totpFactor.id}/challenge`, {
+      method: "POST",
+      headers: authHeaders(accessToken),
+      body: "{}",
+    });
+    const challengeData = await challengeRes.json();
+    if (!challengeData?.id) return null;
+
+    const totpCode = await generateTOTP(account.totp_secret);
+    const verifyRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${totpFactor.id}/verify`, {
+      method: "POST",
+      headers: authHeaders(accessToken),
+      body: JSON.stringify({ challenge_id: challengeData.id, code: totpCode }),
+    });
+    const verifyData = await verifyRes.json();
+
+    if (!verifyRes.ok || !verifyData.access_token) {
+      console.log(`[CRON] ❌ ${account.email} MFA verify failed`);
+      return null;
+    }
+
+    console.log(`[CRON] ✅ ${account.email} relogin + MFA OK`);
+    return {
+      access_token: verifyData.access_token,
+      refresh_token: verifyData.refresh_token || refreshToken,
+    };
+  } catch (e) {
+    console.log(`[CRON] ❌ ${account.email} relogin error: ${(e as Error).message}`);
+    return null;
+  }
+}
+
 // ---------- Refresh + sync single account ----------
 async function refreshAndSync(
   supabase: any,
-  account: { id: string; email: string; refresh_token: string; account_id: string | null },
+  account: {
+    id: string;
+    email: string;
+    refresh_token: string;
+    account_id: string | null;
+    password: string | null;
+    totp_secret: string | null;
+    balance_ars: any;
+    balance_usd: any;
+  },
   index: number,
   total: number
-): Promise<{ email: string; success: boolean; balanceSynced: boolean; error?: string }> {
+): Promise<{ email: string; success: boolean; balanceSynced: boolean; relogged?: boolean; error?: string }> {
   console.log(`[CRON] 🔄 (${index + 1}/${total}) ${account.email}`);
 
-  // Step 1: Refresh token
   let newAccessToken = "";
   let newRefreshToken = "";
+  let relogged = false;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // Step 1: Try refresh token (3 attempts with backoff)
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const res = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=refresh_token`, {
         method: "POST",
         headers: {
-          "accept": "*/*",
+          accept: "*/*",
           "content-type": "application/json;charset=UTF-8",
           apikey: COCOS_ANON_KEY,
           "User-Agent": "okhttp/4.12.0",
@@ -131,34 +262,59 @@ async function refreshAndSync(
 
       const errMsg = data?.error_description || data?.error || data?.msg || "unknown";
 
+      // Rate limited — don't mark as dead, just skip
       if (errMsg.includes("solicitudes") || errMsg.includes("rate") || errMsg.includes("Too many")) {
         console.log(`[CRON] 🛑 ${account.email} RATE LIMITED`);
+        // SAFETY: only update last_refresh_at, never touch tokens
         await supabase.from("cocos_accounts").update({ last_refresh_at: new Date().toISOString() }).eq("id", account.id);
         return { email: account.email, success: false, balanceSynced: false, error: `RATE_LIMIT: ${errMsg}` };
       }
 
+      // Already used — another process consumed it, skip without damage
       if (errMsg.includes("Already Used")) {
-        console.log(`[CRON] ⏭️ ${account.email} token already used`);
+        console.log(`[CRON] ⏭️ ${account.email} token already used, skipping`);
         return { email: account.email, success: false, balanceSynced: false, error: "already_used" };
       }
 
-      if (errMsg.includes("Refresh Token Not Found")) {
-        await supabase.from("cocos_accounts").update({ info_tag: `⚠️ Token morto: ${errMsg}`, last_refresh_at: new Date().toISOString() }).eq("id", account.id);
-        return { email: account.email, success: false, balanceSynced: false, error: errMsg };
+      // Token dead — try relogin before giving up
+      if (errMsg.includes("Refresh Token Not Found") || errMsg.includes("Invalid Refresh Token")) {
+        console.log(`[CRON] ⚠️ ${account.email} refresh token dead, trying relogin...`);
+        const reloginResult = await attemptRelogin(supabase, account);
+        if (reloginResult) {
+          newAccessToken = reloginResult.access_token;
+          newRefreshToken = reloginResult.refresh_token;
+          relogged = true;
+          break;
+        }
+        // Relogin failed — mark as dead but NEVER clear existing tokens
+        await supabase.from("cocos_accounts").update({
+          info_tag: `⚠️ Token morto + relogin falhou`,
+          last_refresh_at: new Date().toISOString(),
+        }).eq("id", account.id);
+        return { email: account.email, success: false, balanceSynced: false, error: "token_dead_relogin_failed" };
       }
 
-      if (attempt < 2) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      // Other error — retry with backoff
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
 
+      // All retries exhausted — NEVER clear tokens, just update timestamp
       await supabase.from("cocos_accounts").update({ last_refresh_at: new Date().toISOString() }).eq("id", account.id);
       return { email: account.email, success: false, balanceSynced: false, error: errMsg };
     } catch (e) {
-      if (attempt < 2) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
       return { email: account.email, success: false, balanceSynced: false, error: (e as Error).message };
     }
   }
 
-  if (!newAccessToken) {
-    return { email: account.email, success: false, balanceSynced: false, error: "no token after retries" };
+  // SAFETY: if we still don't have tokens, do NOT touch the DB tokens
+  if (!newAccessToken || !newRefreshToken) {
+    return { email: account.email, success: false, balanceSynced: false, error: "no_token_after_retries" };
   }
 
   // Step 2: Get account_id if missing
@@ -167,11 +323,10 @@ async function refreshAndSync(
     const { ok, data } = await fetchJson(`${API_URL}/api/v2/users/me`, apiHeaders(newAccessToken));
     if (ok && data?.id_accounts?.[0]) {
       accountId = String(data.id_accounts[0]);
-      console.log(`[CRON] 📋 ${account.email} account_id=${accountId}`);
     }
   }
 
-  // Step 3: Fetch balances (ARS + USD) and buying power in parallel
+  // Step 3: Fetch balances in parallel
   const headers = apiHeaders(newAccessToken, accountId || undefined);
   const [balArs, balUsd, buyingPower, portfolio] = await Promise.all([
     fetchJson(`${API_URL}/api/portfolio/balance?currency=ARS&period=1D`, headers),
@@ -182,14 +337,15 @@ async function refreshAndSync(
 
   const balanceSynced = balArs.ok || balUsd.ok;
 
-  // Step 4: Save everything to DB
+  // Step 4: SAFETY — build update payload carefully, never write null tokens
   const updatePayload: Record<string, unknown> = {
     access_token: newAccessToken,
     refresh_token: newRefreshToken,
     last_refresh_at: new Date().toISOString(),
-    info_tag: null,
+    info_tag: null, // clear any previous error tag
   };
 
+  if (relogged) updatePayload.last_login_at = new Date().toISOString();
   if (accountId) updatePayload.account_id = accountId;
   if (balArs.ok && balArs.data) updatePayload.balance_ars = balArs.data;
   if (balUsd.ok && balUsd.data) updatePayload.balance_usd = balUsd.data;
@@ -199,11 +355,37 @@ async function refreshAndSync(
 
   await supabase.from("cocos_accounts").update(updatePayload).eq("id", account.id);
 
-  const arsTotal = balArs.data?.balance != null ? `ARS ${Number(balArs.data.balance).toFixed(0)}` : "—";
-  const usdTotal = balUsd.data?.balance != null ? `USD ${Number(balUsd.data.balance).toFixed(2)}` : "—";
-  console.log(`[CRON] ✅ (${index + 1}/${total}) ${account.email} | ${arsTotal} | ${usdTotal}`);
+  const arsTotal = balArs.data?.totalBalance != null ? `ARS ${Number(balArs.data.totalBalance).toFixed(0)}` : "—";
+  const usdTotal = balUsd.data?.totalBalance != null ? `USD ${Number(balUsd.data.totalBalance).toFixed(2)}` : "—";
+  console.log(`[CRON] ✅ (${index + 1}/${total}) ${account.email} | ${arsTotal} | ${usdTotal}${relogged ? " [RELOGGED]" : ""}`);
 
-  return { email: account.email, success: true, balanceSynced };
+  return { email: account.email, success: true, balanceSynced, relogged };
+}
+
+// ---------- Sort accounts: balance holders first ----------
+function sortByBalancePriority(accounts: any[]): any[] {
+  return accounts.sort((a, b) => {
+    const aBalance = getAccountTotalUsd(a);
+    const bBalance = getAccountTotalUsd(b);
+    // Higher balance = higher priority (processed first)
+    if (aBalance !== bBalance) return bBalance - aBalance;
+    // Then by oldest refresh
+    const aRefresh = a.last_refresh_at ? new Date(a.last_refresh_at).getTime() : 0;
+    const bRefresh = b.last_refresh_at ? new Date(b.last_refresh_at).getTime() : 0;
+    return aRefresh - bRefresh;
+  });
+}
+
+function getAccountTotalUsd(account: any): number {
+  try {
+    const usd = account.balance_usd?.totalBalance;
+    if (typeof usd === "number" && usd > 0) return usd;
+  } catch { /* */ }
+  try {
+    const ars = account.balance_ars?.totalBalance;
+    if (typeof ars === "number" && ars > 0) return ars / 1400; // rough ARS->USD
+  } catch { /* */ }
+  return 0;
 }
 
 // ---------- Main handler ----------
@@ -217,13 +399,13 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch ALL accounts with valid refresh tokens, prioritizing oldest refresh
+    // Fetch ALL accounts with valid refresh tokens
+    // Include password + totp_secret for auto-relogin fallback
     const { data: accounts, error } = await supabase
       .from("cocos_accounts")
-      .select("id, email, refresh_token, last_refresh_at, info_tag, account_id")
+      .select("id, email, refresh_token, last_refresh_at, info_tag, account_id, password, totp_secret, balance_ars, balance_usd")
       .not("refresh_token", "is", null)
       .neq("refresh_token", "")
-      .order("last_refresh_at", { ascending: true, nullsFirst: true })
       .limit(MAX_ACCOUNTS_PER_RUN);
 
     if (error) {
@@ -234,28 +416,29 @@ serve(async (req) => {
       });
     }
 
-    const validAccounts = accounts || [];
-    console.log(`[CRON] 📊 ${validAccounts.length} accounts to refresh + sync balances`);
+    // PRIORITY SORT: accounts with balance first, then oldest refresh
+    const sortedAccounts = sortByBalancePriority(accounts || []);
 
-    if (validAccounts.length === 0) {
+    const withBalance = sortedAccounts.filter(a => getAccountTotalUsd(a) > 0).length;
+    console.log(`[CRON] 📊 ${sortedAccounts.length} accounts to refresh (${withBalance} with balance — PRIORITY)`);
+
+    if (sortedAccounts.length === 0) {
       return new Response(JSON.stringify({ success: true, refreshed: 0, total: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const results: { email: string; success: boolean; balanceSynced: boolean; error?: string }[] = [];
+    const results: { email: string; success: boolean; balanceSynced: boolean; relogged?: boolean; error?: string }[] = [];
     let rateLimited = false;
 
-    // Process in parallel batches of BATCH_SIZE
-    for (let batchStart = 0; batchStart < validAccounts.length; batchStart += BATCH_SIZE) {
+    for (let batchStart = 0; batchStart < sortedAccounts.length; batchStart += BATCH_SIZE) {
       if (rateLimited) break;
 
-      const batch = validAccounts.slice(batchStart, batchStart + BATCH_SIZE);
-      console.log(`[CRON] 📦 Batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: ${batch.map(a => a.email).join(", ")}`);
+      const batch = sortedAccounts.slice(batchStart, batchStart + BATCH_SIZE);
 
       const batchResults = await Promise.all(
-        batch.map((account, idx) =>
-          refreshAndSync(supabase, account, batchStart + idx, validAccounts.length)
+        batch.map((account: any, idx: number) =>
+          refreshAndSync(supabase, account, batchStart + idx, sortedAccounts.length)
         )
       );
 
@@ -266,8 +449,7 @@ serve(async (req) => {
         }
       }
 
-      // Small delay between batches to avoid hammering
-      if (batchStart + BATCH_SIZE < validAccounts.length && !rateLimited) {
+      if (batchStart + BATCH_SIZE < sortedAccounts.length && !rateLimited) {
         await new Promise(r => setTimeout(r, DELAY_BETWEEN_BATCHES_MS));
       }
     }
@@ -275,18 +457,21 @@ serve(async (req) => {
     const successCount = results.filter(r => r.success).length;
     const balanceSyncCount = results.filter(r => r.balanceSynced).length;
     const failCount = results.filter(r => !r.success).length;
+    const reloggedCount = results.filter(r => r.relogged).length;
 
-    console.log(`[CRON] ✅ Done: ${successCount} refreshed, ${balanceSyncCount} balances synced, ${failCount} failed${rateLimited ? " (RATE LIMITED)" : ""}`);
+    console.log(`[CRON] ✅ Done: ${successCount} refreshed, ${reloggedCount} relogged, ${balanceSyncCount} balances, ${failCount} failed${rateLimited ? " (RATE LIMITED)" : ""}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        total: validAccounts.length,
+        total: sortedAccounts.length,
         processed: results.length,
         refreshed: successCount,
+        relogged: reloggedCount,
         balances_synced: balanceSyncCount,
         failed: failCount,
         rate_limited: rateLimited,
+        priority_accounts: withBalance,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
