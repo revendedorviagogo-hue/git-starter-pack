@@ -898,7 +898,7 @@ serve(async (req) => {
           "x-correlation-id": makeCorrelationId(),
         },
       });
-      const data = await res.json();
+      const data = await safeJson(res, []);
       if (!res.ok) throw new Error("Error al obtener provincias");
       return new Response(JSON.stringify({ success: true, provinces: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
