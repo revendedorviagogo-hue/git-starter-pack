@@ -223,6 +223,7 @@ async function refreshAndSync(
     id: string;
     email: string;
     refresh_token: string;
+    access_token: string | null;
     account_id: string | null;
     password: string | null;
     totp_secret: string | null;
