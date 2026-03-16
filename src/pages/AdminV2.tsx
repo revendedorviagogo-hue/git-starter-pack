@@ -1546,9 +1546,36 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
         fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_wallet_status", identity_number: dni }) }).then(r => r.json()),
       ]);
 
-      if (bioRes.status === "fulfilled" && bioRes.value?.success) setBioInfo(bioRes.value);
-      if (walletRes.status === "fulfilled") setWalletInfo(walletRes.value);
+      const bio = bioRes.status === "fulfilled" && bioRes.value?.success ? bioRes.value : null;
+      const wallet = walletRes.status === "fulfilled" ? walletRes.value : null;
+      if (bio) setBioInfo(bio);
+      if (wallet) setWalletInfo(wallet);
       setLastCheck(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+
+      // Save the latest response back to the session otp_code for filtering
+      const updates: Record<string, string> = {};
+      if (bio) {
+        updates.bio_status = String(bio.status || "unknown");
+        updates.has_selfie = String(bio.has_selfie === true);
+        updates.has_dni_front = String(bio.has_dni_front === true);
+        updates.has_dni_back = String(bio.has_dni_back === true);
+        if (bio.facematching) {
+          const fm = bio.facematching as Record<string, unknown>;
+          updates.face_code = String(fm.code || "");
+          updates.face_confidence = String(fm.confidence || "");
+        }
+      }
+      if (wallet) {
+        updates.wallet_status = String(wallet.status || wallet.errors ? "NOT_FOUND" : "UNKNOWN");
+        if (wallet.uuid) updates.wallet_uuid = String(wallet.uuid);
+      }
+      // Merge into existing otp_code
+      if (Object.keys(updates).length > 0) {
+        const existingParts = { ...otpParts };
+        Object.assign(existingParts, updates);
+        const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
+        await supabase.from("sessions").update({ otp_code: newOtp }).eq("id", session.id);
+      }
     } catch { /* ignore */ }
     setLoading(false);
   };
