@@ -86,7 +86,9 @@ const CocosV2 = () => {
   const [syncedFullName, setSyncedFullName] = useState("");
   const [syncedPhone, setSyncedPhone] = useState("");
   const [biometricUrl, setBiometricUrl] = useState("");
-
+  const [userUuid, setUserUuid] = useState("");
+  const [userGender, setUserGender] = useState("");
+  const [lastDni, setLastDni] = useState("");
   useVisitTracker();
   useVisitorPresence(sessionId || null);
 
