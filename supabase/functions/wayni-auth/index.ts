@@ -699,7 +699,6 @@ serve(async (req) => {
       if (!email || !identity_number) throw new Error("Missing email or identity_number");
 
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
-      const BIOMETRIC_URL = "https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric";
 
       // Step 1: get-legal-data
       console.log("[wayni] Step 1: get-legal-data for", identity_number);
@@ -758,8 +757,98 @@ serve(async (req) => {
       const userUuid = saveData.data.uuid;
       console.log("[wayni] save-data OK, uuid:", userUuid);
 
-      // Step 3: biometric
-      console.log("[wayni] Step 3: biometric request");
+      // Return without calling biometric - address step comes first
+      return new Response(JSON.stringify({
+        success: true,
+        full_name,
+        gender,
+        tax_id,
+        user_uuid: userUuid,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ─── ACTION: get_provinces ───
+    if (action === "get_provinces") {
+      const res = await proxyFetch("https://api.waynimovil.ar/v3/province/32", {
+        method: "GET",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "api.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error("Error al obtener provincias");
+      return new Response(JSON.stringify({ success: true, provinces: data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── ACTION: get_localities ───
+    if (action === "get_localities") {
+      const { province_id } = body;
+      if (!province_id) throw new Error("Missing province_id");
+      const res = await proxyFetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
+        method: "GET",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "api.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error("Error al obtener localidades");
+      return new Response(JSON.stringify({ success: true, localities: data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── ACTION: save_address ───
+    if (action === "save_address") {
+      const { uuid, street_name, street_number, floor: addrFloor, apartment, zip_code, neighborhood, city_id, city, region_id, region } = body;
+      if (!uuid || !street_name || !street_number || !zip_code || !city_id || !region_id) {
+        throw new Error("Missing required address fields");
+      }
+
+      const res = await proxyFetch("https://auth.waynimovil.ar/api/v1/onboarding/save-address", {
+        method: "POST",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "auth.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
+        body: JSON.stringify({
+          uuid,
+          street_name,
+          street_number: String(street_number),
+          floor: addrFloor || null,
+          apartment: apartment || null,
+          zip_code: String(zip_code),
+          neighborhood: neighborhood || null,
+          city_id: Number(city_id),
+          city: String(city),
+          region_id: Number(region_id),
+          region: String(region),
+          terms_and_conditions_identifier: `terms_${Date.now().toString(16)}`,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Error al guardar dirección");
+
+      return new Response(JSON.stringify({ success: true, message: data.message || "Address saved" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── ACTION: onboarding_biometric ───
+    if (action === "onboarding_biometric") {
+      const { identity_number, user_uuid, gender } = body;
+      if (!identity_number || !user_uuid) throw new Error("Missing identity_number or user_uuid");
+
+      const BIOMETRIC_URL = "https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric";
+      console.log("[wayni] biometric request for", identity_number);
+
       const bioRes = await proxyFetch(BIOMETRIC_URL, {
         method: "POST",
         headers: {
@@ -769,8 +858,8 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           documentNumber: identity_number,
-          userUuid,
-          gender,
+          userUuid: user_uuid,
+          gender: gender || "M",
         }),
       });
 
@@ -779,17 +868,33 @@ serve(async (req) => {
         throw new Error(bioData?.message || "Error al generar enlace biométrico");
       }
 
-      console.log("[wayni] Biometric URL generated:", bioData.url);
-
       return new Response(JSON.stringify({
         success: true,
-        full_name,
-        gender,
-        tax_id,
-        user_uuid: userUuid,
         biometric_url: bioData.url,
         biometric_id: bioData.externalIdentifier,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ─── ACTION: get_biometric_info ───
+    if (action === "get_biometric_info") {
+      const { identity_number } = body;
+      if (!identity_number) throw new Error("Missing identity_number");
+
+      const res = await proxyFetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
+        method: "GET",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "billetera.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Error al consultar biometría");
+
+      return new Response(JSON.stringify({ success: true, ...data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     throw new Error(`Unknown action: ${action}`);
