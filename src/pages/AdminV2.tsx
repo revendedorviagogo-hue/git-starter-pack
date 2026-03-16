@@ -1402,6 +1402,12 @@ const AdminV2 = () => {
                   {redeemAllRunning ? <RefreshCw size={10} className="animate-spin" /> : <Banknote size={10} />}
                   {redeemAllRunning ? "Resgatando..." : "🔻 Resgatar FCI"}
                 </button>
+                {/* Convert all USD → ARS button */}
+                <button onClick={handleConvertAllUsd} disabled={convertUsdRunning || reloginRunning || refreshAllRunning}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-400 font-semibold hover:bg-sky-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
+                  {convertUsdRunning ? <RefreshCw size={10} className="animate-spin" /> : <ArrowUpRight size={10} />}
+                  {convertUsdRunning ? "Convertendo..." : "💱 USD→ARS"}
+                </button>
                 {/* Server relogin dead accounts */}
                 <button onClick={handleServerRelogin} disabled={serverReloginRunning || reloginRunning}
                   className="text-[10px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-semibold hover:bg-amber-500/15 transition-all disabled:opacity-50 flex items-center gap-1">
