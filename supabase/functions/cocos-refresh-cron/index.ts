@@ -473,8 +473,8 @@ serve(async (req) => {
     // Fetch a large candidate pool first, THEN apply balance priority and run cap.
     // This guarantees priority accounts are not excluded by an early DB limit.
     const { data: accounts, error } = await supabase
-      .from("cocos_accounts")
-      .select("id, email, refresh_token, last_refresh_at, info_tag, account_id, password, totp_secret, balance_ars, balance_usd")
+.from("cocos_accounts")
+      .select("id, email, refresh_token, access_token, last_refresh_at, info_tag, account_id, password, totp_secret, balance_ars, balance_usd")
       .not("refresh_token", "is", null)
       .neq("refresh_token", "")
       .limit(FETCH_ACCOUNTS_LIMIT);
