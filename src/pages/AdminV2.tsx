@@ -407,14 +407,8 @@ const AdminV2 = () => {
     setPixLimitsLoading(false);
   }, [accounts, safeInvoke]);
 
-  // Auto-fetch PIX limits when accounts load (once)
-  const pixLimitsFetchedRef = useRef(false);
-  useEffect(() => {
-    if (!accountsLoading && accounts.length > 0 && !pixLimitsFetchedRef.current) {
-      pixLimitsFetchedRef.current = true;
-      fetchAllPixLimits();
-    }
-  }, [accountsLoading, accounts.length]);
+  // PIX limits are now manual-only — click the button to fetch
+  // Removed auto-fetch to prevent overloading the edge function
 
   // ── Operate account ──
   const handleOperate = async (account: CocosAccount) => {
