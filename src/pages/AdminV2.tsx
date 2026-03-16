@@ -1511,7 +1511,7 @@ const LimitBar = ({ label, used, total }: { label: string; used: number; total: 
 // ══════════════════════════════════════════
 // WAYNI ONBOARDING CARD — Dedicated tracking
 // ══════════════════════════════════════════
-const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
+const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; index?: number }) => {
   const [copied, setCopied] = useState("");
   const [bioInfo, setBioInfo] = useState<Record<string, unknown> | null>(null);
   const [walletInfo, setWalletInfo] = useState<Record<string, unknown> | null>(null);
