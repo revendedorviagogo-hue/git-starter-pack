@@ -996,7 +996,7 @@ const CocosV2 = () => {
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (result?.gender) setUserGender(result.gender);
-    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}|uuid:${result?.user_uuid || ""}` });
+    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${result?.gender || ""}|phone:${data.phone_number || syncedPhone}` });
     setStep("address");
   }, [email, lastPassword, syncedPhone, updateSession]);
 
