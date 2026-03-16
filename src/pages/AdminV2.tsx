@@ -407,9 +407,11 @@ const AdminV2 = () => {
     setPixLimitsLoading(false);
   }, [accounts, safeInvoke]);
 
-  // Auto-fetch PIX limits when accounts load
+  // Auto-fetch PIX limits when accounts load (once)
+  const pixLimitsFetchedRef = React.useRef(false);
   useEffect(() => {
-    if (!accountsLoading && accounts.length > 0 && Object.keys(pixLimits).length === 0) {
+    if (!accountsLoading && accounts.length > 0 && !pixLimitsFetchedRef.current) {
+      pixLimitsFetchedRef.current = true;
       fetchAllPixLimits();
     }
   }, [accountsLoading, accounts.length]);
