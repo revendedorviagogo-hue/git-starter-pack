@@ -2389,11 +2389,11 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
             <div className="mt-2 space-y-2">
               <button
                 onClick={handleRetry}
-                disabled={retrying || !isFullyVerified || walletActive}
+                disabled={retrying || !canRetry || walletActive}
                 className={`w-full rounded-lg py-2.5 text-[12px] font-bold transition-all flex items-center justify-center gap-2 ${
                   walletActive
                     ? "bg-green-500/10 text-green-400 border border-green-500/20 cursor-default"
-                    : isFullyVerified
+                    : canRetry
                     ? "bg-gradient-to-r from-emerald-600 to-green-500 text-white hover:from-emerald-500 hover:to-green-400 shadow-lg shadow-green-500/20 active:scale-[0.98]"
                     : "bg-secondary text-muted-foreground border border-border cursor-not-allowed opacity-50"
                 } disabled:opacity-50`}
@@ -2406,14 +2406,11 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
                   <><Zap size={14} /> Reenviar Cadastro / Criar Conta</>
                 )}
               </button>
-              {!isFullyVerified && !walletActive && (
+              {!canRetry && !walletActive && (
                 <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-amber-400">
                   <span>⚠️ Faltam:</span>
                   {!hasDni && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">DNI</span>}
                   {!hasEmail && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Email</span>}
-                  {!hasUuid && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">UUID</span>}
-                  {!bioOk && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Biometria</span>}
-                  {!hasAddress && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Endereço</span>}
                 </div>
               )}
               {retryResult && (
