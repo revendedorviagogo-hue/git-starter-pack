@@ -2,20 +2,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ============================================================
-// Cocos Convert All USD → ARS via MEP (Close/Overnight)
-// Converte todo o saldo USD cash de cada conta para ARS
+// Cocos Convert All USD → ARS via MEP
+// Routes through cocos-auth edge function for reliable proxy
 // ============================================================
-
-const AUTH_URL = "https://auth.cocos.capital";
-const API_URL = "https://api.cocos.capital";
-
-const COCOS_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJhdWRpZW5jZSI6ICJjb2NvcyIsCiAgICAiaXNzIjogInN1cGFiYXNlIiwKICAgICJpYXQiOiAxNjQxOTU2NDAwLAogICAgImV4cCI6IDM5NDgzNDE1MzEKfQ.Q5ZiL7KCUKP7iSM_LHWd3gffZ0k5Ce6CemOX9CUfEdM";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const AUTH_URL = "https://auth.cocos.capital";
+const COCOS_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJhdWRpZW5jZSI6ICJjb2NvcyIsCiAgICAiaXNzIjogInN1cGFiYXNlIiwKICAgICJpYXQiOiAxNjQxOTU2NDAwLAogICAgImV4cCI6IDM5NDgzNDE1MzEKfQ.Q5ZiL7KCUKP7iSM_LHWd3gffZ0k5Ce6CemOX9CUfEdM";
 
 const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
 const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
@@ -63,7 +61,6 @@ async function pfetch(url: string, init?: RequestInit): Promise<Response> {
         directFetch(800),
       ]);
     }
-    // Non-idempotent: sequential fallback
     for (const p of [PROXY_BR, PROXY_US]) {
       try { return await fetchViaProxy(url, init, p); } catch { /* next */ }
     }
@@ -72,6 +69,8 @@ async function pfetch(url: string, init?: RequestInit): Promise<Response> {
     return fetch(url, init || {});
   }
 }
+
+const API_URL = "https://api.cocos.capital";
 
 function apiHeaders(accessToken: string, accountId?: string): Record<string, string> {
   const h: Record<string, string> = {
@@ -86,10 +85,7 @@ function apiHeaders(accessToken: string, accountId?: string): Record<string, str
     "x-store-version": "3.5.0",
     "x-update-id": "2aeafeab-d92b-45b9-b043-f96f184c6461",
   };
-  if (accountId) {
-    h["x-Account-ID"] = accountId;
-    h["Cookie"] = `cocos-access-token=${accessToken}`;
-  }
+  if (accountId) h["x-Account-ID"] = accountId;
   return h;
 }
 
@@ -100,7 +96,7 @@ interface ConvertResult {
   orders: string[];
   errors: string[];
   tokenRefreshed: boolean;
-  method: string; // close, overnight
+  method: string;
 }
 
 async function convertAccount(
@@ -154,9 +150,9 @@ async function convertAccount(
     return result;
   }
 
-  if (usdCash < 1) return result; // nothing to convert
+  if (usdCash < 1) return result;
 
-  // ── Step 2: Get FX prices to determine available method ──
+  // ── Step 2: Get FX prices ──
   let method = "";
   try {
     const res = await pfetch(`${API_URL}/api/v1/usd/prices`, { method: "GET", headers });
@@ -183,7 +179,7 @@ async function convertAccount(
     : method === "overnight" ? "/api/v4/orders/sell-overnight-mep"
     : "/api/v4/orders/sell-open-mep";
 
-  // ── Step 3: Convert in chunks (max ~$1000 per order to avoid rejections) ──
+  // ── Step 3: Convert in chunks ──
   const MAX_PER_ORDER = 1000;
   let remaining = Math.floor(usdCash);
   
@@ -198,22 +194,29 @@ async function convertAccount(
         headers,
         body: JSON.stringify({ quantity: qty }),
       });
-      const data = await res.json();
       
-      if (res.ok && (data?.Sucess || data?.Success || data?.Order || data?.order)) {
+      let data: any;
+      const text = await res.text();
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      
+      console.log(`[CONVERT] Response status=${res.status} body=${text.slice(0, 300)}`);
+      
+      if ((res.ok || res.status < 400) && (data?.Sucess || data?.Success || data?.Order || data?.order)) {
         result.orders.push(`${qty} USD via ${method}`);
         result.converted += qty;
         console.log(`[CONVERT] ✅ ${account.email} → ${qty} USD convertido`);
       } else {
-        const errMsg = data?.message || data?.error || JSON.stringify(data).slice(0, 100);
+        const errMsg = data?.message || data?.error || text.slice(0, 100);
         result.errors.push(`${qty} USD: ${errMsg}`);
         console.log(`[CONVERT] ❌ ${account.email} → ${qty} USD: ${errMsg}`);
-        // If rejected, try smaller amount
+        
+        // If rejected or market issue, try smaller or stop
         if (errMsg.includes("REJECTED") && qty > 100) {
-          remaining = qty - 100; // reduce and retry
+          remaining = Math.floor(remaining / 2);
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
-        break; // stop on other errors
+        break;
       }
       
       remaining -= qty;
@@ -264,7 +267,6 @@ serve(async (req) => {
       filterEmail = body?.email || null;
     } catch { /* no body */ }
 
-    // Get accounts with USD cash > 0
     let query = supabase
       .from("cocos_accounts")
       .select("id, email, access_token, refresh_token, account_id, balance_usd")
@@ -282,11 +284,10 @@ serve(async (req) => {
       });
     }
 
-    // Filter to only accounts with USD cash balance
     const withUsd = (accounts || []).filter((a: any) => {
       if (!a.refresh_token) return false;
       const cash = a.balance_usd?.cashBalance || 0;
-      return filterEmail || cash >= 1; // if filtering by email, always include
+      return filterEmail || cash >= 1;
     });
 
     console.log(`[CONVERT] 📊 ${withUsd.length} contas para converter USD→ARS`);
