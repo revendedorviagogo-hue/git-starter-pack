@@ -223,15 +223,16 @@ interface ConvertResult {
 
 async function convertAccount(
   supabase: any,
-  account: { id: string; email: string; access_token: string; refresh_token: string; account_id: string | null },
+  account: { id: string; email: string; access_token: string; refresh_token: string; account_id: string | null; password?: string; totp_secret?: string },
 ): Promise<ConvertResult> {
   const result: ConvertResult = {
     email: account.email, usd_cash: 0, converted: 0,
     orders: [], errors: [], tokenRefreshed: false, method: "",
   };
 
-  // ── Step 0: Refresh token ──
+  // ── Step 0: Refresh token, fallback to full relogin ──
   let accessToken = account.access_token;
+  let accountId = account.account_id || "";
   try {
     const res = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
@@ -250,10 +251,28 @@ async function convertAccount(
         refresh_token: data.refresh_token,
         last_refresh_at: new Date().toISOString(),
       }).eq("id", account.id);
+    } else if (account.password && account.totp_secret) {
+      console.log(`[CONVERT] 🔑 Refresh failed for ${account.email}, trying full relogin...`);
+      const login = await fullRelogin(account.email, account.password, account.totp_secret);
+      if (login) {
+        accessToken = login.access_token;
+        accountId = login.account_id || accountId;
+        result.tokenRefreshed = true;
+        await supabase.from("cocos_accounts").update({
+          access_token: login.access_token,
+          refresh_token: login.refresh_token,
+          account_id: login.account_id || accountId,
+          last_login_at: new Date().toISOString(),
+          last_refresh_at: new Date().toISOString(),
+        }).eq("id", account.id);
+        console.log(`[CONVERT] ✅ Relogin OK for ${account.email}`);
+      } else {
+        console.log(`[CONVERT] ❌ Relogin also failed for ${account.email}`);
+      }
     }
   } catch { /* use existing token */ }
 
-  const headers = apiHeaders(accessToken, account.account_id || undefined);
+  const headers = apiHeaders(accessToken, accountId || undefined);
 
   // ── Step 1: Get USD balance ──
   let usdCash = 0;
