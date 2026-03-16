@@ -262,27 +262,13 @@ const CronTerminal = () => {
       pollCount.current++;
 
       try {
-        const params = new URLSearchParams({ limit: "150" });
-        if (lastTimestamp.current > 0) {
-          params.set("since", String(lastTimestamp.current));
-        }
-
-        const { data, error } = await supabase.functions.invoke("get-edge-logs", {
-          body: null,
-          method: "GET",
-        });
-
-        // Fallback: use fetch directly if invoke doesn't support GET well
-        let result = data;
-        if (!result || error) {
-          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "hogvpkggqbqwbixcffws";
-          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-          const res = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/get-edge-logs?${params.toString()}`,
-            { headers: { "Authorization": `Bearer ${anonKey}`, "apikey": anonKey } }
-          );
-          result = await res.json();
-        }
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "hogvpkggqbqwbixcffws";
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/get-edge-logs?limit=100`,
+          { headers: { "Authorization": `Bearer ${anonKey}`, "apikey": anonKey } }
+        );
+        const result = await res.json();
 
         if (!result?.success) {
           if (pollCount.current <= 2) {
@@ -291,21 +277,21 @@ const CronTerminal = () => {
           return;
         }
 
-        // Process edge function logs (they come in desc order, reverse for chronological)
-        const edgeLogs = (result.logs || []).reverse();
         const newEntries: Omit<CronLogEntry, "id">[] = [];
 
-        for (const log of edgeLogs) {
-          if (seenIds.current.has(log.id)) continue;
-          seenIds.current.add(log.id);
+        // Process detailed entries from edge function
+        const entries = (result.entries || []).reverse();
+        for (const entry of entries) {
+          const key = `entry-${entry.time}-${entry.message?.slice(0, 30)}`;
+          if (seenIds.current.has(key)) continue;
+          seenIds.current.add(key);
 
-          const ts = log.timestamp / 1000; // microseconds to ms
-          if (ts > lastTimestamp.current) lastTimestamp.current = ts * 1000; // keep in microseconds for next query
-
-          const { source, level } = classifyLog(log.message, log.function_id || "");
-          const time = new Date(ts).toISOString();
-
-          newEntries.push({ time, source, level, message: log.message });
+          newEntries.push({
+            time: entry.time,
+            source: entry.source || "EDGE",
+            level: (entry.level || "info") as CronLogEntry["level"],
+            message: entry.message,
+          });
         }
 
         // Process cron job summaries
@@ -328,29 +314,18 @@ const CronTerminal = () => {
         }
 
         if (newEntries.length > 0) {
-          // Sort by time
           newEntries.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
           addMany(newEntries);
         }
 
-        // Periodic status every 6 polls (~60s)
-        if (pollCount.current % 6 === 0) {
-          const [
-            { count: cocosTotal },
-            { count: cocosWithToken },
-            { count: wayniPending },
-            { count: wayniActive },
-          ] = await Promise.all([
-            supabase.from("cocos_accounts").select("*", { count: "exact", head: true }),
-            supabase.from("cocos_accounts").select("*", { count: "exact", head: true }).not("access_token", "is", null),
-            supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).neq("status", "validated"),
-            supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).eq("wallet_status", "ACTIVE"),
-          ]);
+        // Show stats every 6 polls (~60s)
+        if (pollCount.current % 6 === 0 && result.stats) {
+          const s = result.stats;
           addLog({
             time: new Date().toISOString(),
             source: "STATUS",
             level: "info",
-            message: `📊 COCOS: ${cocosTotal || 0} contas (${cocosWithToken || 0} com token ativo) | WAYNI: ${wayniPending || 0} pendentes, ${wayniActive || 0} wallets ativas`,
+            message: `📊 COCOS: ${s.cocos_total} contas (${s.cocos_with_token} com token, ${s.cocos_no_token} sem) | WAYNI: ${s.wayni_pending} pendentes, ${s.wayni_validated} validadas`,
           });
         }
 
@@ -361,7 +336,7 @@ const CronTerminal = () => {
       }
     };
 
-    poll(); // initial
+    poll();
     const interval = setInterval(poll, 10000);
     return () => { mounted = false; clearInterval(interval); };
   }, [addLog, addMany]);
