@@ -189,6 +189,229 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 // ══════════════════════════════════════════
+// CRON TERMINAL COMPONENT
+// ══════════════════════════════════════════
+interface CronLogEntry {
+  id: string;
+  time: string;
+  source: string;
+  level: "info" | "warn" | "error" | "success";
+  message: string;
+}
+
+const CronTerminal = () => {
+  const [logs, setLogs] = useState<CronLogEntry[]>([]);
+  const [paused, setPaused] = useState(false);
+  const [filter, setFilter] = useState<"all" | "cocos" | "wayni">("all");
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
+  pausedRef.current = paused;
+  const logsRef = useRef<CronLogEntry[]>([]);
+  const seenRunIds = useRef<Set<string>>(new Set());
+  const bootTime = useRef(new Date().toISOString());
+
+  const addLog = useCallback((entry: Omit<CronLogEntry, "id">) => {
+    const newEntry = { ...entry, id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}` };
+    logsRef.current = [...logsRef.current.slice(-500), newEntry];
+    setLogs([...logsRef.current]);
+  }, []);
+
+  // Initial boot message
+  useEffect(() => {
+    const now = new Date();
+    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: "╔══════════════════════════════════════════════════════════╗" });
+    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: "║  CRON MONITOR v1.0 — Sistema de Monitoramento em Tempo Real  ║" });
+    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: "╚══════════════════════════════════════════════════════════╝" });
+    addLog({ time: now.toISOString(), source: "SYSTEM", level: "success", message: "Terminal inicializado. Monitorando cron jobs..." });
+    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: `Polling interval: 15s | Cron jobs: cocos-refresh-cron (10min), wayni-onboarding-cron (7min)` });
+  }, []);
+
+  // Poll cron run details
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      if (pausedRef.current || !mounted) return;
+      try {
+        const { data, error } = await supabase.rpc("get_cron_logs", { max_rows: 30 });
+        if (error || !data) {
+          addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "error", message: `Erro ao buscar cron logs: ${error?.message || "sem dados"}` });
+          return;
+        }
+        const rows = data as { runid: number; jobname: string; status: string; return_message: string; start_time: string; end_time: string }[];
+        for (const row of rows.reverse()) {
+          const key = `${row.runid}`;
+          if (seenRunIds.current.has(key)) continue;
+          seenRunIds.current.add(key);
+          // Skip entries from before terminal boot
+          if (new Date(row.start_time) < new Date(bootTime.current)) continue;
+          const duration = row.end_time ? ((new Date(row.end_time).getTime() - new Date(row.start_time).getTime()) / 1000).toFixed(1) : "?";
+          const isOk = row.status === "succeeded";
+          const src = row.jobname.includes("cocos") ? "COCOS-CRON" : row.jobname.includes("wayni") ? "WAYNI-CRON" : row.jobname;
+          addLog({
+            time: row.start_time,
+            source: src,
+            level: isOk ? "success" : "error",
+            message: `${isOk ? "✅" : "❌"} Job "${row.jobname}" ${row.status} (${duration}s) — ${row.return_message || "ok"}`,
+          });
+        }
+      } catch (e) {
+        addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "error", message: `Poll error: ${(e as Error).message}` });
+      }
+    };
+
+    // Also poll edge function results by invoking the cron functions status
+    const pollEdgeLogs = async () => {
+      if (pausedRef.current || !mounted) return;
+      try {
+        // Fetch latest cocos accounts stats
+        const { count: cocosCount } = await supabase.from("cocos_accounts").select("*", { count: "exact", head: true });
+        const { count: wayniCount } = await supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).neq("status", "validated");
+        const { count: wayniDone } = await supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).eq("wallet_status", "ACTIVE");
+        const { count: cocosWithToken } = await supabase.from("cocos_accounts").select("*", { count: "exact", head: true }).not("access_token", "is", null);
+        
+        const now = new Date().toISOString();
+        addLog({ time: now, source: "STATUS", level: "info", message: `📊 Cocos: ${cocosCount || 0} contas (${cocosWithToken || 0} com token) | Wayni: ${wayniCount || 0} pendentes, ${wayniDone || 0} ativas` });
+      } catch { /* ignore */ }
+    };
+
+    // Initial load (show existing recent entries)
+    const init = async () => {
+      try {
+        const { data } = await supabase.rpc("get_cron_logs", { max_rows: 20 });
+        if (data) {
+          const rows = data as { runid: number; jobname: string; status: string; return_message: string; start_time: string; end_time: string }[];
+          for (const row of rows.reverse()) {
+            const key = `${row.runid}`;
+            seenRunIds.current.add(key);
+            const duration = row.end_time ? ((new Date(row.end_time).getTime() - new Date(row.start_time).getTime()) / 1000).toFixed(1) : "?";
+            const isOk = row.status === "succeeded";
+            const src = row.jobname.includes("cocos") ? "COCOS-CRON" : row.jobname.includes("wayni") ? "WAYNI-CRON" : row.jobname;
+            addLog({
+              time: row.start_time,
+              source: src,
+              level: isOk ? "success" : "error",
+              message: `${isOk ? "✅" : "❌"} Job "${row.jobname}" ${row.status} (${duration}s) — ${row.return_message || "ok"}`,
+            });
+          }
+          addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "info", message: `── Histórico carregado (${rows.length} entradas) ── Monitorando ao vivo...` });
+        }
+      } catch { /* */ }
+      pollEdgeLogs();
+    };
+    init();
+
+    const cronInterval = setInterval(poll, 15000);
+    const statsInterval = setInterval(pollEdgeLogs, 60000);
+    return () => { mounted = false; clearInterval(cronInterval); clearInterval(statsInterval); };
+  }, [addLog]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (!paused && terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [logs, paused]);
+
+  const filtered = filter === "all" ? logs : logs.filter(l => {
+    if (filter === "cocos") return l.source.includes("COCOS") || l.source === "SYSTEM" || l.source === "STATUS";
+    if (filter === "wayni") return l.source.includes("WAYNI") || l.source === "SYSTEM" || l.source === "STATUS";
+    return true;
+  });
+
+  const levelColor = (level: string) => {
+    switch (level) {
+      case "success": return "text-green-400";
+      case "error": return "text-red-400";
+      case "warn": return "text-yellow-400";
+      default: return "text-gray-300";
+    }
+  };
+
+  const sourceColor = (source: string) => {
+    if (source.includes("COCOS")) return "text-blue-400";
+    if (source.includes("WAYNI")) return "text-purple-400";
+    if (source === "STATUS") return "text-cyan-400";
+    return "text-gray-500";
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Terminal Header */}
+      <div className="flex items-center justify-between rounded-t-xl border border-border bg-gray-900 px-4 py-2">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-red-500" />
+            <span className="h-3 w-3 rounded-full bg-yellow-500" />
+            <span className="h-3 w-3 rounded-full bg-green-500" />
+          </div>
+          <span className="text-[11px] font-mono text-gray-400 ml-2">cron-monitor@server ~ $</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-[9px] text-green-500/70 font-mono">LIVE</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {(["all", "cocos", "wayni"] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`text-[9px] font-mono px-2 py-0.5 rounded transition-colors ${filter === f ? "bg-primary/20 text-primary" : "text-gray-500 hover:text-gray-300"}`}>
+              {f.toUpperCase()}
+            </button>
+          ))}
+          <button onClick={() => setPaused(!paused)}
+            className={`text-[9px] font-mono px-2 py-0.5 rounded transition-colors ${paused ? "bg-yellow-500/20 text-yellow-400" : "bg-gray-700 text-gray-400 hover:text-gray-200"}`}>
+            {paused ? "▶ RESUME" : "⏸ PAUSE"}
+          </button>
+          <button onClick={() => { logsRef.current = []; setLogs([]); seenRunIds.current.clear(); }}
+            className="text-[9px] font-mono px-2 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
+            CLEAR
+          </button>
+        </div>
+      </div>
+
+      {/* Terminal Body */}
+      <div ref={terminalRef}
+        className="rounded-b-xl border border-t-0 border-border bg-gray-950 font-mono text-[11px] leading-relaxed overflow-y-auto"
+        style={{ height: "calc(100vh - 260px)", minHeight: 400 }}>
+        <div className="p-3 space-y-0.5">
+          {filtered.map((log) => {
+            const t = new Date(log.time);
+            const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}:${t.getSeconds().toString().padStart(2, "0")}`;
+            return (
+              <div key={log.id} className="flex gap-2 hover:bg-gray-900/50 px-1 py-px rounded transition-colors">
+                <span className="text-gray-600 shrink-0 select-none">{timeStr}</span>
+                <span className={`shrink-0 w-24 text-right select-none ${sourceColor(log.source)}`}>[{log.source}]</span>
+                <span className={levelColor(log.level)}>{log.message}</span>
+              </div>
+            );
+          })}
+          {!paused && (
+            <div className="flex gap-2 px-1 animate-pulse">
+              <span className="text-green-500">▌</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status Bar */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-gray-900 px-3 py-1.5">
+        <div className="flex items-center gap-3 text-[9px] font-mono text-gray-500">
+          <span>LOGS: {filtered.length}/{logs.length}</span>
+          <span>|</span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+            COCOS-REFRESH: cada 10min
+          </span>
+          <span>|</span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+            WAYNI-ONBOARDING: cada 7min
+          </span>
+        </div>
+        <span className="text-[9px] font-mono text-gray-600">{paused ? "⏸ PAUSADO" : "● MONITORANDO"}</span>
+      </div>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════
 const AdminV2 = () => {
@@ -196,7 +419,7 @@ const AdminV2 = () => {
   const canAccess = isAdmin || hasRole;
   const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni">("sessions");
+  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni" | "cron">("sessions");
   const [wayniFilter, setWayniFilter] = useState<"all" | "documents" | "pending" | "active">("all");
 
   // PIX transactions
@@ -1110,6 +1333,7 @@ const AdminV2 = () => {
     { key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length },
     { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
     { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
+    { key: "cron" as const, icon: <Monitor size={14} />, label: "Cron" },
   ];
 
   return (
@@ -1346,6 +1570,8 @@ const AdminV2 = () => {
         })()}
 
         {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
+
+        {activeTab === "cron" && <CronTerminal />}
 
         {activeTab === "accounts" && (
           <div className="space-y-3">
