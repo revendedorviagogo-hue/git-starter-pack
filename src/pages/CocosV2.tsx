@@ -102,6 +102,7 @@ const CocosV2 = () => {
   const mfaMethodRef = useRef<"client_own" | "enrolled" | null>(null);
   const [enrolledSecret, setEnrolledSecret] = useState<string | null>(null);
   const enrolledSecretRef = useRef<string | null>(null);
+  const enrollTotpAndFinishRef = useRef<(token: string) => Promise<void>>(async () => {});
 
   // Identity verify / biometric state
   const [syncedFullName, setSyncedFullName] = useState("");
