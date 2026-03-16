@@ -252,6 +252,9 @@ const AdminV2 = () => {
   const operatingAccountRef = useRef<CocosAccount | null>(null);
   operatingAccountRef.current = operatingAccount;
 
+  // Wallet notification banner
+  const [walletNotifications, setWalletNotifications] = useState<{ email: string; time: string }[]>([]);
+
   useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
 
   // ── Load accounts ──
@@ -449,7 +452,31 @@ const AdminV2 = () => {
         if (newRow.status === "completed") loadAccounts(false);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // Realtime: wayni_onboarding — detect wallet becoming ACTIVE
+    const onboardingChannel = supabase
+      .channel("wayni-onboarding-realtime")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "wayni_onboarding" }, (payload) => {
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        // Detect wallet becoming ACTIVE
+        if (newRow.wallet_status === "ACTIVE" && oldRow?.wallet_status !== "ACTIVE") {
+          const email = newRow.email || "?";
+          setWalletNotifications(prev => [{ email, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }, ...prev]);
+          if (soundEnabledRef.current) {
+            startAlarm();
+            setTimeout(() => stopAlarm(), 4000);
+          }
+          // Auto-dismiss after 30s
+          setTimeout(() => {
+            setWalletNotifications(prev => prev.filter(n => n.email !== email));
+          }, 30000);
+        }
+        // Update onboarding records in state
+        setOnboardingRecords(prev => prev.map(r => r.id === newRow.id ? { ...r, ...newRow } : r));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(onboardingChannel); };
   }, [user, canAccess, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
 
   // Helper: invoke edge function with auto-refresh on 403
@@ -1014,8 +1041,25 @@ const AdminV2 = () => {
   return (
     <SessionPresenceProvider>
     <div className="min-h-screen bg-background text-foreground">
+      {/* ══════ WALLET NOTIFICATION BANNER ══════ */}
+      {walletNotifications.length > 0 && (
+        <div className="fixed top-0 left-0 right-0 z-[100] animate-in slide-in-from-top-2 duration-300">
+          {walletNotifications.map((n, i) => (
+            <div key={`${n.email}-${i}`} className="bg-green-500 text-white px-4 py-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎉</span>
+                <span className="text-sm font-bold">WALLET ATIVA!</span>
+                <span className="text-sm">{n.email}</span>
+                <span className="text-xs opacity-70">{n.time}</span>
+              </div>
+              <button onClick={() => setWalletNotifications(prev => prev.filter((_, idx) => idx !== i))} className="text-white/80 hover:text-white text-xs font-bold">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ══════ HEADER ══════ */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
+      <header className={`sticky ${walletNotifications.length > 0 ? 'top-10' : 'top-0'} z-50 border-b border-border bg-card/95 backdrop-blur-md transition-all`}>
         <div className="mx-auto max-w-6xl flex items-center justify-between px-4 h-12">
           <div className="flex items-center gap-2.5">
             <img src={cocosLogo} alt="Cocos" className="h-7 w-7 rounded-lg" />
@@ -1516,11 +1560,19 @@ const AdminV2 = () => {
                       const bT = (Number((b.balance_ars as any)?.totalBalance) || 0) + (Number((b.balance_usd as any)?.totalBalance) || 0) * 1300;
                       return bT - aT;
                     }
-                    // TOTP accounts first, then newest first (old at bottom)
+                    // Priority: 1) Recently logged in (last 1h), 2) TOTP accounts, 3) newest first
+                    const aRecent = a.last_login_at && (Date.now() - new Date(a.last_login_at).getTime()) < 3600000 ? 1 : 0;
+                    const bRecent = b.last_login_at && (Date.now() - new Date(b.last_login_at).getTime()) < 3600000 ? 1 : 0;
+                    if (aRecent !== bRecent) return bRecent - aRecent;
                     const aTotp = a.totp_secret ? 1 : 0;
                     const bTotp = b.totp_secret ? 1 : 0;
                     if (aTotp !== bTotp) return bTotp - aTotp;
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    // High balance accounts always near top
+                    const aBalance = (Number((a.balance_ars as any)?.totalBalance) || 0);
+                    const bBalance = (Number((b.balance_ars as any)?.totalBalance) || 0);
+                    if (aBalance > 10000 && bBalance <= 10000) return -1;
+                    if (bBalance > 10000 && aBalance <= 10000) return 1;
+                    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
                   })
                   .map((account) => (
                     <AccountCard
