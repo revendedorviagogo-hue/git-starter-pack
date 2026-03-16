@@ -198,7 +198,7 @@ async function wayniGetCredits(token: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Get credits temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── ACTIVITIES ───
