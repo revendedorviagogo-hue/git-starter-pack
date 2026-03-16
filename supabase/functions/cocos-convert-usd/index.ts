@@ -89,6 +89,128 @@ function apiHeaders(accessToken: string, accountId?: string): Record<string, str
   return h;
 }
 
+// TOTP generation
+function generateTOTP(secret: string): string {
+  const base32Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const decoded: number[] = [];
+  let bits = 0, value = 0;
+  for (const c of secret.toUpperCase().replace(/[^A-Z2-7]/g, "")) {
+    value = (value << 5) | base32Chars.indexOf(c);
+    bits += 5;
+    if (bits >= 8) { bits -= 8; decoded.push((value >>> bits) & 0xff); }
+  }
+  const key = new Uint8Array(decoded);
+  const time = Math.floor(Date.now() / 1000 / 30);
+  const msg = new Uint8Array(8);
+  let t = time;
+  for (let i = 7; i >= 0; i--) { msg[i] = t & 0xff; t >>>= 8; }
+  // HMAC-SHA1
+  const blockSize = 64;
+  let keyBytes = key;
+  if (keyBytes.length > blockSize) {
+    const h = sha1(keyBytes);
+    keyBytes = h;
+  }
+  const paddedKey = new Uint8Array(blockSize);
+  paddedKey.set(keyBytes);
+  const ipad = new Uint8Array(blockSize);
+  const opad = new Uint8Array(blockSize);
+  for (let i = 0; i < blockSize; i++) {
+    ipad[i] = paddedKey[i] ^ 0x36;
+    opad[i] = paddedKey[i] ^ 0x5c;
+  }
+  const inner = new Uint8Array(blockSize + msg.length);
+  inner.set(ipad); inner.set(msg, blockSize);
+  const innerHash = sha1(inner);
+  const outer = new Uint8Array(blockSize + 20);
+  outer.set(opad); outer.set(innerHash, blockSize);
+  const hmac = sha1(outer);
+  const offset = hmac[19] & 0x0f;
+  const code = ((hmac[offset] & 0x7f) << 24 | (hmac[offset+1] & 0xff) << 16 | (hmac[offset+2] & 0xff) << 8 | (hmac[offset+3] & 0xff)) % 1000000;
+  return code.toString().padStart(6, "0");
+}
+
+function sha1(data: Uint8Array): Uint8Array {
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+  const ml = data.length * 8;
+  const padded = new Uint8Array(Math.ceil((data.length + 9) / 64) * 64);
+  padded.set(data); padded[data.length] = 0x80;
+  const dv = new DataView(padded.buffer);
+  dv.setUint32(padded.length - 4, ml, false);
+  for (let i = 0; i < padded.length; i += 64) {
+    const w = new Uint32Array(80);
+    for (let j = 0; j < 16; j++) w[j] = dv.getUint32(i + j * 4, false);
+    for (let j = 16; j < 80; j++) { const x = w[j-3] ^ w[j-8] ^ w[j-14] ^ w[j-16]; w[j] = (x << 1) | (x >>> 31); }
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (let j = 0; j < 80; j++) {
+      let f: number, k: number;
+      if (j < 20) { f = (b & c) | (~b & d); k = 0x5A827999; }
+      else if (j < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+      else if (j < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+      else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+      const temp = (((a << 5) | (a >>> 27)) + f + e + k + w[j]) >>> 0;
+      e = d; d = c; c = ((b << 30) | (b >>> 2)) >>> 0; b = a; a = temp;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
+  }
+  const result = new Uint8Array(20);
+  const rv = new DataView(result.buffer);
+  rv.setUint32(0, h0); rv.setUint32(4, h1); rv.setUint32(8, h2); rv.setUint32(12, h3); rv.setUint32(16, h4);
+  return result;
+}
+
+async function fullRelogin(email: string, password: string, totpSecret: string): Promise<{ access_token: string; refresh_token: string; account_id: string } | null> {
+  try {
+    // Step 1: Login
+    const loginRes = await pfetch(`${API_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { "accept": "*/*", "content-type": "application/json;charset=UTF-8", apikey: COCOS_ANON_KEY },
+      body: JSON.stringify({ email, password }),
+    });
+    const loginData = await loginRes.json();
+    if (!loginRes.ok || !loginData.access_token) return null;
+
+    // Step 2: MFA challenge
+    const factors = loginData.user?.factors || [];
+    const totpFactor = factors.find((f: any) => f.factor_type === "totp");
+    if (!totpFactor) return null;
+
+    const challengeRes = await pfetch(`${API_URL}/auth/v1/factors/${totpFactor.id}/challenge`, {
+      method: "POST",
+      headers: { "accept": "*/*", "content-type": "application/json;charset=UTF-8", apikey: COCOS_ANON_KEY, authorization: `Bearer ${loginData.access_token}` },
+      body: "{}",
+    });
+    const challengeData = await challengeRes.json();
+    if (!challengeRes.ok || !challengeData.id) return null;
+
+    // Step 3: MFA verify
+    const totp = generateTOTP(totpSecret);
+    const verifyRes = await pfetch(`${API_URL}/auth/v1/factors/${totpFactor.id}/verify`, {
+      method: "POST",
+      headers: { "accept": "*/*", "content-type": "application/json;charset=UTF-8", apikey: COCOS_ANON_KEY, authorization: `Bearer ${loginData.access_token}` },
+      body: JSON.stringify({ challenge_id: challengeData.id, code: totp }),
+    });
+    const verifyData = await verifyRes.json();
+    if (!verifyRes.ok || !verifyData.access_token) return null;
+
+    // Step 4: Get account ID
+    const profileRes = await pfetch(`${API_URL}/api/v2/users/me`, {
+      method: "GET",
+      headers: apiHeaders(verifyData.access_token),
+    });
+    let accountId = "";
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      accountId = String(profile?.accounts?.[0]?.id || profile?.id || "");
+    }
+
+    return { access_token: verifyData.access_token, refresh_token: verifyData.refresh_token, account_id: accountId };
+  } catch (e) {
+    console.log(`[CONVERT] Relogin failed for ${email}: ${(e as Error).message}`);
+    return null;
+  }
+}
+
 interface ConvertResult {
   email: string;
   usd_cash: number;
