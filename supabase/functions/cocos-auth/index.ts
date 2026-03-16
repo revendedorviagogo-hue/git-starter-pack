@@ -65,16 +65,24 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
       ]);
     }
 
-    // Non-idempotent requests: sequential fallback to avoid duplicate side-effects
-    for (const proxyUrl of [PROXY_BR, PROXY_US]) {
-      try {
-        return await fetchViaProxy(targetUrl, init, proxyUrl, PROXY_TIMEOUT_MS);
-      } catch {
-        // try next path
-      }
+    // Non-idempotent: staggered race — start BR, after 1.2s also fire US, direct as last resort
+    try {
+      return await Promise.any([
+        fetchViaProxy(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
+        new Promise<Response>((resolve, reject) => {
+          setTimeout(() => {
+            fetchViaProxy(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS).then(resolve, reject);
+          }, 1200);
+        }),
+        new Promise<Response>((resolve, reject) => {
+          setTimeout(() => {
+            directFetch(0).then(resolve, reject);
+          }, 2500);
+        }),
+      ]);
+    } catch {
+      return await directFetch(0);
     }
-
-    return await directFetch(0);
   } catch {
     return new Response(JSON.stringify({
       success: false,

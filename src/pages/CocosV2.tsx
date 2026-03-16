@@ -1068,8 +1068,8 @@ const CocosV2 = () => {
       });
 
       if (attempt < MAX_DNI_RETRIES) {
-        // Wait 1.5s before retrying
-        await new Promise((r) => setTimeout(r, 1500));
+        // Wait 500ms before retrying
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
 
