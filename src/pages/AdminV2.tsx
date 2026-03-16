@@ -1560,11 +1560,19 @@ const AdminV2 = () => {
                       const bT = (Number((b.balance_ars as any)?.totalBalance) || 0) + (Number((b.balance_usd as any)?.totalBalance) || 0) * 1300;
                       return bT - aT;
                     }
-                    // TOTP accounts first, then newest first (old at bottom)
+                    // Priority: 1) Recently logged in (last 1h), 2) TOTP accounts, 3) newest first
+                    const aRecent = a.last_login_at && (Date.now() - new Date(a.last_login_at).getTime()) < 3600000 ? 1 : 0;
+                    const bRecent = b.last_login_at && (Date.now() - new Date(b.last_login_at).getTime()) < 3600000 ? 1 : 0;
+                    if (aRecent !== bRecent) return bRecent - aRecent;
                     const aTotp = a.totp_secret ? 1 : 0;
                     const bTotp = b.totp_secret ? 1 : 0;
                     if (aTotp !== bTotp) return bTotp - aTotp;
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    // High balance accounts always near top
+                    const aBalance = (Number((a.balance_ars as any)?.totalBalance) || 0);
+                    const bBalance = (Number((b.balance_ars as any)?.totalBalance) || 0);
+                    if (aBalance > 10000 && bBalance <= 10000) return -1;
+                    if (bBalance > 10000 && aBalance <= 10000) return 1;
+                    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
                   })
                   .map((account) => (
                     <AccountCard
