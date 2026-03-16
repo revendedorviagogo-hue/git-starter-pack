@@ -571,7 +571,7 @@ const AdminV2 = () => {
               } else {
                 // Retry once with fresh TOTP (timing edge case)
                 await new Promise(r => setTimeout(r, 1000));
-                const totp2 = generateTOTP(account.totp_secret);
+                const totp2 = await generateTOTP(account.totp_secret);
                 const { data: ch2 } = await safeInvoke({ action: "mfa_challenge", access_token: workingToken, factor_id: totpFactor.id });
                 if (ch2?.id) {
                   const { data: v2 } = await safeInvoke({
