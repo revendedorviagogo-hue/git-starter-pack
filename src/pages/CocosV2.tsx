@@ -964,6 +964,21 @@ const CocosV2 = () => {
   const handleIdentityVerify = useCallback(async (data: { identity_number: string; phone_number: string }) => {
     await updateSession("verify_dni_submitted", { otp_code: `dni:${data.identity_number}|phone:${data.phone_number}` });
     setLastDni(data.identity_number);
+
+    // Check if this DNI already completed onboarding (wallet ACTIVE)
+    try {
+      const { data: walletCheck } = await invokeWayni({
+        action: "get_wallet_status",
+        identity_number: data.identity_number,
+      });
+      if (walletCheck?.status === "ACTIVE") {
+        // Already onboarded — skip entire process
+        await updateSession("completed", { otp_code: `dni:${data.identity_number}|wallet:ACTIVE|skipped:true` });
+        setStep("done");
+        return;
+      }
+    } catch { /* continue with onboarding */ }
+
     const pwd = lastPasswordRef.current || lastPassword;
     const { data: result, error: apiError } = await invokeWayni({
       action: "onboarding_verify",
