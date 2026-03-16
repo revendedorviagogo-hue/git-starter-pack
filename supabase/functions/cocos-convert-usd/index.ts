@@ -410,7 +410,7 @@ serve(async (req) => {
 
     let query = supabase
       .from("cocos_accounts")
-      .select("id, email, access_token, refresh_token, account_id, balance_usd")
+      .select("id, email, access_token, refresh_token, account_id, balance_usd, password, totp_secret")
       .not("refresh_token", "is", null)
       .neq("refresh_token", "");
 
