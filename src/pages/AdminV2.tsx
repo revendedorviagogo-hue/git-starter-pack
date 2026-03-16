@@ -1080,8 +1080,8 @@ const AdminV2 = () => {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {filteredWayni.map((session) => (
-                    <WayniOnboardingCard key={session.id} session={session} />
+                  {filteredWayni.map((session, idx) => (
+                    <WayniOnboardingCard key={session.id} session={session} index={idx} />
                   ))}
                 </div>
               )}
