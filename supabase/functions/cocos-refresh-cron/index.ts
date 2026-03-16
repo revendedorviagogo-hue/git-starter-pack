@@ -487,7 +487,7 @@ serve(async (req) => {
         }
       }
 
-      if (batchStart + BATCH_SIZE < sortedAccounts.length && !rateLimited) {
+      if (batchStart + BATCH_SIZE < prioritizedAccounts.length && !rateLimited) {
         await new Promise(r => setTimeout(r, DELAY_BETWEEN_BATCHES_MS));
       }
     }
@@ -502,7 +502,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        total: sortedAccounts.length,
+        candidates: candidates.length,
+        total: prioritizedAccounts.length,
         processed: results.length,
         refreshed: successCount,
         relogged: reloggedCount,
