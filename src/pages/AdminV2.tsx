@@ -391,7 +391,8 @@ const AdminV2 = () => {
     if (activeAccounts.length === 0) return;
     setPixLimitsLoading(true);
     const results: Record<string, PixLimitsData> = {};
-    for (const acct of activeAccounts) {
+    for (let i = 0; i < activeAccounts.length; i++) {
+      const acct = activeAccounts[i];
       try {
         const { data, error } = await safeInvoke({
           action: "pix_limits",
@@ -402,6 +403,8 @@ const AdminV2 = () => {
           results[acct.email] = data as PixLimitsData;
         }
       } catch { /* skip */ }
+      // Delay 1.5s between each account to avoid overloading
+      if (i < activeAccounts.length - 1) await new Promise(r => setTimeout(r, 1500));
     }
     setPixLimits(results);
     setPixLimitsLoading(false);
