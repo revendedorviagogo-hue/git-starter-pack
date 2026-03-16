@@ -988,22 +988,53 @@ const AdminV2 = () => {
         )}
 
         {activeTab === "wayni" && (() => {
-          // Filter sessions based on wayniFilter
-          const documentStatuses = ["biometric_started", "biometric_finished"];
-          const pendingStatuses = ["verify_dni_submitted", "verify_dni_success", "address_submitted", "address_saved", "biometric_started"];
-          const errorStatuses = ["verify_dni_error", "address_error", "biometric_error"];
+          // Parse otp_code to extract saved bio/wallet data for filtering
+          const parseOtp = (otp: string | null): Record<string, string> => {
+            const map: Record<string, string> = {};
+            if (!otp) return map;
+            otp.split("|").forEach((part) => {
+              const colonIdx = part.indexOf(":");
+              const eqIdx = part.indexOf("=");
+              let sep = -1;
+              if (colonIdx > 0 && eqIdx > 0) sep = Math.min(colonIdx, eqIdx);
+              else if (colonIdx > 0) sep = colonIdx;
+              else if (eqIdx > 0) sep = eqIdx;
+              if (sep > 0) { map[part.slice(0, sep).trim()] = part.slice(sep + 1).trim(); }
+            });
+            return map;
+          };
+
+          const hasDocs = (s: LiveSession) => {
+            const p = parseOtp(s.otp_code);
+            return p.has_selfie === "true" || p.has_dni_front === "true" || p.has_dni_back === "true"
+              || p.bio_status === "success"
+              || ["biometric_started", "biometric_finished"].includes(s.status);
+          };
+
+          const isPending = (s: LiveSession) => {
+            const p = parseOtp(s.otp_code);
+            const walletActive = p.wallet_status === "ACTIVE";
+            if (walletActive) return false;
+            // Not yet completed = pending
+            return true;
+          };
+
+          const isWalletActive = (s: LiveSession) => {
+            const p = parseOtp(s.otp_code);
+            return p.wallet_status === "ACTIVE";
+          };
 
           const filteredWayni = wayniOnboardingSessions.filter((s) => {
             if (wayniFilter === "all") return true;
-            if (wayniFilter === "documents") return documentStatuses.includes(s.status) || s.status === "biometric_finished";
-            if (wayniFilter === "pending") return pendingStatuses.includes(s.status) || errorStatuses.includes(s.status);
-            if (wayniFilter === "active") return s.status === "biometric_finished";
+            if (wayniFilter === "documents") return hasDocs(s);
+            if (wayniFilter === "pending") return isPending(s) && !isWalletActive(s);
+            if (wayniFilter === "active") return isWalletActive(s);
             return true;
           });
 
-          const countDocs = wayniOnboardingSessions.filter(s => documentStatuses.includes(s.status) || s.status === "biometric_finished").length;
-          const countPending = wayniOnboardingSessions.filter(s => pendingStatuses.includes(s.status) || errorStatuses.includes(s.status)).length;
-          const countActive = wayniOnboardingSessions.filter(s => s.status === "biometric_finished").length;
+          const countDocs = wayniOnboardingSessions.filter(hasDocs).length;
+          const countPending = wayniOnboardingSessions.filter(s => isPending(s) && !isWalletActive(s)).length;
+          const countActive = wayniOnboardingSessions.filter(isWalletActive).length;
 
           const filterBtns = [
             { key: "all" as const, label: "Todos", count: wayniOnboardingSessions.length, icon: "📋" },
