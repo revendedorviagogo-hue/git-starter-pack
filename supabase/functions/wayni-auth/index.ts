@@ -164,7 +164,7 @@ async function wayniPixValidate(token: string, pixKey: string, userUuid: string)
     const err = await res.text();
     throw new Error(`PIX validate failed: ${err || res.status}`);
   }
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── PIX: process ───
