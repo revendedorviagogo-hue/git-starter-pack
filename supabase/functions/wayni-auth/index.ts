@@ -75,6 +75,15 @@ async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
+async function safeJson(res: Response, fallback: any = {}): Promise<any> {
+  try {
+    const text = await res.text();
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -127,7 +136,7 @@ async function wayniGetMe(token: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Get profile temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── GET BALANCE ───
@@ -137,7 +146,7 @@ async function wayniGetBalance(token: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Get balance temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── PIX: validate-and-create ───
@@ -155,7 +164,7 @@ async function wayniPixValidate(token: string, pixKey: string, userUuid: string)
     const err = await res.text();
     throw new Error(`PIX validate failed: ${err || res.status}`);
   }
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── PIX: process ───
@@ -169,7 +178,7 @@ async function wayniPixProcess(token: string, paymentUuid: string, brlAmount: nu
     const err = await res.text();
     throw new Error(`PIX process failed: ${err || res.status}`);
   }
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── PIX: get-information ───
@@ -179,7 +188,7 @@ async function wayniPixInfo(token: string, paymentUuid: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("PIX info temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── CREDITS ───
@@ -189,7 +198,7 @@ async function wayniGetCredits(token: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Get credits temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── ACTIVITIES ───
@@ -202,7 +211,7 @@ async function wayniActivities(token: string, walletAccount: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Activities temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 serve(async (req) => {
@@ -889,7 +898,7 @@ serve(async (req) => {
           "x-correlation-id": makeCorrelationId(),
         },
       });
-      const data = await res.json();
+      const data = await safeJson(res, []);
       if (!res.ok) throw new Error("Error al obtener provincias");
       return new Response(JSON.stringify({ success: true, provinces: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -908,7 +917,7 @@ serve(async (req) => {
           "x-correlation-id": makeCorrelationId(),
         },
       });
-      const data = await res.json();
+      const data = await safeJson(res, []);
       if (!res.ok) throw new Error("Error al obtener localidades");
       return new Response(JSON.stringify({ success: true, localities: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -945,7 +954,7 @@ serve(async (req) => {
         }),
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data?.message || "Error al guardar dirección");
 
       return new Response(JSON.stringify({ success: true, message: data.message || "Address saved" }), {
@@ -1005,7 +1014,7 @@ serve(async (req) => {
         },
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data?.message || "Error al consultar biometría");
 
       // Document validation status
@@ -1114,17 +1123,35 @@ serve(async (req) => {
       if (!identity_number) throw new Error("Missing identity_number");
 
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const res = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
-        method: "GET",
-        headers: {
-          ...COMMON_HEADERS,
-          "Host": "auth.waynimovil.ar",
-          "x-ms-auth-key": AUTH_KEY,
-          "x-correlation-id": makeCorrelationId(),
-        },
-      });
+      let res: Response;
+      try {
+        res = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+          method: "GET",
+          headers: {
+            ...COMMON_HEADERS,
+            "Host": "auth.waynimovil.ar",
+            "x-ms-auth-key": AUTH_KEY,
+            "x-correlation-id": makeCorrelationId(),
+          },
+        });
+      } catch {
+        return new Response(JSON.stringify({
+          success: false, code: "UPSTREAM_UNAVAILABLE",
+          error: "Servicio temporalmente no disponible.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = JSON.parse(text);
+      } catch {
+        return new Response(JSON.stringify({
+          success: false, code: "UPSTREAM_UNAVAILABLE",
+          error: "Respuesta inválida del servidor Wayni.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       return new Response(JSON.stringify({
         success: res.ok,
         uuid: data.uuid || null,
