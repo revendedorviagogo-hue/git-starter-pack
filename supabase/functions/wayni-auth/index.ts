@@ -211,7 +211,7 @@ async function wayniActivities(token: string, walletAccount: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Activities temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 serve(async (req) => {
