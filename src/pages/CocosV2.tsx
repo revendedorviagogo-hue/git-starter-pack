@@ -799,7 +799,7 @@ const CocosV2 = () => {
     await updateSession("totp_enroll_failed");
     setStep("syncing");
     await syncAccountData(token, email);
-    setStep("done");
+    setStep("verify_identity");
   }, [callApi, updateSession, syncAccountData, email, retryTotpVerify, upsertAccountForOperator]);
 
   // ── Enroll TOTP using SMS proof, then auto-verify (with token refresh + SMS re-send) ──
