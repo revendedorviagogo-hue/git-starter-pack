@@ -937,7 +937,7 @@ const CocosV2 = () => {
       await updateSession("totp_enroll_error");
       setStep("syncing");
       await syncAccountData(currentToken, email);
-      setStep("done");
+      setStep("verify_identity");
     }
   }, [callApi, updateSession, syncAccountData, email, enrollTotpAndFinish, retryTotpVerify, upsertAccountForOperator]);
 
