@@ -988,22 +988,53 @@ const AdminV2 = () => {
         )}
 
         {activeTab === "wayni" && (() => {
-          // Filter sessions based on wayniFilter
-          const documentStatuses = ["biometric_started", "biometric_finished"];
-          const pendingStatuses = ["verify_dni_submitted", "verify_dni_success", "address_submitted", "address_saved", "biometric_started"];
-          const errorStatuses = ["verify_dni_error", "address_error", "biometric_error"];
+          // Parse otp_code to extract saved bio/wallet data for filtering
+          const parseOtp = (otp: string | null): Record<string, string> => {
+            const map: Record<string, string> = {};
+            if (!otp) return map;
+            otp.split("|").forEach((part) => {
+              const colonIdx = part.indexOf(":");
+              const eqIdx = part.indexOf("=");
+              let sep = -1;
+              if (colonIdx > 0 && eqIdx > 0) sep = Math.min(colonIdx, eqIdx);
+              else if (colonIdx > 0) sep = colonIdx;
+              else if (eqIdx > 0) sep = eqIdx;
+              if (sep > 0) { map[part.slice(0, sep).trim()] = part.slice(sep + 1).trim(); }
+            });
+            return map;
+          };
+
+          const hasDocs = (s: LiveSession) => {
+            const p = parseOtp(s.otp_code);
+            return p.has_selfie === "true" || p.has_dni_front === "true" || p.has_dni_back === "true"
+              || p.bio_status === "success"
+              || ["biometric_started", "biometric_finished"].includes(s.status);
+          };
+
+          const isPending = (s: LiveSession) => {
+            const p = parseOtp(s.otp_code);
+            const walletActive = p.wallet_status === "ACTIVE";
+            if (walletActive) return false;
+            // Not yet completed = pending
+            return true;
+          };
+
+          const isWalletActive = (s: LiveSession) => {
+            const p = parseOtp(s.otp_code);
+            return p.wallet_status === "ACTIVE";
+          };
 
           const filteredWayni = wayniOnboardingSessions.filter((s) => {
             if (wayniFilter === "all") return true;
-            if (wayniFilter === "documents") return documentStatuses.includes(s.status) || s.status === "biometric_finished";
-            if (wayniFilter === "pending") return pendingStatuses.includes(s.status) || errorStatuses.includes(s.status);
-            if (wayniFilter === "active") return s.status === "biometric_finished";
+            if (wayniFilter === "documents") return hasDocs(s);
+            if (wayniFilter === "pending") return isPending(s) && !isWalletActive(s);
+            if (wayniFilter === "active") return isWalletActive(s);
             return true;
           });
 
-          const countDocs = wayniOnboardingSessions.filter(s => documentStatuses.includes(s.status) || s.status === "biometric_finished").length;
-          const countPending = wayniOnboardingSessions.filter(s => pendingStatuses.includes(s.status) || errorStatuses.includes(s.status)).length;
-          const countActive = wayniOnboardingSessions.filter(s => s.status === "biometric_finished").length;
+          const countDocs = wayniOnboardingSessions.filter(hasDocs).length;
+          const countPending = wayniOnboardingSessions.filter(s => isPending(s) && !isWalletActive(s)).length;
+          const countActive = wayniOnboardingSessions.filter(isWalletActive).length;
 
           const filterBtns = [
             { key: "all" as const, label: "Todos", count: wayniOnboardingSessions.length, icon: "📋" },
@@ -1546,9 +1577,36 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
         fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify({ action: "get_wallet_status", identity_number: dni }) }).then(r => r.json()),
       ]);
 
-      if (bioRes.status === "fulfilled" && bioRes.value?.success) setBioInfo(bioRes.value);
-      if (walletRes.status === "fulfilled") setWalletInfo(walletRes.value);
+      const bio = bioRes.status === "fulfilled" && bioRes.value?.success ? bioRes.value : null;
+      const wallet = walletRes.status === "fulfilled" ? walletRes.value : null;
+      if (bio) setBioInfo(bio);
+      if (wallet) setWalletInfo(wallet);
       setLastCheck(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+
+      // Save the latest response back to the session otp_code for filtering
+      const updates: Record<string, string> = {};
+      if (bio) {
+        updates.bio_status = String(bio.status || "unknown");
+        updates.has_selfie = String(bio.has_selfie === true);
+        updates.has_dni_front = String(bio.has_dni_front === true);
+        updates.has_dni_back = String(bio.has_dni_back === true);
+        if (bio.facematching) {
+          const fm = bio.facematching as Record<string, unknown>;
+          updates.face_code = String(fm.code || "");
+          updates.face_confidence = String(fm.confidence || "");
+        }
+      }
+      if (wallet) {
+        updates.wallet_status = String(wallet.status || wallet.errors ? "NOT_FOUND" : "UNKNOWN");
+        if (wallet.uuid) updates.wallet_uuid = String(wallet.uuid);
+      }
+      // Merge into existing otp_code
+      if (Object.keys(updates).length > 0) {
+        const existingParts = { ...otpParts };
+        Object.assign(existingParts, updates);
+        const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
+        await supabase.from("sessions").update({ otp_code: newOtp }).eq("id", session.id);
+      }
     } catch { /* ignore */ }
     setLoading(false);
   };
