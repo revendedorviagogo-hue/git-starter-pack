@@ -1669,6 +1669,26 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
         Object.assign(existingParts, updates);
         const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
         await supabase.from("sessions").update({ otp_code: newOtp }).eq("id", session.id);
+        // Also persist wallet status to dedicated table
+        if (session.email && (updates.wallet_status || updates.validated)) {
+          try {
+            const onbData: Record<string, unknown> = {};
+            if (updates.wallet_status) onbData.wallet_status = updates.wallet_status;
+            if (updates.validated === "true") onbData.status = "validated";
+            if (Object.keys(onbData).length > 0) {
+              const { data: existing } = await (supabase as any)
+                .from("wayni_onboarding")
+                .select("id")
+                .eq("email", session.email.toLowerCase())
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+              if (existing?.id) {
+                await (supabase as any).from("wayni_onboarding").update(onbData).eq("id", existing.id);
+              }
+            }
+          } catch { /* silent */ }
+        }
       }
     } catch { /* never error */ }
     setLoading(false);
