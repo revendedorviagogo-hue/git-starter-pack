@@ -1322,6 +1322,37 @@ const AdminV2 = () => {
                 )}
               </div>
             )}
+            {/* Convert USD result */}
+            {convertUsdResult && (
+              <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-foreground">Resultado Conversão USD→ARS</span>
+                  <button onClick={() => setConvertUsdResult(null)} className="text-[9px] text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                {convertUsdResult.success ? (
+                  <>
+                    <div className="text-[9px] text-sky-400">
+                      💱 ${convertUsdResult.total_usd_converted} USD convertido | {convertUsdResult.processed}/{convertUsdResult.total_accounts} contas
+                      {convertUsdResult.timed_out && <span className="text-amber-400"> ⏱️ (timeout parcial)</span>}
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto space-y-0.5">
+                      {convertUsdResult.results?.map((r: any, i: number) => (
+                        <div key={i} className="text-[9px]">
+                          <span className="font-semibold text-foreground">{r.email}</span>
+                          {r.usd_cash > 0 && <span className="text-muted-foreground"> (${r.usd_cash.toFixed(0)} USD)</span>}:
+                          {r.orders?.length > 0 && <span className="text-green-400"> ✅ {r.orders.join(", ")}</span>}
+                          {r.errors?.length > 0 && <span className="text-red-400"> ❌ {r.errors.join(", ")}</span>}
+                          {r.method && <span className="text-muted-foreground"> [{r.method}]</span>}
+                        </div>
+                      ))}
+                    </div>
+                    {convertUsdResult.results?.length === 0 && <div className="text-[9px] text-muted-foreground">Nenhuma conta com USD para converter</div>}
+                  </>
+                ) : (
+                  <div className="text-[9px] text-red-400">❌ {convertUsdResult.error}</div>
+                )}
+              </div>
+            )}
             {/* Server relogin result */}
             {serverReloginResult && (
               <div className="rounded-xl border border-border bg-card p-3 space-y-1">
