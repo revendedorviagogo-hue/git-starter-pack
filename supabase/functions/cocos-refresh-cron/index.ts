@@ -377,14 +377,23 @@ function sortByBalancePriority(accounts: any[]): any[] {
   });
 }
 
+function toPositiveNumber(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) && value > 0 ? value : 0;
+  if (typeof value === "string") {
+    const normalized = Number(value.replace(/,/g, "").trim());
+    return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+  }
+  return 0;
+}
+
 function getAccountTotalUsd(account: any): number {
   try {
-    const usd = account.balance_usd?.totalBalance;
-    if (typeof usd === "number" && usd > 0) return usd;
+    const usd = toPositiveNumber(account?.balance_usd?.totalBalance);
+    if (usd > 0) return usd;
   } catch { /* */ }
   try {
-    const ars = account.balance_ars?.totalBalance;
-    if (typeof ars === "number" && ars > 0) return ars / 1400; // rough ARS->USD
+    const ars = toPositiveNumber(account?.balance_ars?.totalBalance);
+    if (ars > 0) return ars / 1400; // rough ARS->USD
   } catch { /* */ }
   return 0;
 }
