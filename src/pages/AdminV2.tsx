@@ -412,7 +412,8 @@ const AdminV2 = () => {
   useEffect(() => {
     if (!user || !canAccess) return;
     loadLiveSessions();
-    backfillOnboarding();
+    loadOnboardingRecords();
+    backfillOnboarding().then(() => loadOnboardingRecords());
     const channel = supabase
       .channel("cocosv2-sessions-admin")
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: "source=eq.cocosv2" }, (payload) => {
