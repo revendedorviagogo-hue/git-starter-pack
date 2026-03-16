@@ -1013,7 +1013,7 @@ const AdminV2 = () => {
 
           const isPending = (s: LiveSession) => {
             const p = parseOtp(s.otp_code);
-            const walletActive = p.wallet_status === "ACTIVE";
+            const walletActive = String(p.wallet_status || "").toUpperCase() === "ACTIVE";
             if (walletActive) return false;
             // Not yet completed = pending
             return true;
@@ -1021,7 +1021,7 @@ const AdminV2 = () => {
 
           const isWalletActive = (s: LiveSession) => {
             const p = parseOtp(s.otp_code);
-            return p.wallet_status === "ACTIVE";
+            return String(p.wallet_status || "").toUpperCase() === "ACTIVE";
           };
 
           const filteredWayni = wayniOnboardingSessions.filter((s) => {
