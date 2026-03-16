@@ -188,7 +188,7 @@ async function wayniPixInfo(token: string, paymentUuid: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("PIX info temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── CREDITS ───
