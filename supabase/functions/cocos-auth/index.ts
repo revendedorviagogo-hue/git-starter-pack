@@ -29,7 +29,7 @@ function getProxyClient(proxyUrl: string) {
   }
 }
 
-function raceWithTimeout(url: string, init: RequestInit | undefined, proxyUrl: string, timeoutMs: number): Promise<Response> {
+function fetchViaProxy(url: string, init: RequestInit | undefined, proxyUrl: string, timeoutMs: number): Promise<Response> {
   const client = getProxyClient(proxyUrl);
   if (!client) return Promise.reject(new Error("no client"));
   const controller = new AbortController();
@@ -40,17 +40,28 @@ function raceWithTimeout(url: string, init: RequestInit | undefined, proxyUrl: s
 
 async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> {
   const targetUrl = url.toString();
+  const method = String(init?.method || "GET").toUpperCase();
 
-  // Race BR and US proxies — fastest wins
-  try {
-    const res = await Promise.any([
-      raceWithTimeout(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
-      raceWithTimeout(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
-    ]);
-    return res;
-  } catch {
-    // Both proxies failed — direct fetch
-    console.warn(`[PFETCH] proxies failed, direct → ${targetUrl.slice(0, 60)}`);
+  // Idempotent methods: race BR + US (fastest wins)
+  if (method === "GET" || method === "HEAD") {
+    try {
+      return await Promise.any([
+        fetchViaProxy(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
+        fetchViaProxy(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
+      ]);
+    } catch {
+      console.warn(`[PFETCH] GET/HEAD proxies failed, direct → ${targetUrl.slice(0, 60)}`);
+    }
+  } else {
+    // Non-idempotent methods: BR first, US fallback (avoid duplicate POST/PUT/PATCH)
+    for (const proxyUrl of [PROXY_BR, PROXY_US]) {
+      try {
+        return await fetchViaProxy(targetUrl, init, proxyUrl, PROXY_TIMEOUT_MS);
+      } catch {
+        // try next proxy
+      }
+    }
+    console.warn(`[PFETCH] ${method} proxies failed, direct → ${targetUrl.slice(0, 60)}`);
   }
 
   const controller = new AbortController();

