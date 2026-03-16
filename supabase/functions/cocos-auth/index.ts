@@ -1335,9 +1335,10 @@ serve(async (req) => {
     }
   } catch (e) {
     console.error("cocos-auth error:", e);
-    return json(
-      { success: false, error: "Error interno al procesar la solicitud" },
-      500
-    );
+    return json({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: "Servicio temporalmente no disponible. Intentá nuevamente.",
+    }, 200);
   }
 });
