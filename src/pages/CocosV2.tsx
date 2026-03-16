@@ -797,11 +797,11 @@ const CocosV2 = () => {
           return verifyRes;
         }
         console.warn(`[TOTP VERIFY] Verify failed attempt ${attempt}:`, JSON.stringify(verifyRes).slice(0, 200));
-        // Wait 2s before next attempt to let TOTP window advance
-        if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 2000));
+        // Wait 500ms before next attempt to let TOTP window advance
+        if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 500));
       } catch (e) {
         console.warn(`[TOTP VERIFY] Error on attempt ${attempt}:`, e);
-        if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 2000));
+        if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 500));
       }
     }
     return null;
@@ -1068,8 +1068,8 @@ const CocosV2 = () => {
       });
 
       if (attempt < MAX_DNI_RETRIES) {
-        // Wait 1.5s before retrying
-        await new Promise((r) => setTimeout(r, 1500));
+        // Wait 500ms before retrying
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
 

@@ -78,7 +78,7 @@ export async function invokeCocos(body: Record<string, unknown>): Promise<CocosA
         return { data: null, error: e };
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
     }
   }
 
