@@ -2206,11 +2206,17 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
         {(() => {
           const bioOk = bioInfo?.status === "success" || (bioInfo?.has_selfie === true && bioInfo?.has_dni_front === true && bioInfo?.has_dni_back === true);
           const walletActive = walletInfo?.status === "ACTIVE";
-          const hasDni = !!dni;
-          const hasUuid = !!userUuid;
+          const hasDni = !!dni || !!onboardingRow?.dni;
+          const hasUuid = !!userUuid || !!onboardingRow?.user_uuid;
           const hasEmail = !!session.email;
-          const hasAddress = !!(otpParts.region && otpParts.city && otpParts.street && otpParts.zip);
-          const isFullyVerified = !!bioOk && hasDni && hasUuid && hasEmail;
+          const hasAddress = !!(
+            (otpParts.region || onboardingRow?.region) && 
+            (otpParts.city || onboardingRow?.city) && 
+            (otpParts.street || onboardingRow?.street) && 
+            (otpParts.zip || onboardingRow?.zip_code)
+          );
+          // Allow retry as long as we have DNI and email — UUID can be obtained from save-data
+          const canRetry = hasDni && hasEmail;
 
            const handleRetry = async () => {
             setRetrying(true);
