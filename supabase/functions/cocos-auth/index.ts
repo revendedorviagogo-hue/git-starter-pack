@@ -61,7 +61,7 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
       return await Promise.any([
         fetchViaProxy(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
         fetchViaProxy(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
-        directFetch(800),
+        directFetch(400),
       ]);
     }
 
