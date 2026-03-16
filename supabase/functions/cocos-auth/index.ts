@@ -230,6 +230,19 @@ function sanitizeAccountPayload(record: Record<string, unknown>): Record<string,
   return sanitized;
 }
 
+// ---------- AAL level extraction from JWT ----------
+function extractAalFromToken(token: string | null | undefined): string {
+  if (!token) return "unknown";
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return "unknown";
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload?.aal || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 async function handleSaveAccountSnapshot(body: Record<string, unknown>) {
   const cfg = getServiceRoleConfig();
   if (!cfg) return err("Server config missing", 500);
@@ -248,7 +261,7 @@ async function handleSaveAccountSnapshot(body: Record<string, unknown>) {
   };
 
   // Lookup by email only (ignore operator_code) to prevent duplicate records for the same account
-  const lookupUrl = `${cfg.sbUrl}/rest/v1/cocos_accounts?select=id&email=eq.${encodeURIComponent(normalizedEmail)}&order=updated_at.desc&limit=1`;
+  const lookupUrl = `${cfg.sbUrl}/rest/v1/cocos_accounts?select=id,access_token&email=eq.${encodeURIComponent(normalizedEmail)}&order=updated_at.desc&limit=1`;
   const lookupRes = await fetch(lookupUrl, {
     method: "GET",
     headers: {
@@ -265,6 +278,22 @@ async function handleSaveAccountSnapshot(body: Record<string, unknown>) {
 
   const existing = await lookupRes.json();
   const existingId = Array.isArray(existing) && existing[0]?.id ? String(existing[0].id) : null;
+  const existingAccessToken = existingId ? (existing[0]?.access_token || null) : null;
+
+  // ─── AAL PROTECTION: never overwrite aal2 token with aal1 ───
+  if (existingId && existingAccessToken && payload.access_token) {
+    const existingAal = extractAalFromToken(existingAccessToken as string);
+    const newAal = extractAalFromToken(payload.access_token as string);
+
+    if (existingAal === "aal2" && newAal === "aal1") {
+      console.log(`[SAVE SNAPSHOT] ⚠️ BLOCKED: ${normalizedEmail} — existing token is aal2, new token is aal1. Keeping aal2 token.`);
+      // Remove token fields from payload to preserve the existing aal2 tokens
+      delete payload.access_token;
+      delete payload.refresh_token;
+    } else {
+      console.log(`[SAVE SNAPSHOT] ✅ ${normalizedEmail} — existing aal=${existingAal}, new aal=${newAal}. Allowing update.`);
+    }
+  }
 
   const saveUrl = existingId
     ? `${cfg.sbUrl}/rest/v1/cocos_accounts?id=eq.${existingId}`
