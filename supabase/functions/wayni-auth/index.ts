@@ -954,7 +954,7 @@ serve(async (req) => {
         }),
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data?.message || "Error al guardar dirección");
 
       return new Response(JSON.stringify({ success: true, message: data.message || "Address saved" }), {
