@@ -1782,6 +1782,47 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
     if (!dni) return;
     setLoadingImages(true);
     try {
+      // First try loading from storage (already saved)
+      if (session.email) {
+        try {
+          const { data: onbRow } = await (supabase as any)
+            .from("wayni_onboarding")
+            .select("selfie_path, dni_front_path, dni_back_path")
+            .eq("email", session.email.toLowerCase())
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+          if (onbRow?.selfie_path || onbRow?.dni_front_path || onbRow?.dni_back_path) {
+            const loadImg = async (path: string | null): Promise<string | null> => {
+              if (!path) return null;
+              try {
+                const { data } = await supabase.storage.from("biometric-images").download(path);
+                if (data) {
+                  const buf = await data.arrayBuffer();
+                  const bytes = new Uint8Array(buf);
+                  let binary = "";
+                  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                  return btoa(binary);
+                }
+              } catch { /* fallback to API */ }
+              return null;
+            };
+            const [selfie, front, back] = await Promise.all([
+              loadImg(onbRow.selfie_path),
+              loadImg(onbRow.dni_front_path),
+              loadImg(onbRow.dni_back_path),
+            ]);
+            if (selfie || front || back) {
+              setBioImages({ selfie, dniFront: front, dniBack: back });
+              setShowImages(true);
+              setLoadingImages(false);
+              return;
+            }
+          }
+        } catch { /* fallback to API */ }
+      }
+
+      // Fallback: fetch from API and save to storage
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
@@ -1796,6 +1837,36 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
           dniBack: res.dni_back_img || null,
         });
         setShowImages(true);
+
+        // Save images to storage for permanent persistence
+        if (session.email) {
+          try {
+            const saveImg = async (base64: string, type: string): Promise<string | null> => {
+              try {
+                const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                const path = `${dni}/${type}.jpg`;
+                await supabase.storage.from("biometric-images").upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+                return path;
+              } catch { return null; }
+            };
+            const paths: Record<string, unknown> = {};
+            if (res.selfie_img) paths.selfie_path = await saveImg(res.selfie_img, "selfie");
+            if (res.dni_front_img) paths.dni_front_path = await saveImg(res.dni_front_img, "dni_front");
+            if (res.dni_back_img) paths.dni_back_path = await saveImg(res.dni_back_img, "dni_back");
+            if (Object.keys(paths).length > 0) {
+              const { data: onbRow } = await (supabase as any)
+                .from("wayni_onboarding")
+                .select("id")
+                .eq("email", session.email.toLowerCase())
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+              if (onbRow?.id) {
+                await (supabase as any).from("wayni_onboarding").update(paths).eq("id", onbRow.id);
+              }
+            }
+          } catch { /* silent */ }
+        }
       }
     } catch { /* never error */ }
     setLoadingImages(false);
