@@ -928,7 +928,11 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         biometric_url: bioData.url,
-        biometric_id: bioData.externalIdentifier,
+        biometric_id: bioData.externalIdentifier || null,
+        external_ref_id: bioData.externalRefId || null,
+        status: bioData.status || null,
+        origin: bioData.origin || null,
+        supplier: bioData.supplier || null,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -949,9 +953,87 @@ serve(async (req) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Error al consultar biometría");
 
-      return new Response(JSON.stringify({ success: true, ...data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Return structured biometric info
+      return new Response(JSON.stringify({
+        success: true,
+        dni: data.dni || identity_number,
+        identifier: data.identifier || null,
+        external_ref_id: data.externalRefId || null,
+        status: data.status || null,
+        current_action: data.currentAction || null,
+        last_completed_section: data.lastCompletedSection || null,
+        enrollment_flow: data.enrollmentFlow || null,
+        created_at: data.createdAt || null,
+        updated_at: data.updatedAt || null,
+        tags: data.tags || [],
+        facematching: data.facematching || null,
+        first_name: data.firstName || null,
+        last_name: data.lastName || null,
+        birthdate: data.birthdate || null,
+        origin: data.origin || null,
+        supplier: data.supplier || null,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ─── ACTION: check_biometric_status ───
+    if (action === "check_biometric_status") {
+      const { identity_number } = body;
+      if (!identity_number) throw new Error("Missing identity_number");
+
+      console.log("[wayni] check_biometric_status for", identity_number);
+
+      // 1. Get biometric info
+      const bioRes = await proxyFetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
+        method: "GET",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "billetera.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
       });
+
+      let bioData: any = null;
+      let biometric_ok = false;
+      let facematching_confidence = 0;
+      try {
+        bioData = await bioRes.json();
+        biometric_ok = bioData?.status === "success" && bioData?.facematching?.code === 200;
+        facematching_confidence = bioData?.facematching?.confidence || 0;
+      } catch { /* ignore parse errors */ }
+
+      // 2. Get wallet status
+      const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
+      const walletRes = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+        method: "GET",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "auth.waynimovil.ar",
+          "x-ms-auth-key": AUTH_KEY,
+          "x-correlation-id": makeCorrelationId(),
+        },
+      });
+
+      let walletData: any = null;
+      let wallet_status = "unknown";
+      try {
+        walletData = await walletRes.json();
+        wallet_status = walletData?.status || "unknown";
+      } catch { /* ignore */ }
+
+      console.log("[wayni] biometric_ok:", biometric_ok, "wallet_status:", wallet_status, "confidence:", facematching_confidence);
+
+      return new Response(JSON.stringify({
+        success: true,
+        biometric_ok,
+        biometric_status: bioData?.status || null,
+        facematching: bioData?.facematching || null,
+        facematching_confidence,
+        last_completed_section: bioData?.lastCompletedSection || null,
+        first_name: bioData?.firstName || null,
+        last_name: bioData?.lastName || null,
+        wallet_status,
+        wallet_uuid: walletData?.uuid || null,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ─── ACTION: get_wallet_status ───
@@ -971,9 +1053,13 @@ serve(async (req) => {
       });
 
       const data = await res.json();
-      return new Response(JSON.stringify({ success: res.ok, ...data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({
+        success: res.ok,
+        uuid: data.uuid || null,
+        status: data.status || null,
+        pomelo_user: data.pomelo_user || null,
+        pomelo_user_created_at: data.pomelo_user_created_at || null,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     throw new Error(`Unknown action: ${action}`);
