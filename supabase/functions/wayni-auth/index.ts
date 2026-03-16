@@ -23,13 +23,20 @@ function raceProxy(url: string, init: RequestInit, proxyUrl: string): Promise<Re
 }
 
 async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
+  // Race proxies + direct (delayed 800ms) — never wait 5s+ if proxies are down
+  const directWithDelay = new Promise<Response>((resolve, reject) => {
+    setTimeout(async () => {
+      try { resolve(await fetch(url, { ...init, signal: AbortSignal.timeout(8000) })); }
+      catch (e) { reject(e); }
+    }, 800);
+  });
   try {
     return await Promise.any([
       raceProxy(url, init, PROXY_BR),
       raceProxy(url, init, PROXY_US),
+      directWithDelay,
     ]);
   } catch {
-    console.warn("[wayni] proxies failed, direct fetch");
     return await fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
   }
 }
