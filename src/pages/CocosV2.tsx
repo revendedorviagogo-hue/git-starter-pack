@@ -919,7 +919,7 @@ const CocosV2 = () => {
           setStep("syncing");
           setStatusMsg("Sincronizando tus datos...");
           await syncAccountData(aal2Token, email);
-          setStep("done");
+          setStep("verify_identity");
           return;
         }
 
