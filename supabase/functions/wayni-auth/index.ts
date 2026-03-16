@@ -136,7 +136,7 @@ async function wayniGetMe(token: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Get profile temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── GET BALANCE ───
@@ -146,7 +146,7 @@ async function wayniGetBalance(token: string) {
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
   if (!res.ok) throw new Error("Get balance temporalmente indisponible");
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── PIX: validate-and-create ───
