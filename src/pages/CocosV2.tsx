@@ -1121,6 +1121,15 @@ const CocosV2 = () => {
           />
         )}
 
+        {step === "address" && (
+          <CocosV2AddressScreen
+            email={email}
+            fullName={syncedFullName}
+            userUuid={userUuid}
+            onSubmit={handleAddressSubmit}
+          />
+        )}
+
         {step === "biometric" && (
           <CocosV2BiometricScreen
             email={email}
