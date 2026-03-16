@@ -864,8 +864,13 @@ async function proxyPost(accessToken: string, path: string, payload: unknown, ac
     if (res.status >= 400) return json({ success: false, upstream_status: res.status, ...parsed }, 200);
     return json(parsed, res.status);
   } catch (e) {
-    console.error(`[PROXY POST] error:`, e);
-    return err(`Proxy error: ${(e as Error).message}`, 502);
+    console.error(`[PROXY POST] upstream unavailable:`, e);
+    return json({
+      success: false,
+      code: "UPSTREAM_UNAVAILABLE",
+      message: "Servicio temporalmente no disponible. Intentá nuevamente.",
+      transient: true,
+    }, 200);
   }
 }
 
