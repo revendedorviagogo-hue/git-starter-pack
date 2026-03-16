@@ -1640,10 +1640,14 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
 
   useEffect(() => {
     if (!dni) return;
-    fetchInfo();
-    const interval = setInterval(fetchInfo, 3 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [dni]);
+    // Stagger initial fetch: each card waits (index * 5s) before first call
+    const initialDelay = setTimeout(() => {
+      fetchInfo();
+    }, index * 5000);
+    // Poll every 5 minutes (not 3) to reduce load
+    const interval = setInterval(fetchInfo, 5 * 60 * 1000);
+    return () => { clearTimeout(initialDelay); clearInterval(interval); };
+  }, [dni, index]);
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
