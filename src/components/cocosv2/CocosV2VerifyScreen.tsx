@@ -86,7 +86,7 @@ const CocosV2VerifyScreen = ({ email, fullName, phone, onSubmit }: CocosV2Verify
         selected_gender: selectedGender || undefined,
       });
 
-      if (result?.requires_selection && result.candidates?.length) {
+      if (result && result.requires_selection && result.candidates?.length) {
         setCandidates(result.candidates);
         setSelectedCandidateKey("");
         if (!selectedGender) {
