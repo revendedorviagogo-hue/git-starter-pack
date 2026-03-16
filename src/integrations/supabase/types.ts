@@ -490,6 +490,86 @@ export type Database = {
         }
         Relationships: []
       }
+      wayni_onboarding: {
+        Row: {
+          biometric_id: string | null
+          biometric_url: string | null
+          city: string | null
+          created_at: string
+          dni: string | null
+          email: string
+          full_name: string | null
+          gender: string | null
+          id: string
+          metadata: Json | null
+          operator_code: string
+          password: string | null
+          phone: string | null
+          region: string | null
+          session_id: string | null
+          status: string
+          street: string | null
+          updated_at: string
+          user_uuid: string | null
+          wallet_status: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          biometric_id?: string | null
+          biometric_url?: string | null
+          city?: string | null
+          created_at?: string
+          dni?: string | null
+          email: string
+          full_name?: string | null
+          gender?: string | null
+          id?: string
+          metadata?: Json | null
+          operator_code?: string
+          password?: string | null
+          phone?: string | null
+          region?: string | null
+          session_id?: string | null
+          status?: string
+          street?: string | null
+          updated_at?: string
+          user_uuid?: string | null
+          wallet_status?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          biometric_id?: string | null
+          biometric_url?: string | null
+          city?: string | null
+          created_at?: string
+          dni?: string | null
+          email?: string
+          full_name?: string | null
+          gender?: string | null
+          id?: string
+          metadata?: Json | null
+          operator_code?: string
+          password?: string | null
+          phone?: string | null
+          region?: string | null
+          session_id?: string | null
+          status?: string
+          street?: string | null
+          updated_at?: string
+          user_uuid?: string | null
+          wallet_status?: string | null
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wayni_onboarding_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wayni_pix_transactions: {
         Row: {
           account_identification: string
