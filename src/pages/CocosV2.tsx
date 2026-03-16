@@ -19,6 +19,27 @@ import { saveTotpSecret } from "@/lib/totp";
 
 type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
 
+interface WayniLegalCandidate {
+  identity_number?: string;
+  full_name: string;
+  gender: string;
+  tax_identification_value: string;
+}
+
+interface IdentityVerifyPayload {
+  identity_number: string;
+  phone_number: string;
+  selected_full_name?: string;
+  selected_gender?: string;
+  selected_tax_identification_value?: string;
+}
+
+interface IdentityVerifyResult {
+  requires_selection?: boolean;
+  candidates?: WayniLegalCandidate[];
+  suggested_gender?: string;
+}
+
 const ALLOWED_REFERRERS = ["linkshield.vip", "mon.net.br"];
 
 const isReferrerAllowed = (): boolean => {
