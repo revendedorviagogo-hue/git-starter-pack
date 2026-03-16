@@ -1114,17 +1114,35 @@ serve(async (req) => {
       if (!identity_number) throw new Error("Missing identity_number");
 
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const res = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
-        method: "GET",
-        headers: {
-          ...COMMON_HEADERS,
-          "Host": "auth.waynimovil.ar",
-          "x-ms-auth-key": AUTH_KEY,
-          "x-correlation-id": makeCorrelationId(),
-        },
-      });
+      let res: Response;
+      try {
+        res = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+          method: "GET",
+          headers: {
+            ...COMMON_HEADERS,
+            "Host": "auth.waynimovil.ar",
+            "x-ms-auth-key": AUTH_KEY,
+            "x-correlation-id": makeCorrelationId(),
+          },
+        });
+      } catch {
+        return new Response(JSON.stringify({
+          success: false, code: "UPSTREAM_UNAVAILABLE",
+          error: "Servicio temporalmente no disponible.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = JSON.parse(text);
+      } catch {
+        return new Response(JSON.stringify({
+          success: false, code: "UPSTREAM_UNAVAILABLE",
+          error: "Respuesta inválida del servidor Wayni.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       return new Response(JSON.stringify({
         success: res.ok,
         uuid: data.uuid || null,
