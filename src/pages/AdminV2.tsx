@@ -397,6 +397,18 @@ const AdminV2 = () => {
     } catch { /* silent */ }
   }, []);
 
+  // Load all onboarding records from dedicated table
+  const loadOnboardingRecords = useCallback(async () => {
+    try {
+      const { data } = await (supabase as any)
+        .from("wayni_onboarding")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      setOnboardingRecords(data || []);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
     if (!user || !canAccess) return;
     loadLiveSessions();
