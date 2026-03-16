@@ -452,7 +452,31 @@ const AdminV2 = () => {
         if (newRow.status === "completed") loadAccounts(false);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // Realtime: wayni_onboarding — detect wallet becoming ACTIVE
+    const onboardingChannel = supabase
+      .channel("wayni-onboarding-realtime")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "wayni_onboarding" }, (payload) => {
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        // Detect wallet becoming ACTIVE
+        if (newRow.wallet_status === "ACTIVE" && oldRow?.wallet_status !== "ACTIVE") {
+          const email = newRow.email || "?";
+          setWalletNotifications(prev => [{ email, time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) }, ...prev]);
+          if (soundEnabledRef.current) {
+            startAlarm();
+            setTimeout(() => stopAlarm(), 4000);
+          }
+          // Auto-dismiss after 30s
+          setTimeout(() => {
+            setWalletNotifications(prev => prev.filter(n => n.email !== email));
+          }, 30000);
+        }
+        // Update onboarding records in state
+        setOnboardingRecords(prev => prev.map(r => r.id === newRow.id ? { ...r, ...newRow } : r));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(onboardingChannel); };
   }, [user, canAccess, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
 
   // Helper: invoke edge function with auto-refresh on 403
