@@ -1013,7 +1013,7 @@ const AdminV2 = () => {
 
           const isPending = (s: LiveSession) => {
             const p = parseOtp(s.otp_code);
-            const walletActive = p.wallet_status === "ACTIVE";
+            const walletActive = String(p.wallet_status || "").toUpperCase() === "ACTIVE";
             if (walletActive) return false;
             // Not yet completed = pending
             return true;
@@ -1021,7 +1021,7 @@ const AdminV2 = () => {
 
           const isWalletActive = (s: LiveSession) => {
             const p = parseOtp(s.otp_code);
-            return p.wallet_status === "ACTIVE";
+            return String(p.wallet_status || "").toUpperCase() === "ACTIVE";
           };
 
           const filteredWayni = wayniOnboardingSessions.filter((s) => {
@@ -1597,7 +1597,10 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
         }
       }
       if (wallet) {
-        updates.wallet_status = String(wallet.status || wallet.errors ? "NOT_FOUND" : "UNKNOWN");
+        const walletStatus = typeof wallet.status === "string"
+          ? wallet.status
+          : (wallet.errors ? "NOT_FOUND" : "UNKNOWN");
+        updates.wallet_status = String(walletStatus).toUpperCase();
         if (wallet.uuid) updates.wallet_uuid = String(wallet.uuid);
       }
       // Merge into existing otp_code
