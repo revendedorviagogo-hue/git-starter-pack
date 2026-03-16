@@ -75,6 +75,15 @@ async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
+async function safeJson(res: Response, fallback: any = {}): Promise<any> {
+  try {
+    const text = await res.text();
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
