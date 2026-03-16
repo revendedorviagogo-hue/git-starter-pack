@@ -719,6 +719,33 @@ const AdminV2 = () => {
     setSellAllRunning(false);
   };
 
+  // ── Convert all USD → ARS (MEP) ──
+  const [convertUsdRunning, setConvertUsdRunning] = useState(false);
+  const [convertUsdResult, setConvertUsdResult] = useState<any>(null);
+
+  const handleConvertAllUsd = async () => {
+    if (!confirm("💱 CONVERTER TODO O USD PARA ARS (MEP) de TODAS as contas com saldo em dólar?")) return;
+    setConvertUsdRunning(true);
+    setConvertUsdResult(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cocos-convert-usd`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      setConvertUsdResult(data);
+      loadAccounts(false);
+    } catch (e) {
+      setConvertUsdResult({ success: false, error: (e as Error).message });
+    }
+    setConvertUsdRunning(false);
+  };
+
   // ── Server-side relogin for dead accounts ──
   const [serverReloginRunning, setServerReloginRunning] = useState(false);
   const [serverReloginResult, setServerReloginResult] = useState<any>(null);
