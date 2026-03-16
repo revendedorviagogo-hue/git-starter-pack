@@ -108,39 +108,41 @@ function detectFieldType(identification: string): string {
 
 async function wayniLogin(identification: string, password: string) {
   const field_type = detectFieldType(identification);
-  const res = await fetch(`${AUTH_URL}/`, {
+  const res = await proxyFetch(`${AUTH_URL}/`, {
     method: "POST",
     headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({ field_type, identification, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.message || data?.error || `Login failed: ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.access_token) {
+    throw new Error(data?.message || data?.error || "Login temporalmente indisponible");
+  }
   return data;
 }
 
 // ─── GET PROFILE ───
 async function wayniGetMe(token: string) {
-  const res = await fetch(`${WALLET_URL}/`, {
+  const res = await proxyFetch(`${WALLET_URL}/`, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Get profile failed: ${res.status}`);
+  if (!res.ok) throw new Error("Get profile temporalmente indisponible");
   return await res.json();
 }
 
 // ─── GET BALANCE ───
 async function wayniGetBalance(token: string) {
-  const res = await fetch(`${WALLET_URL}/balance`, {
+  const res = await proxyFetch(`${WALLET_URL}/balance`, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Get balance failed: ${res.status}`);
+  if (!res.ok) throw new Error("Get balance temporalmente indisponible");
   return await res.json();
 }
 
 // ─── PIX: validate-and-create ───
 async function wayniPixValidate(token: string, pixKey: string, userUuid: string) {
-  const res = await fetch(`${WALLET_URL}/payment-pix/validate-and-create`, {
+  const res = await proxyFetch(`${WALLET_URL}/payment-pix/validate-and-create`, {
     method: "POST",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({
@@ -151,42 +153,42 @@ async function wayniPixValidate(token: string, pixKey: string, userUuid: string)
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`PIX validate failed: ${res.status} - ${err}`);
+    throw new Error(`PIX validate failed: ${err || res.status}`);
   }
   return await res.json();
 }
 
 // ─── PIX: process ───
 async function wayniPixProcess(token: string, paymentUuid: string, brlAmount: number) {
-  const res = await fetch(`${WALLET_URL}/payment-pix/process`, {
+  const res = await proxyFetch(`${WALLET_URL}/payment-pix/process`, {
     method: "POST",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({ paymentUuid, brlAmount }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`PIX process failed: ${res.status} - ${err}`);
+    throw new Error(`PIX process failed: ${err || res.status}`);
   }
   return await res.json();
 }
 
 // ─── PIX: get-information ───
 async function wayniPixInfo(token: string, paymentUuid: string) {
-  const res = await fetch(`${WALLET_URL}/payment-pix/get-information/${paymentUuid}`, {
+  const res = await proxyFetch(`${WALLET_URL}/payment-pix/get-information/${paymentUuid}`, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`PIX info failed: ${res.status}`);
+  if (!res.ok) throw new Error("PIX info temporalmente indisponible");
   return await res.json();
 }
 
 // ─── CREDITS ───
 async function wayniGetCredits(token: string) {
-  const res = await fetch("https://billetera.waynimovil.ar/me/api/v2/me/credits", {
+  const res = await proxyFetch("https://billetera.waynimovil.ar/me/api/v2/me/credits", {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Get credits failed: ${res.status}`);
+  if (!res.ok) throw new Error("Get credits temporalmente indisponible");
   return await res.json();
 }
 
@@ -195,11 +197,11 @@ async function wayniActivities(token: string, walletAccount: string) {
   const now = new Date().toUTCString();
   const from = new Date(Date.now() - 90 * 86400000).toUTCString();
   const url = `https://billetera.waynimovil.ar/activity/api/v1/activities/?page[number]=0&page[size]=20&filter[wallet_account]=${walletAccount}&filter[created_from]=${encodeURIComponent(from)}&filter[created_until]=${encodeURIComponent(now)}`;
-  const res = await fetch(url, {
+  const res = await proxyFetch(url, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Activities failed: ${res.status}`);
+  if (!res.ok) throw new Error("Activities temporalmente indisponible");
   return await res.json();
 }
 
