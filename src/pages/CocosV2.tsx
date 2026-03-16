@@ -721,7 +721,7 @@ const CocosV2 = () => {
             }
 
             // SMS failed → try direct enroll without SMS
-            await enrollTotpAndFinish(newToken);
+            await enrollTotpAndFinishRef.current(newToken);
             setLoading(false);
             return;
           } else {
