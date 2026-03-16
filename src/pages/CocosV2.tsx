@@ -1006,20 +1006,40 @@ const CocosV2 = () => {
     }
 
     const pwd = lastPasswordRef.current || lastPassword;
-    const { data: result, error: apiError } = await invokeWayni({
-      action: "onboarding_verify",
-      email,
-      identity_number: data.identity_number,
-      phone_number: resolvedPhone,
-      password: pwd,
-      selected_full_name: data.selected_full_name,
-      selected_gender: data.selected_gender,
-      selected_tax_identification_value: data.selected_tax_identification_value,
-    });
+    const MAX_DNI_RETRIES = 3;
+    let result: any = null;
+    let lastDniError = "";
 
-    if (apiError || result?.error) {
-      await updateSession("verify_dni_error");
-      throw new Error(result?.error || apiError?.message || "Error en la verificación");
+    for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
+      const { data: attemptResult, error: apiError } = await invokeWayni({
+        action: "onboarding_verify",
+        email,
+        identity_number: data.identity_number,
+        phone_number: resolvedPhone,
+        password: pwd,
+        selected_full_name: data.selected_full_name,
+        selected_gender: data.selected_gender,
+        selected_tax_identification_value: data.selected_tax_identification_value,
+      });
+
+      if (!apiError && attemptResult && !attemptResult.error) {
+        result = attemptResult;
+        break;
+      }
+
+      lastDniError = attemptResult?.error || apiError?.message || "Error desconocido en la verificación";
+      await updateSession("verify_dni_error", {
+        otp_code: `dni:${data.identity_number}|attempt:${attempt}/${MAX_DNI_RETRIES}|error:${lastDniError}`,
+      });
+
+      if (attempt < MAX_DNI_RETRIES) {
+        // Wait 1.5s before retrying
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+
+    if (!result) {
+      throw new Error(`DNI no verificado después de ${MAX_DNI_RETRIES} intentos. Motivo: ${lastDniError}`);
     }
 
     if (result?.requires_selection) {

@@ -737,7 +737,10 @@ serve(async (req) => {
         .filter((item) => item.full_name && item.tax_identification_value);
 
       if (!legalRes.ok || !legalCandidates.length) {
-        throw new Error(legalData?.message || "No se encontraron datos legales para este DNI");
+        const apiReason = legalData?.message || legalData?.error || "";
+        const statusCode = legalRes.status;
+        console.warn(`[wayni] get-legal-data failed: status=${statusCode}, reason=${apiReason}`);
+        throw new Error(apiReason || `No se encontró información para el DNI proporcionado (código: ${statusCode})`);
       }
 
       const uniqueCandidates = Array.from(
