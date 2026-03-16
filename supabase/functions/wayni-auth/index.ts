@@ -1137,8 +1137,12 @@ serve(async (req) => {
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("[wayni-auth] Error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 400,
+    return new Response(JSON.stringify({
+      success: false,
+      code: "INTERNAL_ERROR",
+      error: "Servicio temporalmente no disponible. Intentá nuevamente.",
+    }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
