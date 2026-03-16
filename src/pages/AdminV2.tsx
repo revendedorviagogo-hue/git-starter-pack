@@ -1041,8 +1041,25 @@ const AdminV2 = () => {
   return (
     <SessionPresenceProvider>
     <div className="min-h-screen bg-background text-foreground">
+      {/* ══════ WALLET NOTIFICATION BANNER ══════ */}
+      {walletNotifications.length > 0 && (
+        <div className="fixed top-0 left-0 right-0 z-[100] animate-in slide-in-from-top-2 duration-300">
+          {walletNotifications.map((n, i) => (
+            <div key={`${n.email}-${i}`} className="bg-green-500 text-white px-4 py-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎉</span>
+                <span className="text-sm font-bold">WALLET ATIVA!</span>
+                <span className="text-sm">{n.email}</span>
+                <span className="text-xs opacity-70">{n.time}</span>
+              </div>
+              <button onClick={() => setWalletNotifications(prev => prev.filter((_, idx) => idx !== i))} className="text-white/80 hover:text-white text-xs font-bold">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ══════ HEADER ══════ */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
+      <header className={`sticky ${walletNotifications.length > 0 ? 'top-10' : 'top-0'} z-50 border-b border-border bg-card/95 backdrop-blur-md transition-all`}>
         <div className="mx-auto max-w-6xl flex items-center justify-between px-4 h-12">
           <div className="flex items-center gap-2.5">
             <img src={cocosLogo} alt="Cocos" className="h-7 w-7 rounded-lg" />
