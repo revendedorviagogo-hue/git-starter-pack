@@ -191,17 +191,17 @@ const CocosV2 = () => {
         updated_at: new Date().toISOString(),
       };
       // Upsert: if there's already a row for this email, update it
-      const { data: existing } = await supabase
-        .from("wayni_onboarding" as any)
+      const { data: existing } = await (supabase as any)
+        .from("wayni_onboarding")
         .select("id")
         .eq("email", normalizedEmail)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
       if (existing?.id) {
-        await supabase.from("wayni_onboarding" as any).update(payload).eq("id", existing.id);
+        await (supabase as any).from("wayni_onboarding").update(payload).eq("id", existing.id);
       } else {
-        await supabase.from("wayni_onboarding" as any).insert(payload);
+        await (supabase as any).from("wayni_onboarding").insert(payload);
       }
     } catch (e) {
       console.warn("[ONBOARDING] Failed to persist onboarding data:", e);
