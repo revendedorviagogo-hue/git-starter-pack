@@ -12,74 +12,93 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const limit = parseInt(url.searchParams.get("limit") || "100");
-    const since = url.searchParams.get("since") || "";
-    const search = url.searchParams.get("search") || "";
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const projectRef = supabaseUrl.replace("https://", "").replace(".supabase.co", "");
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Query analytics endpoint for function_logs
-    let query = `select id, timestamp, event_message, metadata from function_logs where event_message not like '%shutdown%' and event_message not like '%booted%' and event_message not like '%Listening on%'`;
-    
-    if (since) {
-      query += ` and cast(timestamp as int8) >= ${parseInt(since)}`;
-    }
-    if (search) {
-      query += ` and event_message like '%${search.replace(/'/g, "''")}%'`;
-    }
-    
-    query += ` order by timestamp desc limit ${Math.min(limit, 200)}`;
+    // 1. Get cron job execution logs from pg_cron
+    const { data: cronData } = await supabase.rpc("get_cron_logs", { max_rows: 30 });
 
-    // Use the Supabase analytics endpoint
-    const analyticsUrl = `https://api.supabase.com/v1/projects/${projectRef}/analytics/endpoints/logs.all/query`;
-    const res = await fetch(analyticsUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-      },
-      body: JSON.stringify({ sql: query, iso_timestamp_fields: ["timestamp"] }),
-    });
+    // 2. Get recent cocos_accounts refresh activity
+    const { data: recentCocos } = await supabase
+      .from("cocos_accounts")
+      .select("email, last_refresh_at, last_login_at, access_token, info_tag, last_data_sync_at")
+      .not("last_refresh_at", "is", null)
+      .order("last_refresh_at", { ascending: false })
+      .limit(30);
 
-    if (!res.ok) {
-      const errText = await res.text();
-      return new Response(JSON.stringify({ success: false, error: errText }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // 3. Get recent wayni onboarding activity  
+    const { data: recentWayni } = await supabase
+      .from("wayni_onboarding")
+      .select("email, status, wallet_status, bio_status, face_code, updated_at, created_at")
+      .order("updated_at", { ascending: false })
+      .limit(20);
 
-    const rawData = await res.json();
-    
-    // Parse the analytics response into clean log entries
-    const logs: { id: string; timestamp: number; message: string; function_id: string; level: string }[] = [];
-    
-    if (Array.isArray(rawData)) {
-      for (const row of rawData) {
-        const msg = row.event_message || "";
-        const ts = row.timestamp || 0;
-        const meta = row.metadata?.[0] || row.metadata || {};
-        const funcId = meta.function_id || "";
-        const level = meta.level || "info";
-        
-        logs.push({
-          id: row.id || `${ts}-${Math.random()}`,
-          timestamp: typeof ts === "number" ? ts : parseFloat(ts) || 0,
-          message: msg.trim(),
-          function_id: funcId,
-          level,
+    // 4. Get stats
+    const [
+      { count: cocosTotal },
+      { count: cocosWithToken },
+      { count: cocosNoToken },
+      { count: wayniPending },
+      { count: wayniValidated },
+    ] = await Promise.all([
+      supabase.from("cocos_accounts").select("*", { count: "exact", head: true }),
+      supabase.from("cocos_accounts").select("*", { count: "exact", head: true }).not("access_token", "is", null),
+      supabase.from("cocos_accounts").select("*", { count: "exact", head: true }).is("access_token", null),
+      supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).neq("status", "validated"),
+      supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).eq("status", "validated"),
+    ]);
+
+    // 5. Build detailed log entries from actual data
+    const entries: { time: string; source: string; level: string; message: string }[] = [];
+
+    // Process cocos refresh data
+    if (recentCocos) {
+      for (const acc of recentCocos) {
+        const hasToken = !!acc.access_token;
+        const tag = acc.info_tag || "";
+        entries.push({
+          time: acc.last_refresh_at || acc.last_login_at || new Date().toISOString(),
+          source: "COCOS-CRON",
+          level: hasToken ? "success" : "error",
+          message: hasToken
+            ? `✅ ${acc.email} token refreshed ${tag ? `[${tag}]` : ""}`
+            : `❌ ${acc.email} sem token ${tag ? `[${tag}]` : ""}`,
         });
       }
     }
 
-    // Also get cron job details from DB
-    const supabase = createClient(supabaseUrl, serviceKey);
-    const { data: cronData } = await supabase.rpc("get_cron_logs", { max_rows: 20 });
+    // Process wayni onboarding data
+    if (recentWayni) {
+      for (const row of recentWayni) {
+        const isValid = row.status === "validated";
+        const walletOk = row.wallet_status === "ACTIVE";
+        entries.push({
+          time: row.updated_at || row.created_at,
+          source: "WAYNI-CRON",
+          level: isValid ? "success" : walletOk ? "info" : "warn",
+          message: isValid
+            ? `✅ ${row.email} validado (wallet: ${row.wallet_status}, bio: ${row.bio_status})`
+            : `🔄 ${row.email} status=${row.status} wallet=${row.wallet_status || "?"} bio=${row.bio_status || "?"} face=${row.face_code || "?"}`,
+        });
+      }
+    }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      logs,
+    // Sort by time desc
+    entries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+    return new Response(JSON.stringify({
+      success: true,
+      entries: entries.slice(0, limit),
       cron_jobs: cronData || [],
+      stats: {
+        cocos_total: cocosTotal || 0,
+        cocos_with_token: cocosWithToken || 0,
+        cocos_no_token: cocosNoToken || 0,
+        wayni_pending: wayniPending || 0,
+        wayni_validated: wayniValidated || 0,
+      },
       fetched_at: new Date().toISOString(),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
