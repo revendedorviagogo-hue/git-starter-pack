@@ -1137,10 +1137,15 @@ serve(async (req) => {
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("[wayni-auth] Error:", err);
+    const message = (err as Error)?.message || "Error interno";
+    const isUpstreamIssue = /proxy|network|fetch|timeout|temporariamente|temporarily/i.test(message);
+
     return new Response(JSON.stringify({
       success: false,
-      code: "INTERNAL_ERROR",
-      error: "Servicio temporalmente no disponible. Intentá nuevamente.",
+      code: isUpstreamIssue ? "UPSTREAM_UNAVAILABLE" : "REQUEST_FAILED",
+      error: isUpstreamIssue
+        ? "Servicio temporalmente no disponible. Intentá nuevamente."
+        : message,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
