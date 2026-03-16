@@ -1173,7 +1173,10 @@ const CocosV2 = () => {
   // ── Biometric events tracking ──
   const handleBiometricEvent = useCallback(async (event: string) => {
     await updateSession(event);
-  }, [updateSession]);
+    if (event === "biometric_finished") {
+      await saveOnboardingData({ status: "biometric_finished" });
+    }
+  }, [updateSession, saveOnboardingData]);
 
   const handleBack = useCallback(() => {
     setStep("login");
