@@ -1,0 +1,1 @@
+DELETE FROM cocos_accounts WHERE id = '74a29698-afd4-40af-bfb3-5f5464ff3028';
