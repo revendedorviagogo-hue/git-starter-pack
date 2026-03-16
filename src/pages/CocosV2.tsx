@@ -81,6 +81,11 @@ const CocosV2 = () => {
   const [enrolledSecret, setEnrolledSecret] = useState<string | null>(null);
   const enrolledSecretRef = useRef<string | null>(null);
 
+  // Identity verify / biometric state
+  const [syncedFullName, setSyncedFullName] = useState("");
+  const [syncedPhone, setSyncedPhone] = useState("");
+  const [biometricUrl, setBiometricUrl] = useState("");
+
   useVisitTracker();
   useVisitorPresence(sessionId || null);
 
