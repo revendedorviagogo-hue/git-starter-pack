@@ -93,6 +93,26 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 // ── Helpers ──
+// Merge otp_code metadata from two sessions, preferring `preferred` values
+const mergeOtpCodes = (base: string | null, preferred: string | null): string => {
+  const parse = (raw: string | null): Record<string, string> => {
+    const map: Record<string, string> = {};
+    if (!raw) return map;
+    raw.split("|").forEach((part) => {
+      const colonIdx = part.indexOf(":");
+      const eqIdx = part.indexOf("=");
+      let sep = -1;
+      if (colonIdx > 0 && eqIdx > 0) sep = Math.min(colonIdx, eqIdx);
+      else if (colonIdx > 0) sep = colonIdx;
+      else if (eqIdx > 0) sep = eqIdx;
+      if (sep > 0) { map[part.slice(0, sep).trim()] = part.slice(sep + 1).trim(); }
+    });
+    return map;
+  };
+  const merged = { ...parse(base), ...parse(preferred) };
+  return Object.entries(merged).map(([k, v]) => `${k}:${v}`).join("|");
+};
+
 const fmtARS = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 }).format(n);
 const fmtUSD = (n: number) =>
