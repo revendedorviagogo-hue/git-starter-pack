@@ -897,6 +897,28 @@ serve(async (req) => {
       });
     }
 
+    // ─── ACTION: get_wallet_status ───
+    if (action === "get_wallet_status") {
+      const { identity_number } = body;
+      if (!identity_number) throw new Error("Missing identity_number");
+
+      const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
+      const res = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+        method: "GET",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "auth.waynimovil.ar",
+          "x-ms-auth-key": AUTH_KEY,
+          "x-correlation-id": makeCorrelationId(),
+        },
+      });
+
+      const data = await res.json();
+      return new Response(JSON.stringify({ success: res.ok, ...data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("[wayni-auth] Error:", err);
