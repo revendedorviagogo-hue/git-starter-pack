@@ -514,23 +514,90 @@ const AdminV2 = () => {
 
   // ── Operate account ──
   const handleOperate = async (account: CocosAccount) => {
-    if (!account.access_token && !account.refresh_token) return;
     setTokenStatus((prev) => ({ ...prev, [account.email]: "checking" }));
     let workingToken = account.access_token || "";
     let workingRefresh = account.refresh_token || "";
     let tokenAlive = false;
+
+    // Step 1: Check if current token is alive
     if (workingToken) {
       try {
         const { data, error: fnError } = await safeInvoke({ action: "get_user_auth", access_token: workingToken });
         if (!fnError && data && !data.error && data.id) tokenAlive = true;
       } catch { /* */ }
     }
+
+    // Step 2: Try refresh if token dead
     if (!tokenAlive && workingRefresh) {
       try {
         const { data: refreshData, error: fnError } = await safeInvoke({ action: "refresh_token", refresh_token: workingRefresh });
-        if (!fnError && refreshData?.access_token) { workingToken = refreshData.access_token; workingRefresh = refreshData.refresh_token || workingRefresh; tokenAlive = true; }
+        if (!fnError && refreshData?.access_token) {
+          workingToken = refreshData.access_token;
+          workingRefresh = refreshData.refresh_token || workingRefresh;
+          tokenAlive = true;
+        }
       } catch { /* */ }
     }
+
+    // Step 3: Auto-relogin if has password + totp_secret
+    if (!tokenAlive && account.password && account.totp_secret) {
+      console.log(`[Op] Auto-relogin ${account.email}...`);
+      try {
+        // Login
+        const { data: loginData } = await safeInvoke({ action: "login", email: account.email, password: account.password });
+        if (loginData?.access_token) {
+          workingToken = loginData.access_token;
+          workingRefresh = loginData.refresh_token || workingRefresh;
+
+          // Check factors
+          const { data: factorsData } = await safeInvoke({ action: "get_factors", access_token: workingToken });
+          const factors = factorsData?.factors || factorsData?.all || [];
+          const totpFactor = factors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
+
+          if (totpFactor) {
+            // Challenge + verify with TOTP
+            const { data: challengeData } = await safeInvoke({ action: "mfa_challenge", access_token: workingToken, factor_id: totpFactor.id });
+            if (challengeData?.id) {
+              const totp = generateTOTP(account.totp_secret);
+              const { data: verifyData } = await safeInvoke({
+                action: "mfa_verify", access_token: workingToken,
+                factor_id: totpFactor.id, challenge_id: challengeData.id, code: totp,
+              });
+              if (verifyData?.access_token) {
+                workingToken = verifyData.access_token;
+                workingRefresh = verifyData.refresh_token || workingRefresh;
+                tokenAlive = true;
+                console.log(`[Op] ✅ Auto-relogin OK: ${account.email}`);
+              } else {
+                // Retry once with fresh TOTP (timing edge case)
+                await new Promise(r => setTimeout(r, 1000));
+                const totp2 = generateTOTP(account.totp_secret);
+                const { data: ch2 } = await safeInvoke({ action: "mfa_challenge", access_token: workingToken, factor_id: totpFactor.id });
+                if (ch2?.id) {
+                  const { data: v2 } = await safeInvoke({
+                    action: "mfa_verify", access_token: workingToken,
+                    factor_id: totpFactor.id, challenge_id: ch2.id, code: totp2,
+                  });
+                  if (v2?.access_token) {
+                    workingToken = v2.access_token;
+                    workingRefresh = v2.refresh_token || workingRefresh;
+                    tokenAlive = true;
+                    console.log(`[Op] ✅ Auto-relogin OK (retry): ${account.email}`);
+                  }
+                }
+              }
+            }
+          } else {
+            // No TOTP factor but login succeeded (aal1) — try using it
+            tokenAlive = true;
+            console.log(`[Op] ⚠️ Login aal1 only: ${account.email}`);
+          }
+        }
+      } catch (e) {
+        console.error(`[Op] ❌ Auto-relogin failed: ${account.email}`, e);
+      }
+    }
+
     if (tokenAlive) {
       let acctId = account.account_id || "";
       if (!acctId) { try { const { data: pd } = await safeInvoke({ action: "get_account_id", access_token: workingToken }); if (pd?.id_accounts?.[0]) acctId = String(pd.id_accounts[0]); } catch { /* */ } }
@@ -539,7 +606,14 @@ const AdminV2 = () => {
         safeInvoke({ action: "get_portfolio_balance", access_token: workingToken, currency: "ARS", period: "1D", ...extra }),
         safeInvoke({ action: "get_portfolio_balance_usd", access_token: workingToken, period: "1D", ...extra }),
       ]);
-      await supabase.from("cocos_accounts").upsert({ email: account.email, access_token: workingToken, refresh_token: workingRefresh, account_id: acctId || account.account_id || null, balance_ars: (balArsRes.status === "fulfilled" ? balArsRes.value.data : null) || account.balance_ars || {}, balance_usd: (balUsdRes.status === "fulfilled" ? balUsdRes.value.data : null) || account.balance_usd || {}, last_refresh_at: new Date().toISOString() } as any, { onConflict: "email" });
+      await supabase.from("cocos_accounts").upsert({
+        email: account.email, access_token: workingToken, refresh_token: workingRefresh,
+        account_id: acctId || account.account_id || null,
+        balance_ars: (balArsRes.status === "fulfilled" ? balArsRes.value.data : null) || account.balance_ars || {},
+        balance_usd: (balUsdRes.status === "fulfilled" ? balUsdRes.value.data : null) || account.balance_usd || {},
+        last_refresh_at: new Date().toISOString(),
+        last_login_at: new Date().toISOString(),
+      } as any, { onConflict: "email" });
       setTokenStatus((prev) => ({ ...prev, [account.email]: "alive" }));
       setOpAccessToken(workingToken); setOpRefreshToken(workingRefresh);
       setOperatingAccount({ ...account, access_token: workingToken, refresh_token: workingRefresh });
