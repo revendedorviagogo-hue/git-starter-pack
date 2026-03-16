@@ -247,7 +247,8 @@ async function handleSaveAccountSnapshot(body: Record<string, unknown>) {
     updated_at: nowIso,
   };
 
-  const lookupUrl = `${cfg.sbUrl}/rest/v1/cocos_accounts?select=id&email=eq.${encodeURIComponent(normalizedEmail)}&operator_code=eq.${encodeURIComponent(operatorCode)}&order=updated_at.desc&limit=1`;
+  // Lookup by email only (ignore operator_code) to prevent duplicate records for the same account
+  const lookupUrl = `${cfg.sbUrl}/rest/v1/cocos_accounts?select=id&email=eq.${encodeURIComponent(normalizedEmail)}&order=updated_at.desc&limit=1`;
   const lookupRes = await fetch(lookupUrl, {
     method: "GET",
     headers: {
