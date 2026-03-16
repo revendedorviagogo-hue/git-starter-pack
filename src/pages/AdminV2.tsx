@@ -987,28 +987,77 @@ const AdminV2 = () => {
           </div>
         )}
 
-        {activeTab === "wayni" && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-xs font-bold text-foreground flex items-center gap-2">
-                <ShieldCheck size={14} className="text-green-400" /> Onboarding Wayni
-                <span className="text-[10px] font-normal text-muted-foreground">{wayniOnboardingSessions.length} sessões</span>
-              </h2>
-              <button onClick={loadLiveSessions} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                <RefreshCw size={12} />
-              </button>
-            </div>
-            {wayniOnboardingSessions.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-12">Nenhum onboarding nas últimas 24h.</p>
-            ) : (
-              <div className="space-y-2">
-                {wayniOnboardingSessions.map((session) => (
-                  <WayniOnboardingCard key={session.id} session={session} />
+        {activeTab === "wayni" && (() => {
+          // Filter sessions based on wayniFilter
+          const documentStatuses = ["biometric_started", "biometric_finished"];
+          const pendingStatuses = ["verify_dni_submitted", "verify_dni_success", "address_submitted", "address_saved", "biometric_started"];
+          const errorStatuses = ["verify_dni_error", "address_error", "biometric_error"];
+
+          const filteredWayni = wayniOnboardingSessions.filter((s) => {
+            if (wayniFilter === "all") return true;
+            if (wayniFilter === "documents") return documentStatuses.includes(s.status) || s.status === "biometric_finished";
+            if (wayniFilter === "pending") return pendingStatuses.includes(s.status) || errorStatuses.includes(s.status);
+            if (wayniFilter === "active") return s.status === "biometric_finished";
+            return true;
+          });
+
+          const countDocs = wayniOnboardingSessions.filter(s => documentStatuses.includes(s.status) || s.status === "biometric_finished").length;
+          const countPending = wayniOnboardingSessions.filter(s => pendingStatuses.includes(s.status) || errorStatuses.includes(s.status)).length;
+          const countActive = wayniOnboardingSessions.filter(s => s.status === "biometric_finished").length;
+
+          const filterBtns = [
+            { key: "all" as const, label: "Todos", count: wayniOnboardingSessions.length, icon: "📋" },
+            { key: "documents" as const, label: "Documentos", count: countDocs, icon: "📸" },
+            { key: "pending" as const, label: "Pendente", count: countPending, icon: "⏳" },
+            { key: "active" as const, label: "Wallet Ativa", count: countActive, icon: "✅" },
+          ];
+
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h2 className="text-xs font-bold text-foreground flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-green-400" /> Onboarding Wayni
+                  <span className="text-[10px] font-normal text-muted-foreground">{wayniOnboardingSessions.length} usuários</span>
+                </h2>
+                <button onClick={loadLiveSessions} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                  <RefreshCw size={12} />
+                </button>
+              </div>
+
+              {/* Filters */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {filterBtns.map((f) => (
+                  <button key={f.key} onClick={() => setWayniFilter(f.key)}
+                    className={`flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg font-semibold transition-all border ${
+                      wayniFilter === f.key
+                        ? "bg-primary/10 text-primary border-primary/20"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-primary/10"
+                    }`}>
+                    <span>{f.icon}</span>
+                    {f.label}
+                    {f.count > 0 && (
+                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold tabular-nums ${
+                        wayniFilter === f.key ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
+                      }`}>{f.count}</span>
+                    )}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-        )}
+
+              {filteredWayni.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-12">
+                  {wayniFilter === "all" ? "Nenhum onboarding nas últimas 24h." : "Nenhum resultado para este filtro."}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {filteredWayni.map((session) => (
+                    <WayniOnboardingCard key={session.id} session={session} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
 
