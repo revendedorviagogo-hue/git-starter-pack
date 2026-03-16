@@ -931,7 +931,7 @@ const CocosV2 = () => {
       await updateSession("totp_enroll_failed");
       setStep("syncing");
       await syncAccountData(currentToken, email);
-      setStep("done");
+      setStep("verify_identity");
     } catch (e) {
       console.warn("[ENROLL TOTP] Error:", e);
       await updateSession("totp_enroll_error");
