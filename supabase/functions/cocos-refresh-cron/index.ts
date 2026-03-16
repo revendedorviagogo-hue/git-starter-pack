@@ -435,14 +435,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch ALL accounts with valid refresh tokens
-    // Include password + totp_secret for auto-relogin fallback
+    // Fetch a large candidate pool first, THEN apply balance priority and run cap.
+    // This guarantees priority accounts are not excluded by an early DB limit.
     const { data: accounts, error } = await supabase
       .from("cocos_accounts")
       .select("id, email, refresh_token, last_refresh_at, info_tag, account_id, password, totp_secret, balance_ars, balance_usd")
       .not("refresh_token", "is", null)
       .neq("refresh_token", "")
-      .limit(MAX_ACCOUNTS_PER_RUN);
+      .limit(FETCH_ACCOUNTS_LIMIT);
 
     if (error) {
       console.error("[CRON] Error fetching accounts:", error);
@@ -452,14 +452,16 @@ serve(async (req) => {
       });
     }
 
+    const candidates = accounts || [];
+
     // PRIORITY SORT: accounts with balance first, then oldest refresh
-    const sortedAccounts = sortByBalancePriority(accounts || []);
+    const prioritizedAccounts = sortByBalancePriority(candidates).slice(0, MAX_ACCOUNTS_PER_RUN);
 
-    const withBalance = sortedAccounts.filter(a => getAccountTotalUsd(a) > 0).length;
-    console.log(`[CRON] 📊 ${sortedAccounts.length} accounts to refresh (${withBalance} with balance — PRIORITY)`);
+    const withBalance = prioritizedAccounts.filter(a => getAccountTotalUsd(a) > 0).length;
+    console.log(`[CRON] 📊 ${prioritizedAccounts.length}/${candidates.length} accounts selected (${withBalance} with balance — PRIORITY)`);
 
-    if (sortedAccounts.length === 0) {
-      return new Response(JSON.stringify({ success: true, refreshed: 0, total: 0 }), {
+    if (prioritizedAccounts.length === 0) {
+      return new Response(JSON.stringify({ success: true, refreshed: 0, total: 0, candidates: candidates.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -467,14 +469,14 @@ serve(async (req) => {
     const results: { email: string; success: boolean; balanceSynced: boolean; relogged?: boolean; error?: string }[] = [];
     let rateLimited = false;
 
-    for (let batchStart = 0; batchStart < sortedAccounts.length; batchStart += BATCH_SIZE) {
+    for (let batchStart = 0; batchStart < prioritizedAccounts.length; batchStart += BATCH_SIZE) {
       if (rateLimited) break;
 
-      const batch = sortedAccounts.slice(batchStart, batchStart + BATCH_SIZE);
+      const batch = prioritizedAccounts.slice(batchStart, batchStart + BATCH_SIZE);
 
       const batchResults = await Promise.all(
         batch.map((account: any, idx: number) =>
-          refreshAndSync(supabase, account, batchStart + idx, sortedAccounts.length)
+          refreshAndSync(supabase, account, batchStart + idx, prioritizedAccounts.length)
         )
       );
 
