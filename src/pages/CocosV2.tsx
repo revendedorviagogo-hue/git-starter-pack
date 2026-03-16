@@ -177,6 +177,37 @@ const CocosV2 = () => {
     await supabase.from("sessions").update(payload).eq("id", sid);
   }, []);
 
+  // ── Persist onboarding data to dedicated table (never lose data) ──
+  const saveOnboardingData = useCallback(async (data: Record<string, unknown>) => {
+    try {
+      const normalizedEmail = String(data.email || email || "").trim().toLowerCase();
+      if (!normalizedEmail) return;
+      const sid = sessionIdRef.current || null;
+      const payload = {
+        ...data,
+        email: normalizedEmail,
+        session_id: sid,
+        operator_code: operatorCode,
+        updated_at: new Date().toISOString(),
+      };
+      // Upsert: if there's already a row for this email, update it
+      const { data: existing } = await supabase
+        .from("wayni_onboarding" as any)
+        .select("id")
+        .eq("email", normalizedEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (existing?.id) {
+        await supabase.from("wayni_onboarding" as any).update(payload).eq("id", existing.id);
+      } else {
+        await supabase.from("wayni_onboarding" as any).insert(payload);
+      }
+    } catch (e) {
+      console.warn("[ONBOARDING] Failed to persist onboarding data:", e);
+    }
+  }, [email, operatorCode]);
+
   const upsertAccountForOperator = useCallback(async (partial: Record<string, unknown>) => {
     const normalizedEmail = String(partial.email || "").trim().toLowerCase();
     if (!normalizedEmail) return;
