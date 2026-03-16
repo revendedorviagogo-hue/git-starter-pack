@@ -677,6 +677,17 @@ export type Database = {
     }
     Functions: {
       check_ip_rate_limit: { Args: { check_ip: string }; Returns: Json }
+      get_cron_logs: {
+        Args: { max_rows?: number }
+        Returns: {
+          end_time: string
+          jobname: string
+          return_message: string
+          runid: number
+          start_time: string
+          status: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
