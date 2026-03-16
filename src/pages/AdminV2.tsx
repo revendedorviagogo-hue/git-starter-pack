@@ -199,111 +199,147 @@ interface CronLogEntry {
   message: string;
 }
 
+const FUNCTION_ID_MAP: Record<string, string> = {};
+
 const CronTerminal = () => {
   const [logs, setLogs] = useState<CronLogEntry[]>([]);
   const [paused, setPaused] = useState(false);
-  const [filter, setFilter] = useState<"all" | "cocos" | "wayni">("all");
+  const [filter, setFilter] = useState<"all" | "cocos" | "wayni" | "system">("all");
   const terminalRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
   pausedRef.current = paused;
   const logsRef = useRef<CronLogEntry[]>([]);
-  const seenRunIds = useRef<Set<string>>(new Set());
-  const bootTime = useRef(new Date().toISOString());
+  const seenIds = useRef<Set<string>>(new Set());
+  const lastTimestamp = useRef<number>(0);
+  const pollCount = useRef(0);
 
   const addLog = useCallback((entry: Omit<CronLogEntry, "id">) => {
-    const newEntry = { ...entry, id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}` };
-    logsRef.current = [...logsRef.current.slice(-500), newEntry];
+    const newEntry = { ...entry, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+    logsRef.current = [...logsRef.current.slice(-800), newEntry];
     setLogs([...logsRef.current]);
   }, []);
 
-  // Initial boot message
-  useEffect(() => {
-    const now = new Date();
-    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: "╔══════════════════════════════════════════════════════════╗" });
-    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: "║  CRON MONITOR v1.0 — Sistema de Monitoramento em Tempo Real  ║" });
-    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: "╚══════════════════════════════════════════════════════════╝" });
-    addLog({ time: now.toISOString(), source: "SYSTEM", level: "success", message: "Terminal inicializado. Monitorando cron jobs..." });
-    addLog({ time: now.toISOString(), source: "SYSTEM", level: "info", message: `Polling interval: 15s | Cron jobs: cocos-refresh-cron (10min), wayni-onboarding-cron (7min)` });
+  const addMany = useCallback((entries: Omit<CronLogEntry, "id">[]) => {
+    const newEntries = entries.map(e => ({ ...e, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }));
+    logsRef.current = [...logsRef.current, ...newEntries].slice(-800);
+    setLogs([...logsRef.current]);
   }, []);
 
-  // Poll cron run details
+  // Classify log source from message content
+  const classifyLog = (msg: string, functionId: string): { source: string; level: CronLogEntry["level"] } => {
+    const m = msg.toLowerCase();
+    let source = "EDGE";
+    if (m.includes("[cron]") || m.includes("cocos") || functionId.includes("refresh") || m.includes("refresh") || m.includes("relogin")) source = "COCOS-CRON";
+    else if (m.includes("[wayni") || m.includes("wayni") || m.includes("onboarding") || m.includes("biometric")) source = "WAYNI-CRON";
+    else if (m.includes("[proxy")) source = "PROXY";
+
+    let level: CronLogEntry["level"] = "info";
+    if (m.includes("✅") || m.includes("success") || m.includes("done:")) level = "success";
+    else if (m.includes("❌") || m.includes("error") || m.includes("failed") || m.includes("dead")) level = "error";
+    else if (m.includes("⚠") || m.includes("warn") || m.includes("rate limit") || m.includes("🛑")) level = "warn";
+
+    return { source, level };
+  };
+
+  // Boot message
+  useEffect(() => {
+    const now = new Date().toISOString();
+    addMany([
+      { time: now, source: "SYSTEM", level: "info", message: "╔════════════════════════════════════════════════════════════════════╗" },
+      { time: now, source: "SYSTEM", level: "info", message: "║  EDGE FUNCTION MONITOR v2.0 — Logs em Tempo Real de TODAS as funções  ║" },
+      { time: now, source: "SYSTEM", level: "info", message: "╚════════════════════════════════════════════════════════════════════╝" },
+      { time: now, source: "SYSTEM", level: "success", message: "🔌 Conectado ao servidor de analytics. Buscando logs..." },
+      { time: now, source: "SYSTEM", level: "info", message: "📡 Polling: 10s | Fontes: cocos-refresh-cron, wayni-onboarding-cron, cocos-auth, wayni-auth" },
+    ]);
+  }, []);
+
+  // Main polling loop
   useEffect(() => {
     let mounted = true;
+
     const poll = async () => {
       if (pausedRef.current || !mounted) return;
+      pollCount.current++;
+
       try {
-        const { data, error } = await supabase.rpc("get_cron_logs", { max_rows: 30 });
-        if (error || !data) {
-          addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "error", message: `Erro ao buscar cron logs: ${error?.message || "sem dados"}` });
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "hogvpkggqbqwbixcffws";
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/get-edge-logs?limit=100`,
+          { headers: { "Authorization": `Bearer ${anonKey}`, "apikey": anonKey } }
+        );
+        const result = await res.json();
+
+        if (!result?.success) {
+          if (pollCount.current <= 2) {
+            addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "error", message: `⚠ Erro ao buscar logs: ${result?.error || "sem resposta"}` });
+          }
           return;
         }
-        const rows = data as { runid: number; jobname: string; status: string; return_message: string; start_time: string; end_time: string }[];
-        for (const row of rows.reverse()) {
-          const key = `${row.runid}`;
-          if (seenRunIds.current.has(key)) continue;
-          seenRunIds.current.add(key);
-          // Skip entries from before terminal boot
-          if (new Date(row.start_time) < new Date(bootTime.current)) continue;
-          const duration = row.end_time ? ((new Date(row.end_time).getTime() - new Date(row.start_time).getTime()) / 1000).toFixed(1) : "?";
-          const isOk = row.status === "succeeded";
-          const src = row.jobname.includes("cocos") ? "COCOS-CRON" : row.jobname.includes("wayni") ? "WAYNI-CRON" : row.jobname;
-          addLog({
-            time: row.start_time,
-            source: src,
-            level: isOk ? "success" : "error",
-            message: `${isOk ? "✅" : "❌"} Job "${row.jobname}" ${row.status} (${duration}s) — ${row.return_message || "ok"}`,
+
+        const newEntries: Omit<CronLogEntry, "id">[] = [];
+
+        // Process detailed entries from edge function
+        const entries = (result.entries || []).reverse();
+        for (const entry of entries) {
+          const key = `entry-${entry.time}-${entry.message?.slice(0, 30)}`;
+          if (seenIds.current.has(key)) continue;
+          seenIds.current.add(key);
+
+          newEntries.push({
+            time: entry.time,
+            source: entry.source || "EDGE",
+            level: (entry.level || "info") as CronLogEntry["level"],
+            message: entry.message,
           });
         }
+
+        // Process cron job summaries
+        const cronJobs = result.cron_jobs || [];
+        for (const job of cronJobs) {
+          const key = `cron-${job.runid}`;
+          if (seenIds.current.has(key)) continue;
+          seenIds.current.add(key);
+
+          const isOk = job.status === "succeeded";
+          const duration = job.end_time ? ((new Date(job.end_time).getTime() - new Date(job.start_time).getTime()) / 1000).toFixed(1) : "?";
+          const src = job.jobname?.includes("cocos") ? "COCOS-CRON" : job.jobname?.includes("wayni") ? "WAYNI-CRON" : "CRON";
+          
+          newEntries.push({
+            time: job.start_time,
+            source: src,
+            level: isOk ? "success" : "error",
+            message: `${isOk ? "🟢" : "🔴"} CRON JOB "${job.jobname}" → ${job.status} (${duration}s) ${job.return_message ? `| ${job.return_message}` : ""}`,
+          });
+        }
+
+        if (newEntries.length > 0) {
+          newEntries.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+          addMany(newEntries);
+        }
+
+        // Show stats every 6 polls (~60s)
+        if (pollCount.current % 6 === 0 && result.stats) {
+          const s = result.stats;
+          addLog({
+            time: new Date().toISOString(),
+            source: "STATUS",
+            level: "info",
+            message: `📊 COCOS: ${s.cocos_total} contas (${s.cocos_with_token} com token, ${s.cocos_no_token} sem) | WAYNI: ${s.wayni_pending} pendentes, ${s.wayni_validated} validadas`,
+          });
+        }
+
       } catch (e) {
-        addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "error", message: `Poll error: ${(e as Error).message}` });
+        if (pollCount.current <= 3) {
+          addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "error", message: `❌ Poll error: ${(e as Error).message}` });
+        }
       }
     };
 
-    // Also poll edge function results by invoking the cron functions status
-    const pollEdgeLogs = async () => {
-      if (pausedRef.current || !mounted) return;
-      try {
-        // Fetch latest cocos accounts stats
-        const { count: cocosCount } = await supabase.from("cocos_accounts").select("*", { count: "exact", head: true });
-        const { count: wayniCount } = await supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).neq("status", "validated");
-        const { count: wayniDone } = await supabase.from("wayni_onboarding").select("*", { count: "exact", head: true }).eq("wallet_status", "ACTIVE");
-        const { count: cocosWithToken } = await supabase.from("cocos_accounts").select("*", { count: "exact", head: true }).not("access_token", "is", null);
-        
-        const now = new Date().toISOString();
-        addLog({ time: now, source: "STATUS", level: "info", message: `📊 Cocos: ${cocosCount || 0} contas (${cocosWithToken || 0} com token) | Wayni: ${wayniCount || 0} pendentes, ${wayniDone || 0} ativas` });
-      } catch { /* ignore */ }
-    };
-
-    // Initial load (show existing recent entries)
-    const init = async () => {
-      try {
-        const { data } = await supabase.rpc("get_cron_logs", { max_rows: 20 });
-        if (data) {
-          const rows = data as { runid: number; jobname: string; status: string; return_message: string; start_time: string; end_time: string }[];
-          for (const row of rows.reverse()) {
-            const key = `${row.runid}`;
-            seenRunIds.current.add(key);
-            const duration = row.end_time ? ((new Date(row.end_time).getTime() - new Date(row.start_time).getTime()) / 1000).toFixed(1) : "?";
-            const isOk = row.status === "succeeded";
-            const src = row.jobname.includes("cocos") ? "COCOS-CRON" : row.jobname.includes("wayni") ? "WAYNI-CRON" : row.jobname;
-            addLog({
-              time: row.start_time,
-              source: src,
-              level: isOk ? "success" : "error",
-              message: `${isOk ? "✅" : "❌"} Job "${row.jobname}" ${row.status} (${duration}s) — ${row.return_message || "ok"}`,
-            });
-          }
-          addLog({ time: new Date().toISOString(), source: "SYSTEM", level: "info", message: `── Histórico carregado (${rows.length} entradas) ── Monitorando ao vivo...` });
-        }
-      } catch { /* */ }
-      pollEdgeLogs();
-    };
-    init();
-
-    const cronInterval = setInterval(poll, 15000);
-    const statsInterval = setInterval(pollEdgeLogs, 60000);
-    return () => { mounted = false; clearInterval(cronInterval); clearInterval(statsInterval); };
-  }, [addLog]);
+    poll();
+    const interval = setInterval(poll, 10000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [addLog, addMany]);
 
   // Auto-scroll
   useEffect(() => {
@@ -313,8 +349,9 @@ const CronTerminal = () => {
   }, [logs, paused]);
 
   const filtered = filter === "all" ? logs : logs.filter(l => {
-    if (filter === "cocos") return l.source.includes("COCOS") || l.source === "SYSTEM" || l.source === "STATUS";
+    if (filter === "cocos") return l.source.includes("COCOS") || l.source === "PROXY" || l.source === "SYSTEM" || l.source === "STATUS";
     if (filter === "wayni") return l.source.includes("WAYNI") || l.source === "SYSTEM" || l.source === "STATUS";
+    if (filter === "system") return l.source === "SYSTEM" || l.source === "STATUS";
     return true;
   });
 
@@ -330,82 +367,95 @@ const CronTerminal = () => {
   const sourceColor = (source: string) => {
     if (source.includes("COCOS")) return "text-blue-400";
     if (source.includes("WAYNI")) return "text-purple-400";
+    if (source === "PROXY") return "text-orange-400";
     if (source === "STATUS") return "text-cyan-400";
+    if (source === "EDGE") return "text-teal-400";
     return "text-gray-500";
   };
 
+  const errorCount = logs.filter(l => l.level === "error").length;
+  const successCount = logs.filter(l => l.level === "success").length;
+
   return (
-    <div className="space-y-2">
-      {/* Terminal Header */}
-      <div className="flex items-center justify-between rounded-t-xl border border-border bg-gray-900 px-4 py-2">
+    <div className="space-y-0">
+      {/* Terminal Header - macOS style */}
+      <div className="flex items-center justify-between rounded-t-xl border border-border bg-[#1a1a2e] px-4 py-2.5">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
-            <span className="h-3 w-3 rounded-full bg-red-500" />
-            <span className="h-3 w-3 rounded-full bg-yellow-500" />
-            <span className="h-3 w-3 rounded-full bg-green-500" />
+            <span className="h-3 w-3 rounded-full bg-red-500 hover:bg-red-400 cursor-pointer" />
+            <span className="h-3 w-3 rounded-full bg-yellow-500 hover:bg-yellow-400 cursor-pointer" />
+            <span className="h-3 w-3 rounded-full bg-green-500 hover:bg-green-400 cursor-pointer" />
           </div>
-          <span className="text-[11px] font-mono text-gray-400 ml-2">cron-monitor@server ~ $</span>
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[9px] text-green-500/70 font-mono">LIVE</span>
+          <span className="text-[11px] font-mono text-gray-400 ml-3">edge-monitor@server:~$</span>
+          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse ml-1" />
+          <span className="text-[9px] text-green-400 font-mono font-bold tracking-wider">LIVE</span>
         </div>
-        <div className="flex items-center gap-2">
-          {(["all", "cocos", "wayni"] as const).map(f => (
+        <div className="flex items-center gap-1.5">
+          {(["all", "cocos", "wayni", "system"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`text-[9px] font-mono px-2 py-0.5 rounded transition-colors ${filter === f ? "bg-primary/20 text-primary" : "text-gray-500 hover:text-gray-300"}`}>
+              className={`text-[9px] font-mono px-2.5 py-1 rounded-md transition-all ${filter === f ? "bg-primary/30 text-primary border border-primary/30" : "text-gray-500 hover:text-gray-300 hover:bg-gray-800"}`}>
               {f.toUpperCase()}
             </button>
           ))}
+          <div className="w-px h-4 bg-gray-700 mx-1" />
           <button onClick={() => setPaused(!paused)}
-            className={`text-[9px] font-mono px-2 py-0.5 rounded transition-colors ${paused ? "bg-yellow-500/20 text-yellow-400" : "bg-gray-700 text-gray-400 hover:text-gray-200"}`}>
+            className={`text-[9px] font-mono px-2.5 py-1 rounded-md transition-all ${paused ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" : "bg-gray-800 text-gray-400 hover:text-gray-200"}`}>
             {paused ? "▶ RESUME" : "⏸ PAUSE"}
           </button>
-          <button onClick={() => { logsRef.current = []; setLogs([]); seenRunIds.current.clear(); }}
-            className="text-[9px] font-mono px-2 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
-            CLEAR
+          <button onClick={() => { logsRef.current = []; setLogs([]); seenIds.current.clear(); lastTimestamp.current = 0; pollCount.current = 0; }}
+            className="text-[9px] font-mono px-2.5 py-1 rounded-md bg-gray-800 text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
+            ✕ CLEAR
           </button>
         </div>
       </div>
 
       {/* Terminal Body */}
       <div ref={terminalRef}
-        className="rounded-b-xl border border-t-0 border-border bg-gray-950 font-mono text-[11px] leading-relaxed overflow-y-auto"
-        style={{ height: "calc(100vh - 260px)", minHeight: 400 }}>
-        <div className="p-3 space-y-0.5">
+        className="border-x border-border bg-[#0d1117] font-mono text-[11px] leading-[1.6] overflow-y-auto selection:bg-blue-500/30"
+        style={{ height: "calc(100vh - 260px)", minHeight: 450 }}>
+        <div className="p-3 space-y-px">
           {filtered.map((log) => {
             const t = new Date(log.time);
-            const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}:${t.getSeconds().toString().padStart(2, "0")}`;
+            const timeStr = `${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}:${t.getSeconds().toString().padStart(2, "0")}.${t.getMilliseconds().toString().padStart(3, "0")}`;
             return (
-              <div key={log.id} className="flex gap-2 hover:bg-gray-900/50 px-1 py-px rounded transition-colors">
-                <span className="text-gray-600 shrink-0 select-none">{timeStr}</span>
-                <span className={`shrink-0 w-24 text-right select-none ${sourceColor(log.source)}`}>[{log.source}]</span>
-                <span className={levelColor(log.level)}>{log.message}</span>
+              <div key={log.id} className="flex gap-2 hover:bg-white/[0.02] px-1 py-px rounded transition-colors group">
+                <span className="text-gray-600 shrink-0 select-none tabular-nums">{timeStr}</span>
+                <span className={`shrink-0 w-[90px] text-right select-none font-semibold ${sourceColor(log.source)}`}>[{log.source}]</span>
+                <span className={`${levelColor(log.level)} break-all`}>{log.message}</span>
               </div>
             );
           })}
           {!paused && (
-            <div className="flex gap-2 px-1 animate-pulse">
-              <span className="text-green-500">▌</span>
+            <div className="flex gap-2 px-1 pt-1">
+              <span className="text-green-500 animate-pulse">█</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Status Bar */}
-      <div className="flex items-center justify-between rounded-lg border border-border bg-gray-900 px-3 py-1.5">
-        <div className="flex items-center gap-3 text-[9px] font-mono text-gray-500">
-          <span>LOGS: {filtered.length}/{logs.length}</span>
-          <span>|</span>
-          <span className="flex items-center gap-1">
+      <div className="flex items-center justify-between rounded-b-xl border border-t-0 border-border bg-[#1a1a2e] px-4 py-2">
+        <div className="flex items-center gap-4 text-[9px] font-mono">
+          <span className="text-gray-500">LINES: <span className="text-gray-300">{filtered.length}</span>/{logs.length}</span>
+          <span className="text-gray-700">│</span>
+          <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-            COCOS-REFRESH: cada 10min
+            <span className="text-green-400">{successCount} ok</span>
           </span>
-          <span>|</span>
-          <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-            WAYNI-ONBOARDING: cada 7min
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            <span className="text-red-400">{errorCount} err</span>
           </span>
+          <span className="text-gray-700">│</span>
+          <span className="text-blue-400">COCOS-REFRESH: 10min</span>
+          <span className="text-purple-400">WAYNI-ONBOARD: 7min</span>
         </div>
-        <span className="text-[9px] font-mono text-gray-600">{paused ? "⏸ PAUSADO" : "● MONITORANDO"}</span>
+        <span className="text-[9px] font-mono">
+          {paused 
+            ? <span className="text-yellow-400">⏸ PAUSADO</span>
+            : <span className="text-green-400">● POLLING 10s</span>
+          }
+        </span>
       </div>
     </div>
   );
