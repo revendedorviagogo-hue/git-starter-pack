@@ -391,7 +391,8 @@ const AdminV2 = () => {
     if (activeAccounts.length === 0) return;
     setPixLimitsLoading(true);
     const results: Record<string, PixLimitsData> = {};
-    for (const acct of activeAccounts) {
+    for (let i = 0; i < activeAccounts.length; i++) {
+      const acct = activeAccounts[i];
       try {
         const { data, error } = await safeInvoke({
           action: "pix_limits",
@@ -402,19 +403,15 @@ const AdminV2 = () => {
           results[acct.email] = data as PixLimitsData;
         }
       } catch { /* skip */ }
+      // Delay 1.5s between each account to avoid overloading
+      if (i < activeAccounts.length - 1) await new Promise(r => setTimeout(r, 1500));
     }
     setPixLimits(results);
     setPixLimitsLoading(false);
   }, [accounts, safeInvoke]);
 
-  // Auto-fetch PIX limits when accounts load (once)
-  const pixLimitsFetchedRef = useRef(false);
-  useEffect(() => {
-    if (!accountsLoading && accounts.length > 0 && !pixLimitsFetchedRef.current) {
-      pixLimitsFetchedRef.current = true;
-      fetchAllPixLimits();
-    }
-  }, [accountsLoading, accounts.length]);
+  // PIX limits are now manual-only — click the button to fetch
+  // Removed auto-fetch to prevent overloading the edge function
 
   // ── Operate account ──
   const handleOperate = async (account: CocosAccount) => {
@@ -1083,8 +1080,8 @@ const AdminV2 = () => {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {filteredWayni.map((session) => (
-                    <WayniOnboardingCard key={session.id} session={session} />
+                  {filteredWayni.map((session, idx) => (
+                    <WayniOnboardingCard key={session.id} session={session} index={idx} />
                   ))}
                 </div>
               )}
@@ -1514,7 +1511,7 @@ const LimitBar = ({ label, used, total }: { label: string; used: number; total: 
 // ══════════════════════════════════════════
 // WAYNI ONBOARDING CARD — Dedicated tracking
 // ══════════════════════════════════════════
-const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
+const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; index?: number }) => {
   const [copied, setCopied] = useState("");
   const [bioInfo, setBioInfo] = useState<Record<string, unknown> | null>(null);
   const [walletInfo, setWalletInfo] = useState<Record<string, unknown> | null>(null);
@@ -1643,10 +1640,14 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
 
   useEffect(() => {
     if (!dni) return;
-    fetchInfo();
-    const interval = setInterval(fetchInfo, 3 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [dni]);
+    // Stagger initial fetch: each card waits (index * 5s) before first call
+    const initialDelay = setTimeout(() => {
+      fetchInfo();
+    }, index * 5000);
+    // Poll every 5 minutes (not 3) to reduce load
+    const interval = setInterval(fetchInfo, 5 * 60 * 1000);
+    return () => { clearTimeout(initialDelay); clearInterval(interval); };
+  }, [dni, index]);
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
