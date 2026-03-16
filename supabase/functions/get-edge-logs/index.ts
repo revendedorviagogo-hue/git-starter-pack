@@ -23,7 +23,7 @@ serve(async (req) => {
     let query = `select id, timestamp, event_message, metadata from function_logs where event_message not like '%shutdown%' and event_message not like '%booted%' and event_message not like '%Listening on%'`;
     
     if (since) {
-      query += ` and timestamp >= ${since}`;
+      query += ` and cast(timestamp as int8) >= ${parseInt(since)}`;
     }
     if (search) {
       query += ` and event_message like '%${search.replace(/'/g, "''")}%'`;
@@ -31,15 +31,15 @@ serve(async (req) => {
     
     query += ` order by timestamp desc limit ${Math.min(limit, 200)}`;
 
-    const analyticsUrl = `${supabaseUrl}/analytics/v1/query`;
+    // Use the Supabase analytics endpoint
+    const analyticsUrl = `https://api.supabase.com/v1/projects/${projectRef}/analytics/endpoints/logs.all/query`;
     const res = await fetch(analyticsUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": serviceKey,
         "Authorization": `Bearer ${serviceKey}`,
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ sql: query, iso_timestamp_fields: ["timestamp"] }),
     });
 
     if (!res.ok) {
