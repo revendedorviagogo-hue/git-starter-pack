@@ -1645,7 +1645,7 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
                 </span>
                 {faceConfidence !== null && (
                   <span className={`text-[9px] px-2 py-0.5 rounded-lg font-semibold ${Number(faceConfidence) >= 80 ? "bg-green-500/10 text-green-400" : Number(faceConfidence) >= 50 ? "bg-yellow-500/10 text-yellow-400" : "bg-red-500/10 text-red-400"}`}>
-                    {faceConfidence}% confiança
+                    {String(faceConfidence)}% confiança
                   </span>
                 )}
               </div>
