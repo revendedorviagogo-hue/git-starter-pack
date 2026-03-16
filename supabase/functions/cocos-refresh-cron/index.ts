@@ -20,6 +20,7 @@ const corsHeaders = {
 
 const BATCH_SIZE = 5;
 const DELAY_BETWEEN_BATCHES_MS = 1500;
+const FETCH_ACCOUNTS_LIMIT = 1000;
 const MAX_ACCOUNTS_PER_RUN = 200;
 
 // ---------- TOTP generation for auto-relogin ----------
