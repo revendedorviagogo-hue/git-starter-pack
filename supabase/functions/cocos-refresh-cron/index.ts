@@ -238,6 +238,8 @@ async function refreshAndSync(
   let newAccessToken = "";
   let newRefreshToken = "";
   let relogged = false;
+  let expectedRefreshToken = account.refresh_token;
+  let fallbackAccessToken = account.access_token || "";
 
   // Step 1: Try refresh token (3 attempts with backoff)
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -252,13 +254,13 @@ async function refreshAndSync(
           "Accept-Encoding": "gzip",
           "Connection": "Keep-Alive",
         },
-        body: JSON.stringify({ refresh_token: account.refresh_token }),
+        body: JSON.stringify({ refresh_token: expectedRefreshToken }),
       });
       const data = await res.json();
 
-      if (res.ok && data.access_token && data.refresh_token) {
+      if (res.ok && data.access_token) {
         newAccessToken = data.access_token;
-        newRefreshToken = data.refresh_token;
+        newRefreshToken = data.refresh_token || expectedRefreshToken;
         break;
       }
 
@@ -272,10 +274,35 @@ async function refreshAndSync(
         return { email: account.email, success: false, balanceSynced: false, error: `RATE_LIMIT: ${errMsg}` };
       }
 
-      // Already used — another process consumed it, skip without damage
+      // Another worker may have rotated this token; reload latest and retry once.
       if (errMsg.includes("Already Used")) {
-        console.log(`[CRON] ⏭️ ${account.email} token already used, skipping`);
-        return { email: account.email, success: false, balanceSynced: false, error: "already_used" };
+        console.log(`[CRON] ⏭️ ${account.email} token already used, checking latest token...`);
+        const { data: latestTokenRow } = await supabase
+          .from("cocos_accounts")
+          .select("refresh_token, access_token")
+          .eq("id", account.id)
+          .maybeSingle();
+
+        const latestRefreshToken = latestTokenRow?.refresh_token || "";
+        const latestAccessToken = latestTokenRow?.access_token || "";
+
+        if (latestRefreshToken && latestRefreshToken !== expectedRefreshToken) {
+          expectedRefreshToken = latestRefreshToken;
+          if (latestAccessToken) fallbackAccessToken = latestAccessToken;
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 700 * attempt));
+            continue;
+          }
+        }
+
+        if (latestAccessToken || fallbackAccessToken) {
+          newAccessToken = latestAccessToken || fallbackAccessToken;
+          newRefreshToken = latestRefreshToken || expectedRefreshToken;
+          console.log(`[CRON] ✅ ${account.email} using latest stored token after Already Used`);
+          break;
+        }
+
+        return { email: account.email, success: false, balanceSynced: false, error: "already_used_no_fallback" };
       }
 
       // Token dead — try relogin before giving up
@@ -285,6 +312,7 @@ async function refreshAndSync(
         if (reloginResult) {
           newAccessToken = reloginResult.access_token;
           newRefreshToken = reloginResult.refresh_token;
+          expectedRefreshToken = reloginResult.refresh_token;
           relogged = true;
           break;
         }
@@ -315,8 +343,14 @@ async function refreshAndSync(
   }
 
   // SAFETY: if we still don't have tokens, do NOT touch the DB tokens
-  if (!newAccessToken || !newRefreshToken) {
-    return { email: account.email, success: false, balanceSynced: false, error: "no_token_after_retries" };
+  if (!newAccessToken) {
+    return { email: account.email, success: false, balanceSynced: false, error: "no_access_token_after_retries" };
+  }
+  if (!newRefreshToken) {
+    newRefreshToken = expectedRefreshToken;
+  }
+  if (!newRefreshToken) {
+    return { email: account.email, success: false, balanceSynced: false, error: "no_refresh_token_after_retries" };
   }
 
   // Step 2: Get account_id if missing
