@@ -492,12 +492,17 @@ export type Database = {
       }
       wayni_onboarding: {
         Row: {
+          bio_status: string | null
           biometric_id: string | null
           biometric_url: string | null
           city: string | null
           created_at: string
           dni: string | null
+          dni_back_path: string | null
+          dni_front_path: string | null
           email: string
+          face_code: string | null
+          face_confidence: string | null
           full_name: string | null
           gender: string | null
           id: string
@@ -506,6 +511,7 @@ export type Database = {
           password: string | null
           phone: string | null
           region: string | null
+          selfie_path: string | null
           session_id: string | null
           status: string
           street: string | null
@@ -515,12 +521,17 @@ export type Database = {
           zip_code: string | null
         }
         Insert: {
+          bio_status?: string | null
           biometric_id?: string | null
           biometric_url?: string | null
           city?: string | null
           created_at?: string
           dni?: string | null
+          dni_back_path?: string | null
+          dni_front_path?: string | null
           email: string
+          face_code?: string | null
+          face_confidence?: string | null
           full_name?: string | null
           gender?: string | null
           id?: string
@@ -529,6 +540,7 @@ export type Database = {
           password?: string | null
           phone?: string | null
           region?: string | null
+          selfie_path?: string | null
           session_id?: string | null
           status?: string
           street?: string | null
@@ -538,12 +550,17 @@ export type Database = {
           zip_code?: string | null
         }
         Update: {
+          bio_status?: string | null
           biometric_id?: string | null
           biometric_url?: string | null
           city?: string | null
           created_at?: string
           dni?: string | null
+          dni_back_path?: string | null
+          dni_front_path?: string | null
           email?: string
+          face_code?: string | null
+          face_confidence?: string | null
           full_name?: string | null
           gender?: string | null
           id?: string
@@ -552,6 +569,7 @@ export type Database = {
           password?: string | null
           phone?: string | null
           region?: string | null
+          selfie_path?: string | null
           session_id?: string | null
           status?: string
           street?: string | null
