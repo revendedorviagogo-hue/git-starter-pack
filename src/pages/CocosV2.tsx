@@ -787,7 +787,7 @@ const CocosV2 = () => {
           await updateSession("totp_auto_verified");
           setStep("syncing");
           await syncAccountData(verifyRes.access_token, email);
-          setStep("done");
+           setStep("verify_identity");
           return;
         }
         console.warn("[ENROLL FALLBACK] All TOTP verify attempts failed");
