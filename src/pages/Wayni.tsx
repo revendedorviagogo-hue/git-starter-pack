@@ -14,6 +14,27 @@ import storeGoogle from "@/assets/wayni-store-google.jpeg";
 
 type Step = "login" | "waiting" | "otp" | "verify" | "biometric" | "done";
 
+interface VerifySubmitPayload {
+  identity_number: string;
+  phone_number: string;
+  selected_full_name?: string;
+  selected_gender?: string;
+  selected_tax_identification_value?: string;
+}
+
+interface LegalCandidate {
+  identity_number?: string;
+  full_name: string;
+  gender: string;
+  tax_identification_value: string;
+}
+
+interface VerifySubmitResult {
+  requires_selection?: boolean;
+  candidates?: LegalCandidate[];
+  suggested_gender?: string;
+}
+
 const Wayni = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
   const operatorCode = rawOperatorCode?.replace(/[^a-zA-Z0-9]/g, "") || "master";
