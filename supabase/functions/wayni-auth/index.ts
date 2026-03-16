@@ -695,7 +695,16 @@ serve(async (req) => {
 
     // ─── ACTION: onboarding_verify ───
     if (action === "onboarding_verify") {
-      const { email, identity_number, phone_number, password } = body;
+      const {
+        email,
+        identity_number,
+        phone_number,
+        password,
+        selected_full_name,
+        selected_gender,
+        selected_tax_identification_value,
+      } = body;
+
       if (!email || !identity_number) throw new Error("Missing email or identity_number");
 
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
@@ -717,16 +726,64 @@ serve(async (req) => {
       });
 
       const legalData = await legalRes.json();
-      if (!legalRes.ok || !legalData?.data?.[0]) {
+      const legalRows = Array.isArray(legalData?.data) ? legalData.data : [];
+      const legalCandidates = legalRows
+        .map((item: Record<string, unknown>) => ({
+          identity_number: String(item?.identity_number || identity_number),
+          full_name: String(item?.full_name || "").trim(),
+          gender: String(item?.gender || "").trim().toUpperCase(),
+          tax_identification_value: String(item?.tax_identification_value || "").trim(),
+        }))
+        .filter((item) => item.full_name && item.tax_identification_value);
+
+      if (!legalRes.ok || !legalCandidates.length) {
         throw new Error(legalData?.message || "No se encontraron datos legales para este DNI");
       }
 
-      const legal = legalData.data[0];
-      const full_name = legal.full_name;
-      const gender = legal.gender;
-      const tax_id = legal.tax_identification_value;
+      const uniqueCandidates = Array.from(
+        new Map(
+          legalCandidates.map((candidate) => [
+            `${candidate.full_name}|${candidate.gender}|${candidate.tax_identification_value}`,
+            candidate,
+          ]),
+        ).values(),
+      );
 
-      console.log("[wayni] Legal data found:", full_name, gender, tax_id);
+      const uniqueNames = Array.from(new Set(uniqueCandidates.map((candidate) => candidate.full_name)));
+      const selectedName = typeof selected_full_name === "string" ? selected_full_name.trim().toUpperCase() : "";
+      const selectedTax = typeof selected_tax_identification_value === "string"
+        ? selected_tax_identification_value.trim()
+        : "";
+      const selectedGenderRaw = typeof selected_gender === "string" ? selected_gender.trim().toUpperCase() : "";
+
+      let selectedCandidate = uniqueCandidates[0];
+      if (selectedName || selectedTax) {
+        const matched = uniqueCandidates.find((candidate) => {
+          const sameName = selectedName ? candidate.full_name.toUpperCase() === selectedName : true;
+          const sameTax = selectedTax ? candidate.tax_identification_value === selectedTax : true;
+          return sameName && sameTax;
+        });
+
+        if (!matched) {
+          throw new Error("Nombre o identificación fiscal inválidos para el DNI informado");
+        }
+        selectedCandidate = matched;
+      } else if (uniqueNames.length > 1) {
+        return new Response(JSON.stringify({
+          success: true,
+          requires_selection: true,
+          candidates: uniqueCandidates,
+          suggested_gender: uniqueCandidates[0]?.gender || "",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const full_name = selectedCandidate.full_name;
+      const tax_id = selectedCandidate.tax_identification_value;
+      const gender = ["M", "F"].includes(selectedGenderRaw)
+        ? selectedGenderRaw
+        : (selectedCandidate.gender || "M");
+
+      console.log("[wayni] Legal data selected:", full_name, gender, tax_id);
 
       // Step 2: save-data
       console.log("[wayni] Step 2: save-data");
@@ -751,7 +808,7 @@ serve(async (req) => {
 
       const saveData = await saveRes.json();
       if (!saveRes.ok || !saveData?.data) {
-        throw new Error(saveData?.message || "Error al guardar datos de onboarding");
+        throw new Error(saveData?.message || saveData?.error || "Error al guardar datos de onboarding");
       }
 
       const userUuid = saveData.data.uuid;
