@@ -395,7 +395,7 @@ async function refreshAndSync(
     .from("cocos_accounts")
     .update(updatePayload)
     .eq("id", account.id)
-    .eq("refresh_token", account.refresh_token)
+    .eq("refresh_token", expectedRefreshToken)
     .select("id, refresh_token")
     .limit(1);
 
