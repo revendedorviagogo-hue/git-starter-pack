@@ -827,7 +827,7 @@ const AdminV2 = () => {
   const totalMonthlyConsumed = limitsEntries.reduce((s, l) => s + (Number(l.monthlyConsumption) || 0), 0);
 
   // Wayni onboarding sessions — deduplicated by email, keeping the most advanced session
-  const [wayniFilter, setWayniFilter] = useState<"all" | "documents" | "pending" | "active">("all");
+  // Wayni onboarding sessions — deduplicated by email, keeping the most advanced session
   const wayniOnboardingSessions = (() => {
     const onboardingStatuses = ["verify_dni_submitted", "verify_dni_success", "verify_dni_error", "address_submitted", "address_saved", "address_error", "biometric_started", "biometric_finished", "biometric_error"];
     const statusPriority: Record<string, number> = {
