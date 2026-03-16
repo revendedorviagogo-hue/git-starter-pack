@@ -1521,6 +1521,8 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
   const [showImages, setShowImages] = useState(false);
   const [bioImages, setBioImages] = useState<Record<string, string | null> | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryResult, setRetryResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const time = new Date(session.created_at);
   const timeStr = time.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
