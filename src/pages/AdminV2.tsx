@@ -243,6 +243,7 @@ const AdminV2 = () => {
 
   // Live sessions
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
+  const [onboardingRecords, setOnboardingRecords] = useState<any[]>([]);
   const { startAlarm, stopAlarm } = useNotificationSound();
   const [soundEnabled, setSoundEnabled] = useState(true);
   const soundEnabledRef = useRef(true);
