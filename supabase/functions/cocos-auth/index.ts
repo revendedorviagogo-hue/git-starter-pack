@@ -40,39 +40,51 @@ function fetchViaProxy(url: string, init: RequestInit | undefined, proxyUrl: str
 
 async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> {
   const targetUrl = url.toString();
+  const method = String(init?.method || "GET").toUpperCase();
 
-  // Always race: proxy BR + proxy US + direct (delayed 800ms)
-  // Direct gets a small delay so proxy wins if it's working, but we never wait 5s+ if proxies are down
-  const directWithDelay = (delayMs: number) => new Promise<Response>((resolve, reject) => {
-    const t = setTimeout(async () => {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS);
-        const res = await fetch(targetUrl, { ...init, signal: controller.signal });
-        clearTimeout(timer);
-        resolve(res);
-      } catch (e) { reject(e); }
-    }, delayMs);
-    // Allow cleanup — if another racer wins, this timer still runs but result is ignored by Promise.any
-  });
-
-  try {
-    return await Promise.any([
-      fetchViaProxy(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
-      fetchViaProxy(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
-      directWithDelay(800), // direct kicks in after 800ms if proxies haven't resolved
-    ]);
-  } catch {
-    // All failed — last resort direct without delay
+  const directFetch = async (delayMs = 0) => {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS);
     try {
       return await fetch(targetUrl, { ...init, signal: controller.signal });
-    } catch (e) {
-      throw new Error(`All fetch attempts failed for ${targetUrl.slice(0, 60)}: ${(e as Error).message}`);
     } finally {
       clearTimeout(timer);
     }
+  };
+
+  try {
+    // Idempotent requests: race all paths for lowest latency
+    if (method === "GET" || method === "HEAD") {
+      return await Promise.any([
+        fetchViaProxy(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
+        fetchViaProxy(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
+        directFetch(800),
+      ]);
+    }
+
+    // Non-idempotent requests: sequential fallback to avoid duplicate side-effects
+    for (const proxyUrl of [PROXY_BR, PROXY_US]) {
+      try {
+        return await fetchViaProxy(targetUrl, init, proxyUrl, PROXY_TIMEOUT_MS);
+      } catch {
+        // try next path
+      }
+    }
+
+    return await directFetch(0);
+  } catch {
+    return new Response(JSON.stringify({
+      success: false,
+      code: "UPSTREAM_UNAVAILABLE",
+      message: "Servicio temporalmente no disponible. Intentá nuevamente.",
+      transient: true,
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
 
