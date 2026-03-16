@@ -634,7 +634,7 @@ const CocosV2 = () => {
         setStep("syncing");
         setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
         await syncAccountData(newToken, email);
-        setStep("done");
+        setStep("verify_identity");
       } else if (verifyData?.success === false) {
         const apiErr = verifyData?.error || verifyData?.message || verifyData?.msg || JSON.stringify(verifyData).slice(0, 120);
         const normalizedErr = String(apiErr).toLowerCase();
