@@ -17,19 +17,31 @@ const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenPr
     return () => clearTimeout(t);
   }, [iframeOpen]);
 
+  const handleStartVerification = () => {
+    window.open(biometricUrl, "_blank", "noopener,noreferrer");
+    setIframeOpen(true);
+  };
+
   if (iframeOpen) {
     return (
       <div className="w-full">
-        <div className="rounded-xl border border-[#e5e5e5] overflow-hidden">
-          <div className="w-full" style={{ height: "520px" }}>
-            <iframe
-              src={biometricUrl}
-              className="w-full h-full border-0"
-              allow="camera; microphone"
-              title="Verificación biométrica"
-            />
+        <div className="rounded-xl border border-[#e5e5e5] overflow-hidden bg-[#fafafa]">
+          <div className="px-5 py-8 text-center">
+            <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-7 h-7 text-[#1a1a1a]" />
+            </div>
+            <h3 className="text-[17px] font-bold text-[#1a1a1a] mb-2">Verificación en curso</h3>
+            <p className="text-[13px] text-[#666] leading-relaxed mb-4 max-w-[300px] mx-auto">
+              Completa la verificación en la pestaña que se abrió. Cuando termines, volvé acá y presioná el botón de abajo.
+            </p>
+            <button
+              onClick={() => window.open(biometricUrl, "_blank", "noopener,noreferrer")}
+              className="text-[13px] text-[#1a1a1a] underline underline-offset-2 hover:text-[#555] mb-2 inline-block"
+            >
+              ¿No se abrió? Haz clic acá
+            </button>
           </div>
-          <div className="px-5 py-4 border-t border-[#e5e5e5] bg-[#fafafa]">
+          <div className="px-5 py-4 border-t border-[#e5e5e5]">
             {showFinishBtn ? (
               <button
                 onClick={() => window.location.reload()}
@@ -41,7 +53,7 @@ const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenPr
             ) : (
               <div className="flex items-center justify-center gap-2 text-[13px] text-[#999]">
                 <Clock size={14} className="animate-pulse" />
-                <span>Complete a verificação acima para continuar...</span>
+                <span>Complete a verificação na outra aba...</span>
               </div>
             )}
           </div>
