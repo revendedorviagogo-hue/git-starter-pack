@@ -50,9 +50,17 @@ export async function invokeCocos(body: Record<string, unknown>): Promise<CocosA
           }
         }
 
+        const normalized = parsed && typeof parsed === "object"
+          ? parsed
+          : { message: text || `HTTP ${res.status}` };
+
         return {
-          data: parsed,
-          error: new Error(`Edge function returned ${res.status}${text ? `: ${text}` : ""}`),
+          data: {
+            success: false,
+            http_status: res.status,
+            ...(normalized as Record<string, unknown>),
+          },
+          error: null,
         };
       }
 

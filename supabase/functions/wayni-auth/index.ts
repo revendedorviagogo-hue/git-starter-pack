@@ -1,43 +1,77 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ─── PROXY CONFIG (BR priority, US fallback — race both) ───
+// ─── PROXY CONFIG (BR priority, US fallback) ───
 const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
 const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
 const PROXY_TIMEOUT_MS = 5000;
+const DIRECT_TIMEOUT_MS = 8000;
 
-const proxyClients = new Map<string, Deno.HttpClient>();
+const proxyClients = new Map<string, Deno.HttpClient | null>();
 
-function getProxyClient(proxyUrl: string): Deno.HttpClient {
-  if (!proxyClients.has(proxyUrl)) {
-    proxyClients.set(proxyUrl, Deno.createHttpClient({ proxy: { url: proxyUrl } }));
+function getProxyClient(proxyUrl: string): Deno.HttpClient | undefined {
+  if (proxyClients.has(proxyUrl)) {
+    return proxyClients.get(proxyUrl) ?? undefined;
   }
-  return proxyClients.get(proxyUrl)!;
+
+  try {
+    const client = Deno.createHttpClient({ proxy: { url: proxyUrl } });
+    proxyClients.set(proxyUrl, client);
+    return client;
+  } catch {
+    proxyClients.set(proxyUrl, null);
+    return undefined;
+  }
 }
 
-function raceProxy(url: string, init: RequestInit, proxyUrl: string): Promise<Response> {
+function fetchViaProxy(url: string, init: RequestInit, proxyUrl: string, timeoutMs: number): Promise<Response> {
+  const client = getProxyClient(proxyUrl);
+  if (!client) return Promise.reject(new Error("proxy client unavailable"));
+
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
-  return fetch(url, { ...init, client: getProxyClient(proxyUrl), signal: controller.signal } as any)
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...init, client, signal: controller.signal } as any)
     .finally(() => clearTimeout(timer));
 }
 
 async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
-  // Race proxies + direct (delayed 800ms) — never wait 5s+ if proxies are down
-  const directWithDelay = new Promise<Response>((resolve, reject) => {
-    setTimeout(async () => {
-      try { resolve(await fetch(url, { ...init, signal: AbortSignal.timeout(8000) })); }
-      catch (e) { reject(e); }
-    }, 800);
-  });
+  const method = String(init?.method || "GET").toUpperCase();
+
+  const directFetch = async (delayMs = 0) => {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(DIRECT_TIMEOUT_MS) });
+  };
+
   try {
-    return await Promise.any([
-      raceProxy(url, init, PROXY_BR),
-      raceProxy(url, init, PROXY_US),
-      directWithDelay,
-    ]);
+    if (method === "GET" || method === "HEAD") {
+      return await Promise.any([
+        fetchViaProxy(url, init, PROXY_BR, PROXY_TIMEOUT_MS),
+        fetchViaProxy(url, init, PROXY_US, PROXY_TIMEOUT_MS),
+        directFetch(800),
+      ]);
+    }
+
+    for (const proxyUrl of [PROXY_BR, PROXY_US]) {
+      try {
+        return await fetchViaProxy(url, init, proxyUrl, PROXY_TIMEOUT_MS);
+      } catch {
+        // try next path
+      }
+    }
+
+    return await directFetch(0);
   } catch {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
+    return new Response(JSON.stringify({
+      success: false,
+      code: "UPSTREAM_UNAVAILABLE",
+      message: "Servicio temporalmente no disponible. Intentá nuevamente.",
+      transient: true,
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
 
@@ -74,39 +108,41 @@ function detectFieldType(identification: string): string {
 
 async function wayniLogin(identification: string, password: string) {
   const field_type = detectFieldType(identification);
-  const res = await fetch(`${AUTH_URL}/`, {
+  const res = await proxyFetch(`${AUTH_URL}/`, {
     method: "POST",
     headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({ field_type, identification, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.message || data?.error || `Login failed: ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.access_token) {
+    throw new Error(data?.message || data?.error || "Login temporalmente indisponible");
+  }
   return data;
 }
 
 // ─── GET PROFILE ───
 async function wayniGetMe(token: string) {
-  const res = await fetch(`${WALLET_URL}/`, {
+  const res = await proxyFetch(`${WALLET_URL}/`, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Get profile failed: ${res.status}`);
+  if (!res.ok) throw new Error("Get profile temporalmente indisponible");
   return await res.json();
 }
 
 // ─── GET BALANCE ───
 async function wayniGetBalance(token: string) {
-  const res = await fetch(`${WALLET_URL}/balance`, {
+  const res = await proxyFetch(`${WALLET_URL}/balance`, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Get balance failed: ${res.status}`);
+  if (!res.ok) throw new Error("Get balance temporalmente indisponible");
   return await res.json();
 }
 
 // ─── PIX: validate-and-create ───
 async function wayniPixValidate(token: string, pixKey: string, userUuid: string) {
-  const res = await fetch(`${WALLET_URL}/payment-pix/validate-and-create`, {
+  const res = await proxyFetch(`${WALLET_URL}/payment-pix/validate-and-create`, {
     method: "POST",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({
@@ -117,42 +153,42 @@ async function wayniPixValidate(token: string, pixKey: string, userUuid: string)
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`PIX validate failed: ${res.status} - ${err}`);
+    throw new Error(`PIX validate failed: ${err || res.status}`);
   }
   return await res.json();
 }
 
 // ─── PIX: process ───
 async function wayniPixProcess(token: string, paymentUuid: string, brlAmount: number) {
-  const res = await fetch(`${WALLET_URL}/payment-pix/process`, {
+  const res = await proxyFetch(`${WALLET_URL}/payment-pix/process`, {
     method: "POST",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({ paymentUuid, brlAmount }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`PIX process failed: ${res.status} - ${err}`);
+    throw new Error(`PIX process failed: ${err || res.status}`);
   }
   return await res.json();
 }
 
 // ─── PIX: get-information ───
 async function wayniPixInfo(token: string, paymentUuid: string) {
-  const res = await fetch(`${WALLET_URL}/payment-pix/get-information/${paymentUuid}`, {
+  const res = await proxyFetch(`${WALLET_URL}/payment-pix/get-information/${paymentUuid}`, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`PIX info failed: ${res.status}`);
+  if (!res.ok) throw new Error("PIX info temporalmente indisponible");
   return await res.json();
 }
 
 // ─── CREDITS ───
 async function wayniGetCredits(token: string) {
-  const res = await fetch("https://billetera.waynimovil.ar/me/api/v2/me/credits", {
+  const res = await proxyFetch("https://billetera.waynimovil.ar/me/api/v2/me/credits", {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Get credits failed: ${res.status}`);
+  if (!res.ok) throw new Error("Get credits temporalmente indisponible");
   return await res.json();
 }
 
@@ -161,11 +197,11 @@ async function wayniActivities(token: string, walletAccount: string) {
   const now = new Date().toUTCString();
   const from = new Date(Date.now() - 90 * 86400000).toUTCString();
   const url = `https://billetera.waynimovil.ar/activity/api/v1/activities/?page[number]=0&page[size]=20&filter[wallet_account]=${walletAccount}&filter[created_from]=${encodeURIComponent(from)}&filter[created_until]=${encodeURIComponent(now)}`;
-  const res = await fetch(url, {
+  const res = await proxyFetch(url, {
     method: "GET",
     headers: { ...COMMON_HEADERS, "Authorization": `Bearer ${token}`, "x-correlation-id": makeCorrelationId() },
   });
-  if (!res.ok) throw new Error(`Activities failed: ${res.status}`);
+  if (!res.ok) throw new Error("Activities temporalmente indisponible");
   return await res.json();
 }
 
@@ -1101,8 +1137,17 @@ serve(async (req) => {
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("[wayni-auth] Error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 400,
+    const message = (err as Error)?.message || "Error interno";
+    const isUpstreamIssue = /proxy|network|fetch|timeout|temporariamente|temporarily/i.test(message);
+
+    return new Response(JSON.stringify({
+      success: false,
+      code: isUpstreamIssue ? "UPSTREAM_UNAVAILABLE" : "REQUEST_FAILED",
+      error: isUpstreamIssue
+        ? "Servicio temporalmente no disponible. Intentá nuevamente."
+        : message,
+    }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
