@@ -40,38 +40,39 @@ function fetchViaProxy(url: string, init: RequestInit | undefined, proxyUrl: str
 
 async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> {
   const targetUrl = url.toString();
-  const method = String(init?.method || "GET").toUpperCase();
 
-  // Idempotent methods: race BR + US (fastest wins)
-  if (method === "GET" || method === "HEAD") {
-    try {
-      return await Promise.any([
-        fetchViaProxy(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
-        fetchViaProxy(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
-      ]);
-    } catch {
-      console.warn(`[PFETCH] GET/HEAD proxies failed, direct → ${targetUrl.slice(0, 60)}`);
-    }
-  } else {
-    // Non-idempotent methods: BR first, US fallback (avoid duplicate POST/PUT/PATCH)
-    for (const proxyUrl of [PROXY_BR, PROXY_US]) {
+  // Always race: proxy BR + proxy US + direct (delayed 800ms)
+  // Direct gets a small delay so proxy wins if it's working, but we never wait 5s+ if proxies are down
+  const directWithDelay = (delayMs: number) => new Promise<Response>((resolve, reject) => {
+    const t = setTimeout(async () => {
       try {
-        return await fetchViaProxy(targetUrl, init, proxyUrl, PROXY_TIMEOUT_MS);
-      } catch {
-        // try next proxy
-      }
-    }
-    console.warn(`[PFETCH] ${method} proxies failed, direct → ${targetUrl.slice(0, 60)}`);
-  }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS);
+        const res = await fetch(targetUrl, { ...init, signal: controller.signal });
+        clearTimeout(timer);
+        resolve(res);
+      } catch (e) { reject(e); }
+    }, delayMs);
+    // Allow cleanup — if another racer wins, this timer still runs but result is ignored by Promise.any
+  });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS);
   try {
-    return await fetch(targetUrl, { ...init, signal: controller.signal });
-  } catch (e) {
-    throw new Error(`All proxy attempts and direct fetch failed for ${targetUrl.slice(0, 60)}: ${(e as Error).message}`);
-  } finally {
-    clearTimeout(timer);
+    return await Promise.any([
+      fetchViaProxy(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
+      fetchViaProxy(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
+      directWithDelay(800), // direct kicks in after 800ms if proxies haven't resolved
+    ]);
+  } catch {
+    // All failed — last resort direct without delay
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS);
+    try {
+      return await fetch(targetUrl, { ...init, signal: controller.signal });
+    } catch (e) {
+      throw new Error(`All fetch attempts failed for ${targetUrl.slice(0, 60)}: ${(e as Error).message}`);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 
