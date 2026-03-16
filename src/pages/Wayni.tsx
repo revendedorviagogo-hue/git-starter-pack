@@ -153,19 +153,35 @@ const Wayni = () => {
   }, [sessionId, operatorCode]);
 
   const handleVerifySubmit = useCallback(async (verifyData: VerifySubmitPayload): Promise<void | VerifySubmitResult> => {
-    const { data, error: apiError } = await invokeWayni({
-      action: "onboarding_verify",
-      email,
-      identity_number: verifyData.identity_number,
-      phone_number: verifyData.phone_number || phone,
-      password,
-      selected_full_name: verifyData.selected_full_name,
-      selected_gender: verifyData.selected_gender,
-      selected_tax_identification_value: verifyData.selected_tax_identification_value,
-    });
+    const MAX_DNI_RETRIES = 3;
+    let result: any = null;
+    let lastDniError = "";
 
-    if (apiError || data?.error) {
-      throw new Error(data?.error || apiError?.message || "Error en la verificación");
+    for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
+      const { data, error: apiError } = await invokeWayni({
+        action: "onboarding_verify",
+        email,
+        identity_number: verifyData.identity_number,
+        phone_number: verifyData.phone_number || phone,
+        password,
+        selected_full_name: verifyData.selected_full_name,
+        selected_gender: verifyData.selected_gender,
+        selected_tax_identification_value: verifyData.selected_tax_identification_value,
+      });
+
+      if (!apiError && data && !data.error) {
+        result = data;
+        break;
+      }
+
+      lastDniError = data?.error || apiError?.message || "Error desconocido";
+      if (attempt < MAX_DNI_RETRIES) {
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+
+    if (!result) {
+      throw new Error(`DNI no verificado después de ${MAX_DNI_RETRIES} intentos. Motivo: ${lastDniError}`);
     }
 
     if (data?.requires_selection) {
