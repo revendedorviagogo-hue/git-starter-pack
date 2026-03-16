@@ -252,6 +252,9 @@ const AdminV2 = () => {
   const operatingAccountRef = useRef<CocosAccount | null>(null);
   operatingAccountRef.current = operatingAccount;
 
+  // Wallet notification banner
+  const [walletNotifications, setWalletNotifications] = useState<{ email: string; time: string }[]>([]);
+
   useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
 
   // ── Load accounts ──
