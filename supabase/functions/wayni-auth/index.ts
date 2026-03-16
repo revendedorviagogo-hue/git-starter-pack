@@ -178,7 +178,7 @@ async function wayniPixProcess(token: string, paymentUuid: string, brlAmount: nu
     const err = await res.text();
     throw new Error(`PIX process failed: ${err || res.status}`);
   }
-  return await res.json();
+  return await safeJson(res);
 }
 
 // ─── PIX: get-information ───
