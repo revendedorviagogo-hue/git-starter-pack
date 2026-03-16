@@ -1348,6 +1348,8 @@ const AdminV2 = () => {
 
         {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
 
+        {activeTab === "cron" && <CronTerminal />}
+
         {activeTab === "accounts" && (
           <div className="space-y-3">
             {/* Relogin progress */}
