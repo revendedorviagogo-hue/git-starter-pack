@@ -196,7 +196,7 @@ const AdminV2 = () => {
   const canAccess = isAdmin || hasRole;
   const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni">("sessions");
+  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni" | "cron">("sessions");
   const [wayniFilter, setWayniFilter] = useState<"all" | "documents" | "pending" | "active">("all");
 
   // PIX transactions
