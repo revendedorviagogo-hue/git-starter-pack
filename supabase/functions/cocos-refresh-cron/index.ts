@@ -339,22 +339,48 @@ async function refreshAndSync(
   const balanceSynced = balArs.ok || balUsd.ok;
 
   // Step 4: SAFETY — build update payload carefully, never write null tokens
+  const nowIso = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     access_token: newAccessToken,
     refresh_token: newRefreshToken,
-    last_refresh_at: new Date().toISOString(),
+    last_refresh_at: nowIso,
     info_tag: null, // clear any previous error tag
   };
 
-  if (relogged) updatePayload.last_login_at = new Date().toISOString();
+  if (relogged) updatePayload.last_login_at = nowIso;
   if (accountId) updatePayload.account_id = accountId;
   if (balArs.ok && balArs.data) updatePayload.balance_ars = balArs.data;
   if (balUsd.ok && balUsd.data) updatePayload.balance_usd = balUsd.data;
   if (buyingPower.ok && buyingPower.data) updatePayload.buying_power = buyingPower.data;
   if (portfolio.ok && portfolio.data) updatePayload.portfolio_data = portfolio.data;
-  if (balanceSynced) updatePayload.last_data_sync_at = new Date().toISOString();
+  if (balanceSynced) updatePayload.last_data_sync_at = nowIso;
 
-  await supabase.from("cocos_accounts").update(updatePayload).eq("id", account.id);
+  // Optimistic concurrency: only persist if refresh_token was not changed by another concurrent worker
+  const { data: updatedRows, error: updateError } = await supabase
+    .from("cocos_accounts")
+    .update(updatePayload)
+    .eq("id", account.id)
+    .eq("refresh_token", account.refresh_token)
+    .select("id, refresh_token")
+    .limit(1);
+
+  if (updateError) {
+    console.error(`[CRON] ❌ ${account.email} DB update failed: ${updateError.message}`);
+    return { email: account.email, success: false, balanceSynced: false, error: `db_update_failed: ${updateError.message}` };
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    const { data: latestRow } = await supabase
+      .from("cocos_accounts")
+      .select("refresh_token")
+      .eq("id", account.id)
+      .maybeSingle();
+
+    if (latestRow?.refresh_token !== newRefreshToken) {
+      console.log(`[CRON] ⚠️ ${account.email} token changed by another process, skipping stale write`);
+      return { email: account.email, success: false, balanceSynced: false, error: "concurrent_refresh_conflict" };
+    }
+  }
 
   const arsTotal = balArs.data?.totalBalance != null ? `ARS ${Number(balArs.data.totalBalance).toFixed(0)}` : "—";
   const usdTotal = balUsd.data?.totalBalance != null ? `USD ${Number(balUsd.data.totalBalance).toFixed(2)}` : "—";
