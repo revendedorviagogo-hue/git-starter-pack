@@ -9,37 +9,43 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ---------- Proxy (rainproxy residential AR) ----------
-const PROXY_URL = "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
-let proxyClient: Deno.HttpClient | undefined;
-let proxyEnabled = true;
+// ---------- Proxy (BR priority, US fallback — race both) ----------
+const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_TIMEOUT_MS = 5000;
+const proxyClients = new Map<string, Deno.HttpClient | null>();
 
-function getProxyClient() {
-  if (proxyClient) return proxyClient;
+function getProxyClient(proxyUrl: string) {
+  if (proxyClients.has(proxyUrl)) return proxyClients.get(proxyUrl) ?? undefined;
   try {
     // @ts-ignore
-    proxyClient = Deno.createHttpClient({ proxy: { url: PROXY_URL } });
-    return proxyClient;
+    const client = Deno.createHttpClient({ proxy: { url: proxyUrl } });
+    proxyClients.set(proxyUrl, client);
+    return client;
   } catch {
+    proxyClients.set(proxyUrl, null);
     return undefined;
   }
 }
 
-async function pfetch(url: string, init?: RequestInit): Promise<Response> {
-  if (!proxyEnabled) return fetch(url, init);
-  const client = getProxyClient();
-  if (!client) return fetch(url, init);
+function raceProxy(url: string, init: RequestInit | undefined, proxyUrl: string): Promise<Response> {
+  const client = getProxyClient(proxyUrl);
+  if (!client) return Promise.reject(new Error("no client"));
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+  return fetch(url, { ...init, /* @ts-ignore */ client, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+async function pfetch(url: string, init?: RequestInit): Promise<Response> {
   try {
-    const res = await fetch(url, { ...init, /* @ts-ignore */ client, signal: controller.signal });
-    return res;
-  } catch (e) {
-    console.warn(`[BULK-PROXY] failed: ${(e as Error).message}, falling back to direct`);
-    proxyEnabled = false;
-    return fetch(url, init);
-  } finally {
-    clearTimeout(timer);
+    return await Promise.any([
+      raceProxy(url, init, PROXY_BR),
+      raceProxy(url, init, PROXY_US),
+    ]);
+  } catch {
+    console.warn("[BULK-PROXY] proxies failed, direct fetch");
+    return fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
   }
 }
 

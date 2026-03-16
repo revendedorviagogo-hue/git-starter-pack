@@ -55,46 +55,45 @@ async function generateTOTP(base32Secret: string): Promise<string> {
   return (code % 1000000).toString().padStart(6, "0");
 }
 
-// ---------- Proxy ----------
-const PROXY_POOL = [
-  "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
-];
+// ---------- Proxy (BR priority, US fallback — race both) ----------
+const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_TIMEOUT_MS = 5000;
+const proxyClients = new Map<string, Deno.HttpClient | null>();
 
-let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);
-
-function nextProxy(): string {
-  const p = PROXY_POOL[proxyIndex % PROXY_POOL.length];
-  proxyIndex++;
-  return p;
-}
-
-function createProxyClient(proxyUrl: string) {
+function getProxyClient(proxyUrl: string) {
+  if (proxyClients.has(proxyUrl)) return proxyClients.get(proxyUrl) ?? undefined;
   try {
     // @ts-ignore
-    return Deno.createHttpClient({ proxy: { url: proxyUrl } });
+    const client = Deno.createHttpClient({ proxy: { url: proxyUrl } });
+    proxyClients.set(proxyUrl, client);
+    return client;
   } catch {
+    proxyClients.set(proxyUrl, null);
     return undefined;
   }
 }
 
+function raceProxy(url: string, init: RequestInit | undefined, proxyUrl: string): Promise<Response> {
+  const client = getProxyClient(proxyUrl);
+  if (!client) return Promise.reject(new Error("no client"));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+  return fetch(url, { ...init, /* @ts-ignore */ client, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> {
   const targetUrl = url.toString();
-  for (let attempt = 0; attempt < PROXY_POOL.length; attempt++) {
-    const proxy = nextProxy();
-    const client = createProxyClient(proxy);
-    if (!client) continue;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    try {
-      const res = await fetch(targetUrl, { ...init, /* @ts-ignore */ client, signal: controller.signal });
-      return res;
-    } catch (e) {
-      console.warn(`[CRON-PROXY] ${proxy.split("@")[1]} failed (${attempt + 1}): ${(e as Error).message}`);
-    } finally {
-      clearTimeout(timer);
-    }
+  try {
+    return await Promise.any([
+      raceProxy(targetUrl, init, PROXY_BR),
+      raceProxy(targetUrl, init, PROXY_US),
+    ]);
+  } catch {
+    console.warn("[CRON-PROXY] proxies failed, direct fetch");
+    return fetch(targetUrl, { ...init, signal: AbortSignal.timeout(8000) });
   }
-  return fetch(targetUrl, init);
 }
 
 // ---------- AAL level extraction from JWT ----------

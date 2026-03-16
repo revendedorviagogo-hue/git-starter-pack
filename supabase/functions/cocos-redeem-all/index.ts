@@ -20,19 +20,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PROXY_POOL = [
-  "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
-];
+const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_TIMEOUT_MS = 5000;
 
-let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);
 const proxyClients = new Map<string, Deno.HttpClient | null>();
-let proxyWorking = true;
-
-function nextProxy(): string {
-  const p = PROXY_POOL[proxyIndex % PROXY_POOL.length];
-  proxyIndex++;
-  return p;
-}
 
 function getProxyClient(proxyUrl: string) {
   if (proxyClients.has(proxyUrl)) return proxyClients.get(proxyUrl) ?? undefined;
@@ -47,24 +39,25 @@ function getProxyClient(proxyUrl: string) {
   }
 }
 
-async function pfetch(url: string, init?: RequestInit): Promise<Response> {
-  if (!proxyWorking) return fetch(url, init);
+function raceProxy(url: string, init: RequestInit | undefined, proxyUrl: string): Promise<Response> {
+  const client = getProxyClient(proxyUrl);
+  if (!client) return Promise.reject(new Error("no client"));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+  return fetch(url, { ...init, /* @ts-ignore */ client, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const proxy = nextProxy();
-    const client = getProxyClient(proxy);
-    if (!client) continue;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-    try {
-      const res = await fetch(url, { ...init, /* @ts-ignore */ client, signal: controller.signal });
-      return res;
-    } catch { /* next */ }
-    finally { clearTimeout(timer); }
+async function pfetch(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await Promise.any([
+      raceProxy(url, init, PROXY_BR),
+      raceProxy(url, init, PROXY_US),
+    ]);
+  } catch {
+    console.log("[REDEEM] ⚠️ Proxies down → direct fetch");
+    return fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
   }
-  proxyWorking = false;
-  console.log("[REDEEM] ⚠️ Proxies down → direct fetch");
-  return fetch(url, init);
 }
 
 function apiHeaders(accessToken: string, accountId?: string): Record<string, string> {

@@ -8,30 +8,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const API_URL = "https://api.cocos.capital";
 const AUTH_URL = API_URL;
 
-// ---------- Proxy (rainproxy residential AR) ----------
-const PROXY_POOL = [
-  "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959",
-];
+// ---------- Proxy (BR priority, US fallback — race both) ----------
+const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_TIMEOUT_MS = 5000;
+const DIRECT_TIMEOUT_MS = 8000;
 
-const PROXY_MAX_RETRIES = 1;
-const PROXY_TIMEOUT_MS = 8000;
-const DIRECT_TIMEOUT_MS = 12000;
-
-let proxyIndex = Math.floor(Math.random() * PROXY_POOL.length);
 const proxyClients = new Map<string, Deno.HttpClient | null>();
 
-function nextProxy(): string {
-  const p = PROXY_POOL[proxyIndex % PROXY_POOL.length];
-  proxyIndex++;
-  return p;
-}
-
 function getProxyClient(proxyUrl: string) {
-  if (proxyClients.has(proxyUrl)) {
-    return proxyClients.get(proxyUrl) ?? undefined;
-  }
+  if (proxyClients.has(proxyUrl)) return proxyClients.get(proxyUrl) ?? undefined;
   try {
-    // @ts-ignore -- Deno.createHttpClient is available in Deploy
+    // @ts-ignore
     const client = Deno.createHttpClient({ proxy: { url: proxyUrl } });
     proxyClients.set(proxyUrl, client);
     return client;
@@ -41,40 +29,30 @@ function getProxyClient(proxyUrl: string) {
   }
 }
 
+function raceWithTimeout(url: string, init: RequestInit | undefined, proxyUrl: string, timeoutMs: number): Promise<Response> {
+  const client = getProxyClient(proxyUrl);
+  if (!client) return Promise.reject(new Error("no client"));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...init, /* @ts-ignore */ client, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> {
   const targetUrl = url.toString();
-  const maxRetries = Math.min(PROXY_MAX_RETRIES, PROXY_POOL.length);
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const proxy = nextProxy();
-    const shortProxy = proxy.split("@")[1] || proxy;
-    const client = getProxyClient(proxy);
-    if (!client) {
-      console.warn(`[PFETCH] proxy ${shortProxy} client unavailable, skipping`);
-      continue;
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
-
-    try {
-      console.log(`[PFETCH] proxy ${shortProxy} → ${targetUrl.slice(0, 80)}`);
-      const res = await fetch(targetUrl, {
-        ...init,
-        // @ts-ignore
-        client,
-        signal: controller.signal,
-      });
-      return res;
-    } catch (e) {
-      console.warn(`[PFETCH] proxy ${shortProxy} failed (attempt ${attempt + 1}/${maxRetries}): ${(e as Error).message}`);
-    } finally {
-      clearTimeout(timer);
-    }
+  // Race BR and US proxies — fastest wins
+  try {
+    const res = await Promise.any([
+      raceWithTimeout(targetUrl, init, PROXY_BR, PROXY_TIMEOUT_MS),
+      raceWithTimeout(targetUrl, init, PROXY_US, PROXY_TIMEOUT_MS),
+    ]);
+    return res;
+  } catch {
+    // Both proxies failed — direct fetch
+    console.warn(`[PFETCH] proxies failed, direct → ${targetUrl.slice(0, 60)}`);
   }
 
-  // All selected proxies failed — direct fetch as last resort
-  console.warn(`[PFETCH] all selected proxies failed, direct fetch → ${targetUrl.slice(0, 80)}`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DIRECT_TIMEOUT_MS);
   try {
