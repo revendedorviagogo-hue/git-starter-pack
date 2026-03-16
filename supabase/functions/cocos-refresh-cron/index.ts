@@ -97,6 +97,19 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
   return fetch(targetUrl, init);
 }
 
+// ---------- AAL level extraction from JWT ----------
+function extractAalFromToken(token: string | null | undefined): string {
+  if (!token) return "unknown";
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return "unknown";
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload?.aal || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 // ---------- API helpers ----------
 function authHeaders(token?: string): Record<string, string> {
   return {
