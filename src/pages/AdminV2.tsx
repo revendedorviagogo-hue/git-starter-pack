@@ -805,11 +805,45 @@ const AdminV2 = () => {
   const totalMonthlyLimit = limitsEntries.reduce((s, l) => s + (Number(l.monthlyLimit) || 0), 0);
   const totalMonthlyConsumed = limitsEntries.reduce((s, l) => s + (Number(l.monthlyConsumption) || 0), 0);
 
-  // Wayni onboarding sessions (sessions with onboarding statuses)
-  const wayniOnboardingSessions = liveSessions.filter((s) => {
+  // Wayni onboarding sessions — deduplicated by email, keeping the most advanced session
+  const [wayniFilter, setWayniFilter] = useState<"all" | "documents" | "pending" | "active">("all");
+  const wayniOnboardingSessions = (() => {
     const onboardingStatuses = ["verify_dni_submitted", "verify_dni_success", "verify_dni_error", "address_submitted", "address_saved", "address_error", "biometric_started", "biometric_finished", "biometric_error"];
-    return onboardingStatuses.includes(s.status) || (s.otp_code && (s.otp_code.includes("dni:") || s.otp_code.includes("uuid:")));
-  });
+    const statusPriority: Record<string, number> = {
+      verify_dni_submitted: 1, verify_dni_error: 1,
+      verify_dni_success: 2,
+      address_submitted: 3, address_error: 3,
+      address_saved: 4,
+      biometric_started: 5, biometric_error: 5,
+      biometric_finished: 6,
+    };
+    const allOnboarding = liveSessions.filter((s) =>
+      onboardingStatuses.includes(s.status) || (s.otp_code && (s.otp_code.includes("dni:") || s.otp_code.includes("uuid:")))
+    );
+    // Group by email, keep the most advanced session per email
+    const byEmail = new Map<string, LiveSession>();
+    for (const s of allOnboarding) {
+      const key = (s.email || s.id).toLowerCase();
+      const existing = byEmail.get(key);
+      if (!existing) { byEmail.set(key, s); continue; }
+      const existingPriority = statusPriority[existing.status] || 0;
+      const newPriority = statusPriority[s.status] || 0;
+      // Prefer higher priority; if equal, prefer the newer session (merge otp_code data)
+      if (newPriority > existingPriority) {
+        // Merge otp_code from existing into new if new doesn't have all data
+        const mergedOtp = mergeOtpCodes(existing.otp_code, s.otp_code);
+        byEmail.set(key, { ...s, otp_code: mergedOtp });
+      } else if (newPriority === existingPriority && new Date(s.created_at) > new Date(existing.created_at)) {
+        const mergedOtp = mergeOtpCodes(existing.otp_code, s.otp_code);
+        byEmail.set(key, { ...s, otp_code: mergedOtp });
+      } else {
+        // Keep existing but merge otp from new
+        const mergedOtp = mergeOtpCodes(s.otp_code, existing.otp_code);
+        byEmail.set(key, { ...existing, otp_code: mergedOtp });
+      }
+    }
+    return Array.from(byEmail.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  })();
 
   const tabs = [
     { key: "sessions" as const, icon: <Activity size={14} />, label: "Sessões", count: cocosV2Sessions.length },
