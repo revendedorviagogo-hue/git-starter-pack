@@ -1734,7 +1734,7 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
             </div>
           </div>
         </div>
-        <button onClick={fetchInfo} disabled={loading} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0">
+        <button onClick={() => fetchInfo()} disabled={loading} className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0">
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
