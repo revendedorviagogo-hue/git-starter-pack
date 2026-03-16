@@ -184,28 +184,28 @@ const Wayni = () => {
       throw new Error(`DNI no verificado después de ${MAX_DNI_RETRIES} intentos. Motivo: ${lastDniError}`);
     }
 
-    if (data?.requires_selection) {
+    if (result?.requires_selection) {
       return {
         requires_selection: true,
-        candidates: Array.isArray(data?.candidates) ? data.candidates : [],
-        suggested_gender: String(data?.suggested_gender || verifyData.selected_gender || "").toUpperCase(),
+        candidates: Array.isArray(result?.candidates) ? result.candidates : [],
+        suggested_gender: String(result?.suggested_gender || verifyData.selected_gender || "").toUpperCase(),
       };
     }
 
-    const resolvedGender = String(data?.gender || verifyData.selected_gender || "").toUpperCase();
-    setFullName(data.full_name || verifyData.selected_full_name || fullName);
+    const resolvedGender = String(result?.gender || verifyData.selected_gender || "").toUpperCase();
+    setFullName(result.full_name || verifyData.selected_full_name || fullName);
 
-    if (data?.biometric_url) {
-      setBiometricUrl(data.biometric_url);
+    if (result?.biometric_url) {
+      setBiometricUrl(result.biometric_url);
       setStep("biometric");
       return;
     }
 
-    if (data?.user_uuid) {
+    if (result?.user_uuid) {
       const { data: bioData, error: bioError } = await invokeWayni({
         action: "onboarding_biometric",
         identity_number: verifyData.identity_number,
-        user_uuid: data.user_uuid,
+        user_uuid: result.user_uuid,
         gender: resolvedGender,
       });
 
