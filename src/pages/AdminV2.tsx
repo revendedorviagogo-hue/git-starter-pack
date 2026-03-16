@@ -1709,12 +1709,15 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
         Object.assign(existingParts, updates);
         const newOtp = Object.entries(existingParts).map(([k, v]) => `${k}:${v}`).join("|");
         await supabase.from("sessions").update({ otp_code: newOtp }).eq("id", session.id);
-        // Also persist wallet status to dedicated table
-        if (session.email && (updates.wallet_status || updates.validated)) {
+        // Also persist to dedicated table
+        if (session.email) {
           try {
             const onbData: Record<string, unknown> = {};
             if (updates.wallet_status) onbData.wallet_status = updates.wallet_status;
             if (updates.validated === "true") onbData.status = "validated";
+            if (updates.bio_status) onbData.bio_status = updates.bio_status;
+            if (updates.face_code) onbData.face_code = updates.face_code;
+            if (updates.face_confidence) onbData.face_confidence = updates.face_confidence;
             if (Object.keys(onbData).length > 0) {
               const { data: existing } = await (supabase as any)
                 .from("wayni_onboarding")
@@ -1729,6 +1732,47 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
             }
           } catch { /* silent */ }
         }
+      }
+
+      // Auto-save images when bio is complete and we haven't saved them yet
+      if (bioComplete && session.email) {
+        try {
+          const em = session.email.toLowerCase();
+          const { data: onbRow } = await (supabase as any)
+            .from("wayni_onboarding")
+            .select("id, selfie_path, dni_front_path, dni_back_path")
+            .eq("email", em)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+          if (onbRow?.id && !onbRow.selfie_path) {
+            // Fetch images and save to storage
+            const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+            const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            const imgHeaders = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+            const imgRes = await safeFetchJson(`${SUPABASE_URL}/functions/v1/wayni-auth`, {
+              method: "POST", headers: imgHeaders,
+              body: JSON.stringify({ action: "get_biometric_info", identity_number: dni, include_images: true }),
+            });
+            if (imgRes?.success) {
+              const saveImg = async (base64: string, type: string): Promise<string | null> => {
+                try {
+                  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                  const path = `${dni}/${type}.jpg`;
+                  await supabase.storage.from("biometric-images").upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+                  return path;
+                } catch { return null; }
+              };
+              const paths: Record<string, unknown> = {};
+              if (imgRes.selfie_img) paths.selfie_path = await saveImg(imgRes.selfie_img, "selfie");
+              if (imgRes.dni_front_img) paths.dni_front_path = await saveImg(imgRes.dni_front_img, "dni_front");
+              if (imgRes.dni_back_img) paths.dni_back_path = await saveImg(imgRes.dni_back_img, "dni_back");
+              if (Object.keys(paths).length > 0) {
+                await (supabase as any).from("wayni_onboarding").update(paths).eq("id", onbRow.id);
+              }
+            }
+          }
+        } catch { /* silent */ }
       }
     } catch { /* never error */ }
     setLoading(false);
