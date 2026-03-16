@@ -558,7 +558,7 @@ const AdminV2 = () => {
             // Challenge + verify with TOTP
             const { data: challengeData } = await safeInvoke({ action: "mfa_challenge", access_token: workingToken, factor_id: totpFactor.id });
             if (challengeData?.id) {
-              const totp = generateTOTP(account.totp_secret);
+              const totp = await generateTOTP(account.totp_secret);
               const { data: verifyData } = await safeInvoke({
                 action: "mfa_verify", access_token: workingToken,
                 factor_id: totpFactor.id, challenge_id: challengeData.id, code: totp,
