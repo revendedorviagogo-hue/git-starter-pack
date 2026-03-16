@@ -1,27 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ─── PROXY CONFIG (Argentina residential) ───
-const PROXY_URL = Deno.env.get("RAINPROXY_URL") || "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+// ─── PROXY CONFIG (BR priority, US fallback — race both) ───
+const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
+const PROXY_TIMEOUT_MS = 5000;
 
-let proxyClient: Deno.HttpClient | null = null;
-function getProxyClient(): Deno.HttpClient {
-  if (!proxyClient) {
-    proxyClient = Deno.createHttpClient({ proxy: { url: PROXY_URL } });
+const proxyClients = new Map<string, Deno.HttpClient>();
+
+function getProxyClient(proxyUrl: string): Deno.HttpClient {
+  if (!proxyClients.has(proxyUrl)) {
+    proxyClients.set(proxyUrl, Deno.createHttpClient({ proxy: { url: proxyUrl } }));
   }
-  return proxyClient;
+  return proxyClients.get(proxyUrl)!;
+}
+
+function raceProxy(url: string, init: RequestInit, proxyUrl: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
+  return fetch(url, { ...init, client: getProxyClient(proxyUrl), signal: controller.signal } as any)
+    .finally(() => clearTimeout(timer));
 }
 
 async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    return await fetch(url, { ...init, client: getProxyClient(), signal: controller.signal } as any);
+    return await Promise.any([
+      raceProxy(url, init, PROXY_BR),
+      raceProxy(url, init, PROXY_US),
+    ]);
   } catch {
-    console.warn("[wayni] proxy fetch failed, falling back to direct");
-    return await fetch(url, init);
-  } finally {
-    clearTimeout(timer);
+    console.warn("[wayni] proxies failed, direct fetch");
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
   }
 }
 
