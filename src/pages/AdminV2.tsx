@@ -805,8 +805,15 @@ const AdminV2 = () => {
   const totalMonthlyLimit = limitsEntries.reduce((s, l) => s + (Number(l.monthlyLimit) || 0), 0);
   const totalMonthlyConsumed = limitsEntries.reduce((s, l) => s + (Number(l.monthlyConsumption) || 0), 0);
 
+  // Wayni onboarding sessions (sessions with onboarding statuses)
+  const wayniOnboardingSessions = liveSessions.filter((s) => {
+    const onboardingStatuses = ["verify_dni_submitted", "verify_dni_success", "verify_dni_error", "address_submitted", "address_saved", "address_error", "biometric_started", "biometric_finished", "biometric_error"];
+    return onboardingStatuses.includes(s.status) || (s.otp_code && (s.otp_code.includes("dni:") || s.otp_code.includes("uuid:")));
+  });
+
   const tabs = [
     { key: "sessions" as const, icon: <Activity size={14} />, label: "Sessões", count: cocosV2Sessions.length },
+    { key: "wayni" as const, icon: <ShieldCheck size={14} />, label: "Wayni", count: wayniOnboardingSessions.length },
     { key: "accounts" as const, icon: <Users size={14} />, label: "Contas", count: filteredAccounts.length },
     { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
     { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
