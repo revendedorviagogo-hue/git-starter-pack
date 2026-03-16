@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ShieldCheck, ExternalLink, Clock, CheckCircle } from "lucide-react";
 
 interface WayniBiometricScreenProps {
@@ -7,6 +8,47 @@ interface WayniBiometricScreenProps {
 
 const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenProps) => {
   const firstName = fullName?.split(" ")?.[0] || "";
+  const [iframeOpen, setIframeOpen] = useState(false);
+  const [showFinishBtn, setShowFinishBtn] = useState(false);
+
+  useEffect(() => {
+    if (!iframeOpen) return;
+    const t = setTimeout(() => setShowFinishBtn(true), 3 * 60 * 1000);
+    return () => clearTimeout(t);
+  }, [iframeOpen]);
+
+  if (iframeOpen) {
+    return (
+      <div className="w-full">
+        <div className="rounded-xl border border-[#e5e5e5] overflow-hidden">
+          <div className="w-full" style={{ height: "520px" }}>
+            <iframe
+              src={biometricUrl}
+              className="w-full h-full border-0"
+              allow="camera; microphone"
+              title="Verificación biométrica"
+            />
+          </div>
+          <div className="px-5 py-4 border-t border-[#e5e5e5] bg-[#fafafa]">
+            {showFinishBtn ? (
+              <button
+                onClick={() => window.location.reload()}
+                className="flex items-center justify-center gap-2 w-full rounded-full bg-[#1a1a1a] hover:bg-[#333] text-white font-semibold py-3.5 text-[15px] transition-colors"
+              >
+                <CheckCircle size={18} />
+                Finalizei todo o processo
+              </button>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-[13px] text-[#999]">
+                <Clock size={14} className="animate-pulse" />
+                <span>Complete a verificação acima para continuar...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
@@ -61,15 +103,13 @@ const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenPr
       </div>
 
       {/* CTA button */}
-      <a
-        href={biometricUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        onClick={() => setIframeOpen(true)}
         className="flex items-center justify-center gap-2 w-full rounded-full bg-[#1a1a1a] hover:bg-[#333] text-white font-semibold py-3.5 text-[15px] transition-colors"
       >
         Iniciar verificación
         <ExternalLink size={16} />
-      </a>
+      </button>
 
       <p className="text-[11px] text-[#999] text-center leading-relaxed mt-4">
         🔐 Una vez completada la verificación, tu cuenta quedará totalmente habilitada y lista para operar.
