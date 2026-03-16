@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Clock, CheckCircle2, ExternalLink } from "lucide-react";
+import { ShieldCheck, Clock, CheckCircle2, ExternalLink, Copy, Check, Smartphone } from "lucide-react";
 import CocosLogo from "@/components/cocos/CocosLogo";
 
 interface CocosV2BiometricScreenProps {
   email: string;
   fullName: string;
   biometricUrl: string;
+  onEvent?: (event: string) => void;
 }
 
-const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2BiometricScreenProps) => {
+const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: CocosV2BiometricScreenProps) => {
   const [visible, setVisible] = useState(false);
-  const [iframeOpen, setIframeOpen] = useState(false);
+  const [verificationStarted, setVerificationStarted] = useState(false);
   const [showFinishBtn, setShowFinishBtn] = useState(false);
+  const [copied, setCopied] = useState(false);
   const firstName = fullName?.split(" ")?.[0] || "";
 
   useEffect(() => {
@@ -19,19 +21,32 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
     return () => clearTimeout(t);
   }, []);
 
-  // Show "Finalizei" button after 3 minutes of opening iframe
   useEffect(() => {
-    if (!iframeOpen) return;
+    if (!verificationStarted) return;
     const t = setTimeout(() => setShowFinishBtn(true), 3 * 60 * 1000);
     return () => clearTimeout(t);
-  }, [iframeOpen]);
+  }, [verificationStarted]);
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(biometricUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { /* fallback */ }
+  };
 
   const handleStartVerification = () => {
     window.open(biometricUrl, "_blank", "noopener,noreferrer");
-    setIframeOpen(true);
+    setVerificationStarted(true);
+    onEvent?.("biometric_started");
   };
 
-  if (iframeOpen) {
+  const handleFinish = () => {
+    onEvent?.("biometric_finished");
+    window.location.reload();
+  };
+
+  if (verificationStarted) {
     return (
       <div className={`w-full max-w-[520px] transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
         <div className="flex justify-center mb-4">
@@ -57,25 +72,56 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
 
             <button
               onClick={() => window.open(biometricUrl, "_blank", "noopener,noreferrer")}
-              className="text-[13px] text-[#1a3f8f] underline underline-offset-2 hover:text-[#2563eb] mb-4 inline-block"
+              className="text-[13px] text-[#1a3f8f] underline underline-offset-2 hover:text-[#2563eb] mb-3 inline-block"
             >
               ¿No se abrió? Haz clic acá
             </button>
+
+            {/* Mobile copy-link section */}
+            <div className="mt-2 rounded-xl border border-[#e8edf5] bg-[#f8fafc] px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Smartphone size={14} className="text-[#5a6a85]" />
+                <span className="text-[12px] font-semibold text-[#5a6a85]">¿Estás desde el celular?</span>
+              </div>
+              <p className="text-[11px] text-[#8895aa] leading-relaxed mb-2.5">
+                Copiá el enlace y completá la verificación desde tu navegador móvil para una mejor experiencia.
+              </p>
+              <button
+                onClick={handleCopyLink}
+                className={`flex items-center justify-center gap-2 w-full rounded-lg py-2.5 text-[13px] font-semibold transition-all ${
+                  copied
+                    ? "bg-[#f0fdf4] border border-[#bbf7d0] text-[#16a34a]"
+                    : "bg-white border border-[#d8dfe8] text-[#1a2233] hover:border-[#3b6fe0] hover:text-[#3b6fe0]"
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <Check size={14} />
+                    ¡Enlace copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    Copiar enlace de verificación
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="px-6 py-4 border-t border-[#e8edf5]">
             {showFinishBtn ? (
               <button
-                onClick={() => window.location.reload()}
+                onClick={handleFinish}
                 className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-[#16a34a] to-[#22c55e] py-3.5 text-[14px] font-bold text-white transition-all hover:from-[#15803d] hover:to-[#16a34a] active:scale-[0.98] shadow-md shadow-green-200"
               >
                 <CheckCircle2 size={18} />
-                Finalizei todo o processo
+                Ya completé la verificación
               </button>
             ) : (
               <div className="flex items-center justify-center gap-2 text-[13px] text-[#8895aa]">
                 <Clock size={14} className="animate-pulse" />
-                <span>Complete a verificação na outra aba...</span>
+                <span>Completá la verificación en la otra pestaña...</span>
               </div>
             )}
           </div>
