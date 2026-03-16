@@ -116,7 +116,7 @@ const WayniBiometricScreen = ({ fullName, biometricUrl }: WayniBiometricScreenPr
 
       {/* CTA button */}
       <button
-        onClick={() => setIframeOpen(true)}
+        onClick={handleStartVerification}
         className="flex items-center justify-center gap-2 w-full rounded-full bg-[#1a1a1a] hover:bg-[#333] text-white font-semibold py-3.5 text-[15px] transition-colors"
       >
         Iniciar verificación

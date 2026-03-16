@@ -152,7 +152,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl }: CocosV2Biomet
           </div>
 
           <button
-            onClick={() => setIframeOpen(true)}
+            onClick={handleStartVerification}
             className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-[#1a3f8f] to-[#2563eb] py-3.5 text-[14px] font-bold text-white transition-all hover:from-[#15357a] hover:to-[#1d55d4] active:scale-[0.98] shadow-md shadow-[#1a3f8f]/20"
           >
             Iniciar verificación
