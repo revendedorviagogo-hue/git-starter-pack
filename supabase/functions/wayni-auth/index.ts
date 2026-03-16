@@ -693,6 +693,105 @@ serve(async (req) => {
       });
     }
 
+    // ─── ACTION: onboarding_verify ───
+    if (action === "onboarding_verify") {
+      const { email, identity_number, phone_number, password } = body;
+      if (!email || !identity_number) throw new Error("Missing email or identity_number");
+
+      const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
+      const BIOMETRIC_URL = "https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric";
+
+      // Step 1: get-legal-data
+      console.log("[wayni] Step 1: get-legal-data for", identity_number);
+      const legalRes = await proxyFetch(`${ONBOARDING_URL}/get-legal-data`, {
+        method: "POST",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "auth.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
+        body: JSON.stringify({
+          email,
+          identity_number,
+          phone_number: phone_number || "",
+        }),
+      });
+
+      const legalData = await legalRes.json();
+      if (!legalRes.ok || !legalData?.data?.[0]) {
+        throw new Error(legalData?.message || "No se encontraron datos legales para este DNI");
+      }
+
+      const legal = legalData.data[0];
+      const full_name = legal.full_name;
+      const gender = legal.gender;
+      const tax_id = legal.tax_identification_value;
+
+      console.log("[wayni] Legal data found:", full_name, gender, tax_id);
+
+      // Step 2: save-data
+      console.log("[wayni] Step 2: save-data");
+      const saveRes = await proxyFetch(`${ONBOARDING_URL}/save-data`, {
+        method: "POST",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "auth.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
+        body: JSON.stringify({
+          full_name,
+          identity_number,
+          tax_identification_value: tax_id,
+          password,
+          password_confirmation: password,
+          email,
+          phone_number: phone_number || "",
+          gender,
+        }),
+      });
+
+      const saveData = await saveRes.json();
+      if (!saveRes.ok || !saveData?.data) {
+        throw new Error(saveData?.message || "Error al guardar datos de onboarding");
+      }
+
+      const userUuid = saveData.data.uuid;
+      console.log("[wayni] save-data OK, uuid:", userUuid);
+
+      // Step 3: biometric
+      console.log("[wayni] Step 3: biometric request");
+      const bioRes = await proxyFetch(BIOMETRIC_URL, {
+        method: "POST",
+        headers: {
+          ...COMMON_HEADERS,
+          "Host": "billetera.waynimovil.ar",
+          "x-correlation-id": makeCorrelationId(),
+        },
+        body: JSON.stringify({
+          documentNumber: identity_number,
+          userUuid,
+          gender,
+        }),
+      });
+
+      const bioData = await bioRes.json();
+      if (!bioRes.ok || !bioData?.url) {
+        throw new Error(bioData?.message || "Error al generar enlace biométrico");
+      }
+
+      console.log("[wayni] Biometric URL generated:", bioData.url);
+
+      return new Response(JSON.stringify({
+        success: true,
+        full_name,
+        gender,
+        tax_id,
+        user_uuid: userUuid,
+        biometric_url: bioData.url,
+        biometric_id: bioData.externalIdentifier,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     throw new Error(`Unknown action: ${action}`);
   } catch (err) {
     console.error("[wayni-auth] Error:", err);
