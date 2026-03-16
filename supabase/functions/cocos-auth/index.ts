@@ -844,8 +844,13 @@ async function proxyGet(
     if (res.status >= 400) return json({ success: false, upstream_status: res.status, ...parsed }, 200);
     return json(parsed, res.status);
   } catch (e) {
-    console.error(`[PROXY GET] error:`, e);
-    return err(`Proxy error: ${(e as Error).message}`, 502);
+    console.error(`[PROXY GET] upstream unavailable:`, e);
+    return json({
+      success: false,
+      code: "UPSTREAM_UNAVAILABLE",
+      message: "Servicio temporalmente no disponible. Intentá nuevamente.",
+      transient: true,
+    }, 200);
   }
 }
 
