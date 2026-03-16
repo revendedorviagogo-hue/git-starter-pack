@@ -11,8 +11,8 @@ const AUTH_URL = API_URL;
 // ---------- Proxy (BR priority, US fallback — race both) ----------
 const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
 const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
-const PROXY_TIMEOUT_MS = 5000;
-const DIRECT_TIMEOUT_MS = 8000;
+const PROXY_TIMEOUT_MS = 3500;
+const DIRECT_TIMEOUT_MS = 5000;
 
 const proxyClients = new Map<string, Deno.HttpClient | null>();
 
