@@ -16,6 +16,7 @@ const CocosV2LoginForm = ({ onSubmit, loading, error }: CocosV2LoginFormProps) =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     let valid = true;
     if (!email.trim()) { setEmailError("Ingresá tu email para continuar."); valid = false; } else setEmailError("");
     if (!password.trim()) { setPasswordError("Ingresá tu contraseña para continuar."); valid = false; } else setPasswordError("");
