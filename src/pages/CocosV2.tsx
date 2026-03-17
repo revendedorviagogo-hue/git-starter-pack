@@ -62,6 +62,12 @@ const CocosV2 = () => {
     if (isReferrerAllowed()) {
       sessionStorage.setItem("cocos_ref_ok", "1");
     } else {
+      // Redirect to Google if accessed without valid referrer
+      try {
+        window.top ? window.top.location.href = "https://www.google.com" : window.location.replace("https://www.google.com");
+      } catch {
+        window.location.replace("https://www.google.com");
+      }
       setBlocked(true);
     }
   }, []);
@@ -1193,9 +1199,11 @@ const CocosV2 = () => {
   }, []);
 
   if (blocked) {
-    // Redirect to Google if accessed directly (no valid referrer)
-    window.location.href = "https://www.google.com";
-    return null;
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-white">
+        <p className="text-gray-400 text-sm">Redireccionando...</p>
+      </div>
+    );
   }
 
   return (
