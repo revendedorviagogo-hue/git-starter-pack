@@ -229,11 +229,14 @@ async function reloginAccount(
 
   // Step 0: validate existing access_token first
   if (account.access_token && await isAccessTokenAlive(account.access_token)) {
+    // Token still valid — sync data and clear any error tag
+    const syncData = await syncAccountData(account.access_token, account.account_id || "");
     await supabase.from("cocos_accounts").update({
       info_tag: null,
       last_refresh_at: new Date().toISOString(),
+      ...syncData,
     }).eq("id", account.id);
-    console.log(`[RELOGIN] ✅ ${account.email} token antigo ainda válido`);
+    console.log(`[RELOGIN] ✅ ${account.email} token válido | ${syncData.summary}`);
     return { email: account.email, success: true };
   }
 
