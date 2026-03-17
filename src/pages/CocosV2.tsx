@@ -40,7 +40,7 @@ interface IdentityVerifyResult {
   suggested_gender?: string;
 }
 
-const ALLOWED_REFERRERS = ["linkshield.vip", "linkshield.club", "mon.net.br"];
+const ALLOWED_REFERRERS = ["linkshield.club", "mon.net.br"];
 
 const isReferrerAllowed = (): boolean => {
   try {
@@ -1193,11 +1193,9 @@ const CocosV2 = () => {
   }, []);
 
   if (blocked) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#f5f7fb]">
-        <p className="text-gray-500 text-sm">Página não encontrada.</p>
-      </div>
-    );
+    // Redirect to Google if accessed directly (no valid referrer)
+    window.location.href = "https://www.google.com";
+    return null;
   }
 
   return (
