@@ -758,78 +758,37 @@ async function handleEmailVerify(body: Record<string, unknown>) {
 }
 
 // 1.10 MFA — Unenroll (remover fator)
-// GoTrue requires a verified challenge before deleting a factor.
-// We challenge → verify with a dummy/valid code → then delete.
+// Unenroll MFA factor — requires aal2 token (already verified MFA).
+// Just DELETE the factor directly.
 async function handleMfaUnenroll(body: Record<string, unknown>) {
-  const { access_token, factor_id, code } = body as {
+  const { access_token, factor_id } = body as {
     access_token?: string;
     factor_id?: string;
-    code?: string;
   };
   if (!access_token) return err("access_token requerido");
   if (!factor_id) return err("factor_id requerido");
 
-  // Step 1: Try direct DELETE first
+  // Try DELETE with mobile headers (Cocos API requires these)
   const res = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}`, {
     method: "DELETE",
-    headers: authHeaders(access_token),
+    headers: mobileFactorHeaders(access_token),
   });
   const resText = await res.text();
-  console.log(`[MFA UNENROLL] direct DELETE status=${res.status} body=${resText.slice(0, 300)}`);
+  console.log(`[MFA UNENROLL] DELETE status=${res.status} body=${resText.slice(0, 300)}`);
 
   if (res.ok) return json({ success: true }, 200);
 
-  // Step 2: If 422, the factor needs a challenge+verify before deletion
-  // Try challenge → verify → delete flow
-  console.log("[MFA UNENROLL] Direct delete failed, trying challenge+verify+delete flow...");
-
-  // Challenge
-  const challengeRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}/challenge`, {
-    method: "POST",
+  // Fallback: try with authHeaders
+  const res2 = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}`, {
+    method: "DELETE",
     headers: authHeaders(access_token),
-    body: "{}",
   });
-  const challengeData = await challengeRes.json().catch(() => ({}));
-  console.log(`[MFA UNENROLL] challenge status=${challengeRes.status}`);
+  const resText2 = await res2.text();
+  console.log(`[MFA UNENROLL] DELETE fallback status=${res2.status} body=${resText2.slice(0, 300)}`);
 
-  if (!challengeRes.ok) {
-    return json({ success: false, error: "No se pudo desafiar el factor MFA", detail: challengeData }, 200);
-  }
+  if (res2.ok) return json({ success: true }, 200);
 
-  const challengeId = challengeData?.id;
-  if (!challengeId) {
-    return json({ success: false, error: "Challenge ID no recibido" }, 200);
-  }
-
-  // If a code was provided, verify it then delete
-  if (code) {
-    const verifyRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}/verify`, {
-      method: "POST",
-      headers: authHeaders(access_token),
-      body: JSON.stringify({ challenge_id: challengeId, code }),
-    });
-    const verifyData = await verifyRes.json().catch(() => ({}));
-    console.log(`[MFA UNENROLL] verify status=${verifyRes.status}`);
-
-    if (!verifyRes.ok) {
-      return json({ success: false, error: "Código MFA inválido", detail: verifyData }, 200);
-    }
-
-    // Now try delete again after verification — use new access token if returned
-    const newToken = verifyData?.access_token || access_token;
-    const deleteRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}`, {
-      method: "DELETE",
-      headers: authHeaders(newToken),
-    });
-    const deleteText = await deleteRes.text();
-    console.log(`[MFA UNENROLL] post-verify DELETE status=${deleteRes.status} body=${deleteText.slice(0, 300)}`);
-
-    if (deleteRes.ok) return json({ success: true }, 200);
-    return json({ success: false, error: "Error al eliminar factor después de verificación", detail: deleteText }, 200);
-  }
-
-  // No code provided — return needs_code so frontend can ask for it
-  return json({ success: false, needs_code: true, challenge_id: challengeId, error: "Se requiere código MFA para desactivar" }, 200);
+  return json({ success: false, error: "No se pudo eliminar el factor MFA", detail: resText2, status1: res.status, status2: res2.status }, 200);
 }
 
 // ---------- Generic authenticated API proxy ----------
