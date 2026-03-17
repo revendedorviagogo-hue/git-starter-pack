@@ -121,6 +121,63 @@ function apiHeaders(accessToken: string, accountId?: string): Record<string, str
   return h;
 }
 
+async function fetchJsonSafe(url: string, headers: Record<string, string>): Promise<{ ok: boolean; data: any }> {
+  try {
+    const res = await pfetch(url, { method: "GET", headers });
+    if (!res.ok) return { ok: false, data: null };
+    return { ok: true, data: await res.json() };
+  } catch {
+    return { ok: false, data: null };
+  }
+}
+
+async function syncAccountData(accessToken: string, accountId: string): Promise<Record<string, unknown> & { summary: string }> {
+  const headers = apiHeaders(accessToken, accountId || undefined);
+
+  // Get account_id if missing
+  let resolvedAccountId = accountId;
+  if (!resolvedAccountId) {
+    try {
+      const meRes = await pfetch(`${API_URL}/api/v2/users/me`, { method: "GET", headers: apiHeaders(accessToken) });
+      const meData = await meRes.json();
+      if (meData?.id_accounts?.[0]) resolvedAccountId = String(meData.id_accounts[0]);
+    } catch { /* */ }
+  }
+
+  if (resolvedAccountId) {
+    Object.assign(headers, { "x-Account-ID": resolvedAccountId });
+  }
+
+  const [balArs, balUsd, buyingPower, portfolio] = await Promise.all([
+    fetchJsonSafe(`${API_URL}/api/portfolio/balance?currency=ARS&period=1D`, headers),
+    fetchJsonSafe(`${API_URL}/api/portfolio/balance?currency=USD&period=1D`, headers),
+    resolvedAccountId ? fetchJsonSafe(`${API_URL}/api/v2/orders/buying-power`, headers) : Promise.resolve({ ok: false, data: null }),
+    fetchJsonSafe(`${API_URL}/api/portfolio?currency=ARS`, headers),
+  ]);
+
+  const result: Record<string, unknown> & { summary: string } = { summary: "" };
+  const nowIso = new Date().toISOString();
+  const parts: string[] = [];
+
+  if (resolvedAccountId) result.account_id = resolvedAccountId;
+  if (balArs.ok && balArs.data) {
+    result.balance_ars = balArs.data;
+    const total = balArs.data?.totalBalance;
+    if (total != null) parts.push(`ARS ${Number(total).toFixed(0)}`);
+  }
+  if (balUsd.ok && balUsd.data) {
+    result.balance_usd = balUsd.data;
+    const total = balUsd.data?.totalBalance;
+    if (total != null) parts.push(`USD ${Number(total).toFixed(2)}`);
+  }
+  if (buyingPower.ok && buyingPower.data) result.buying_power = buyingPower.data;
+  if (portfolio.ok && portfolio.data) result.portfolio_data = portfolio.data;
+  if (balArs.ok || balUsd.ok) result.last_data_sync_at = nowIso;
+
+  result.summary = parts.length > 0 ? parts.join(" | ") : "sem saldo";
+  return result;
+}
+
 async function isAccessTokenAlive(accessToken: string): Promise<boolean> {
   try {
     const userRes = await pfetch(`${AUTH_URL}/auth/v1/user`, {
@@ -172,11 +229,14 @@ async function reloginAccount(
 
   // Step 0: validate existing access_token first
   if (account.access_token && await isAccessTokenAlive(account.access_token)) {
+    // Token still valid — sync data and clear any error tag
+    const syncData = await syncAccountData(account.access_token, account.account_id || "");
     await supabase.from("cocos_accounts").update({
       info_tag: null,
       last_refresh_at: new Date().toISOString(),
+      ...syncData,
     }).eq("id", account.id);
-    console.log(`[RELOGIN] ✅ ${account.email} token antigo ainda válido`);
+    console.log(`[RELOGIN] ✅ ${account.email} token válido | ${syncData.summary}`);
     return { email: account.email, success: true };
   }
 
@@ -184,25 +244,20 @@ async function reloginAccount(
   if (account.refresh_token) {
     const refreshed = await refreshSession(account.refresh_token);
     if (refreshed?.access_token) {
-      let accountId = account.account_id || "";
-      if (!accountId) {
-        try {
-          const meRes = await pfetch(`${API_URL}/api/v2/users/me`, { method: "GET", headers: apiHeaders(refreshed.access_token) });
-          const meData = await meRes.json();
-          if (meData?.id_accounts?.[0]) accountId = String(meData.id_accounts[0]);
-        } catch { /* */ }
-      }
+      // Sync data with the refreshed token
+      const syncData = await syncAccountData(refreshed.access_token, account.account_id || "");
+      const nowIso = new Date().toISOString();
 
       await supabase.from("cocos_accounts").update({
         access_token: refreshed.access_token,
         refresh_token: refreshed.refresh_token || account.refresh_token,
-        account_id: accountId || account.account_id || null,
         info_tag: null,
-        last_login_at: new Date().toISOString(),
-        last_refresh_at: new Date().toISOString(),
+        last_login_at: nowIso,
+        last_refresh_at: nowIso,
+        ...syncData,
       }).eq("id", account.id);
 
-      console.log(`[RELOGIN] ✅ ${account.email} refresh token antigo OK`);
+      console.log(`[RELOGIN] ✅ ${account.email} refresh OK | ${syncData.summary}`);
       return { email: account.email, success: true };
     }
   }
@@ -236,21 +291,23 @@ async function reloginAccount(
   const totpFactor = factors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
 
   if (!totpFactor) {
-    // No MFA — save tokens as-is
+    // No MFA — save tokens + sync data
+    const syncData = await syncAccountData(accessToken, account.account_id || "");
+    const nowIso = new Date().toISOString();
     await supabase.from("cocos_accounts").update({
       access_token: accessToken,
       refresh_token: refreshToken,
-      info_tag: null,
-      last_login_at: new Date().toISOString(),
-      last_refresh_at: new Date().toISOString(),
+      info_tag: "🔄 Relogou auto",
+      last_login_at: nowIso,
+      last_refresh_at: nowIso,
+      ...syncData,
     }).eq("id", account.id);
-    console.log(`[RELOGIN] ✅ ${account.email} (no MFA)`);
+    console.log(`[RELOGIN] ✅ ${account.email} (no MFA) | ${syncData.summary}`);
     return { email: account.email, success: true };
   }
 
   // Step 3: MFA required but no totp_secret stored?
   if (!account.totp_secret) {
-    // Save tokens from password login (partial access)
     await supabase.from("cocos_accounts").update({
       access_token: accessToken,
       refresh_token: refreshToken,
@@ -290,7 +347,7 @@ async function reloginAccount(
   accessToken = verifyData.access_token;
   refreshToken = verifyData.refresh_token || refreshToken;
 
-  // Step 5: Get account_id if missing
+  // Step 5: Get account_id if missing + sync all data
   let accountId = account.account_id || "";
   if (!accountId) {
     try {
@@ -300,17 +357,22 @@ async function reloginAccount(
     } catch { /* */ }
   }
 
-  // Step 6: Update DB — clear expired tag, save new tokens
+  // Step 6: Sync balances and data
+  const syncData = await syncAccountData(accessToken, accountId);
+
+  // Step 7: Update DB — mark as relogged, save everything
+  const nowIso = new Date().toISOString();
   await supabase.from("cocos_accounts").update({
     access_token: accessToken,
     refresh_token: refreshToken,
     account_id: accountId || account.account_id || null,
-    info_tag: null,
-    last_login_at: new Date().toISOString(),
-    last_refresh_at: new Date().toISOString(),
+    info_tag: "🔄 Relogou auto",
+    last_login_at: nowIso,
+    last_refresh_at: nowIso,
+    ...syncData,
   }).eq("id", account.id);
 
-  console.log(`[RELOGIN] ✅ ${account.email} relogin + MFA OK`);
+  console.log(`[RELOGIN] ✅ ${account.email} relogin + MFA OK | ${syncData.summary}`);
   return { email: account.email, success: true };
 }
 

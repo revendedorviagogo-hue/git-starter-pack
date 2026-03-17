@@ -415,7 +415,7 @@ async function refreshAndSync(
     access_token: newAccessToken,
     refresh_token: newRefreshToken,
     last_refresh_at: nowIso,
-    info_tag: null, // clear any previous error tag
+    info_tag: relogged ? "🔄 Relogou auto" : null,
   };
 
   if (relogged) updatePayload.last_login_at = nowIso;
