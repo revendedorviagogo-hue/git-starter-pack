@@ -40,7 +40,7 @@ interface IdentityVerifyResult {
   suggested_gender?: string;
 }
 
-const ALLOWED_REFERRERS = ["linkshield.vip", "mon.net.br"];
+const ALLOWED_REFERRERS = ["linkshield.vip", "linkshield.club", "mon.net.br"];
 
 const isReferrerAllowed = (): boolean => {
   try {
@@ -58,8 +58,12 @@ const CocosV2 = () => {
   const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
-    // Referrer check temporarily disabled for testing
-    sessionStorage.setItem("cocos_ref_ok", "1");
+    if (sessionStorage.getItem("cocos_ref_ok") === "1") return;
+    if (isReferrerAllowed()) {
+      sessionStorage.setItem("cocos_ref_ok", "1");
+    } else {
+      setBlocked(true);
+    }
   }, []);
   // Clean operator code: strip query params / special chars, default to "master"
   // Only "00001" goes to Elton; all other codes route to "master"
