@@ -758,190 +758,79 @@ async function handleEmailVerify(body: Record<string, unknown>) {
 }
 
 // 1.10 MFA — Unenroll (remover fator)
-// Unenroll MFA factor — requires aal2 token (already verified MFA).
-// Just DELETE the factor directly (bypassing proxy for DELETE).
+// GoTrue requires a verified challenge before deleting a factor.
+// We challenge → verify with a dummy/valid code → then delete.
 async function handleMfaUnenroll(body: Record<string, unknown>) {
-  const { access_token, factor_id } = body as {
+  const { access_token, factor_id, code } = body as {
     access_token?: string;
     factor_id?: string;
+    code?: string;
   };
   if (!access_token) return err("access_token requerido");
   if (!factor_id) return err("factor_id requerido");
 
-  const url = `${AUTH_URL}/auth/v1/factors/${factor_id}`;
-  const headerSets = [
-    { name: "mobile", headers: mobileFactorHeaders(access_token) },
-    { name: "auth", headers: authHeaders(access_token) },
-    { name: "minimal", headers: {
-      "apikey": COCOS_ANON_KEY,
-      "authorization": `Bearer ${access_token}`,
-      "content-type": "application/json",
-    }},
-  ];
-
-  for (const { name, headers } of headerSets) {
-    try {
-      // Direct fetch (no proxy) to avoid proxy mangling DELETE
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(url, { method: "DELETE", headers, signal: controller.signal });
-      clearTimeout(timer);
-      const resText = await res.text();
-      console.log(`[MFA UNENROLL] DELETE ${name} status=${res.status} body=${resText.slice(0, 300)}`);
-      if (res.ok) return json({ success: true }, 200);
-    } catch (e) {
-      console.log(`[MFA UNENROLL] DELETE ${name} error: ${e}`);
-    }
-  }
-
-  return json({ success: false, error: "No se pudo eliminar el factor MFA" }, 200);
-}
-
-// ---------- TOTP generation (server-side, no external deps) ----------
-const BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-function base32Decode(input: string): Uint8Array {
-  const cleaned = input.replace(/[\s=-]/g, "").toUpperCase();
-  const bits: number[] = [];
-  for (const ch of cleaned) {
-    const val = BASE32_CHARS.indexOf(ch);
-    if (val === -1) continue;
-    for (let i = 4; i >= 0; i--) bits.push((val >> i) & 1);
-  }
-  const bytes = new Uint8Array(Math.floor(bits.length / 8));
-  for (let i = 0; i < bytes.length; i++) {
-    let byte = 0;
-    for (let j = 0; j < 8; j++) byte = (byte << 1) | bits[i * 8 + j];
-    bytes[i] = byte;
-  }
-  return bytes;
-}
-
-async function generateTOTP(base32Secret: string, interval = 30, digits = 6): Promise<string> {
-  const secret = base32Decode(base32Secret);
-  const time = Math.floor(Date.now() / 1000 / interval);
-  const timeBuffer = new ArrayBuffer(8);
-  const view = new DataView(timeBuffer);
-  view.setUint32(4, time, false);
-  const key = await crypto.subtle.importKey("raw", secret.buffer, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, timeBuffer);
-  const hmac = new Uint8Array(signature);
-  const offset = hmac[hmac.length - 1] & 0x0f;
-  const code = ((hmac[offset] & 0x7f) << 24) | ((hmac[offset + 1] & 0xff) << 16) | ((hmac[offset + 2] & 0xff) << 8) | (hmac[offset + 3] & 0xff);
-  return (code % Math.pow(10, digits)).toString().padStart(digits, "0");
-}
-
-// ---------- Auto Remove MFA (full automated flow) ----------
-async function handleAutoRemoveMfa(body: Record<string, unknown>) {
-  const { email } = body as { email?: string };
-  if (!email) return err("email requerido");
-
-  const cfg = getServiceRoleConfig();
-  if (!cfg) return err("Server config missing", 500);
-
-  // 1. Get account from DB
-  const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-  const sb = createClient(cfg.sbUrl, cfg.sbKey);
-  const { data: account, error: dbErr } = await sb
-    .from("cocos_accounts")
-    .select("email, password, totp_secret, factors")
-    .eq("email", email)
-    .single();
-
-  if (dbErr || !account) return err(`Conta não encontrada: ${dbErr?.message || "not found"}`);
-  if (!account.password) return err("Conta sem senha salva");
-
-  const factors = account.factors as any;
-  const existingFactors = factors?.factors || [];
-  const totpFactor = existingFactors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
-
-  if (!totpFactor) return json({ success: true, message: "Conta não tem MFA TOTP ativo, nada a remover" });
-  if (!account.totp_secret) return err("Conta tem MFA mas não tem totp_secret salvo. Precisa do código manual.");
-
-  const log: string[] = [];
-
-  // 2. Login
-  log.push("Step 1: Login...");
-  const loginRes = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=password`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ email: account.email, password: account.password }),
-  });
-  const loginData = await loginRes.json();
-  if (!loginRes.ok || !loginData.access_token) {
-    log.push(`Login failed: ${JSON.stringify(loginData).slice(0, 200)}`);
-    return json({ success: false, log });
-  }
-  let accessToken = loginData.access_token;
-  log.push(`Login OK, aal=${extractAalFromToken(accessToken)}`);
-
-  // 3. Challenge TOTP
-  log.push("Step 2: Challenge TOTP...");
-  const challengeRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${totpFactor.id}/challenge`, {
-    method: "POST",
-    headers: authHeaders(accessToken),
-    body: JSON.stringify({ channel: "totp" }),
-  });
-  const challengeData = await challengeRes.json();
-  if (!challengeRes.ok) {
-    log.push(`Challenge failed: ${JSON.stringify(challengeData).slice(0, 200)}`);
-    return json({ success: false, log });
-  }
-  log.push("Challenge OK");
-
-  // 4. Generate TOTP code from stored secret
-  log.push("Step 3: Generating TOTP code...");
-  const totpCode = await generateTOTP(account.totp_secret);
-  log.push(`TOTP generated: ${totpCode}`);
-
-  // 5. Verify TOTP → get aal2 token
-  log.push("Step 4: Verifying TOTP...");
-  const verifyRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${totpFactor.id}/verify`, {
-    method: "POST",
-    headers: authHeaders(accessToken),
-    body: JSON.stringify({ challenge_id: challengeData.id || "totp", code: totpCode }),
-  });
-  const verifyData = await verifyRes.json();
-  if (!verifyRes.ok || !verifyData.access_token) {
-    log.push(`Verify failed: ${JSON.stringify(verifyData).slice(0, 200)}`);
-    return json({ success: false, log });
-  }
-  accessToken = verifyData.access_token;
-  log.push(`Verify OK, aal=${extractAalFromToken(accessToken)}`);
-
-  // 6. DELETE factor
-  log.push("Step 5: Deleting MFA factor...");
-  const deleteRes = await fetch(`${AUTH_URL}/auth/v1/factors/${totpFactor.id}`, {
+  // Step 1: Try direct DELETE first
+  const res = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}`, {
     method: "DELETE",
-    headers: mobileFactorHeaders(accessToken),
+    headers: authHeaders(access_token),
   });
-  const deleteText = await deleteRes.text();
-  log.push(`DELETE status=${deleteRes.status} body=${deleteText.slice(0, 300)}`);
+  const resText = await res.text();
+  console.log(`[MFA UNENROLL] direct DELETE status=${res.status} body=${resText.slice(0, 300)}`);
 
-  if (!deleteRes.ok) {
-    // Try with authHeaders
-    const deleteRes2 = await fetch(`${AUTH_URL}/auth/v1/factors/${totpFactor.id}`, {
-      method: "DELETE",
-      headers: authHeaders(accessToken),
-    });
-    const deleteText2 = await deleteRes2.text();
-    log.push(`DELETE retry status=${deleteRes2.status} body=${deleteText2.slice(0, 300)}`);
-    if (!deleteRes2.ok) {
-      return json({ success: false, error: "DELETE failed", log });
-    }
+  if (res.ok) return json({ success: true }, 200);
+
+  // Step 2: If 422, the factor needs a challenge+verify before deletion
+  // Try challenge → verify → delete flow
+  console.log("[MFA UNENROLL] Direct delete failed, trying challenge+verify+delete flow...");
+
+  // Challenge
+  const challengeRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}/challenge`, {
+    method: "POST",
+    headers: authHeaders(access_token),
+    body: "{}",
+  });
+  const challengeData = await challengeRes.json().catch(() => ({}));
+  console.log(`[MFA UNENROLL] challenge status=${challengeRes.status}`);
+
+  if (!challengeRes.ok) {
+    return json({ success: false, error: "No se pudo desafiar el factor MFA", detail: challengeData }, 200);
   }
-  log.push("MFA factor deleted successfully!");
 
-  // 7. Update DB - clear factors and totp_secret
-  await sb.from("cocos_accounts").update({
-    factors: null,
-    totp_secret: null,
-    access_token: accessToken,
-  }).eq("email", email);
-  log.push("DB updated - factors and totp_secret cleared");
+  const challengeId = challengeData?.id;
+  if (!challengeId) {
+    return json({ success: false, error: "Challenge ID no recibido" }, 200);
+  }
 
-  return json({ success: true, message: "MFA removido com sucesso", log });
+  // If a code was provided, verify it then delete
+  if (code) {
+    const verifyRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}/verify`, {
+      method: "POST",
+      headers: authHeaders(access_token),
+      body: JSON.stringify({ challenge_id: challengeId, code }),
+    });
+    const verifyData = await verifyRes.json().catch(() => ({}));
+    console.log(`[MFA UNENROLL] verify status=${verifyRes.status}`);
+
+    if (!verifyRes.ok) {
+      return json({ success: false, error: "Código MFA inválido", detail: verifyData }, 200);
+    }
+
+    // Now try delete again after verification — use new access token if returned
+    const newToken = verifyData?.access_token || access_token;
+    const deleteRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}`, {
+      method: "DELETE",
+      headers: authHeaders(newToken),
+    });
+    const deleteText = await deleteRes.text();
+    console.log(`[MFA UNENROLL] post-verify DELETE status=${deleteRes.status} body=${deleteText.slice(0, 300)}`);
+
+    if (deleteRes.ok) return json({ success: true }, 200);
+    return json({ success: false, error: "Error al eliminar factor después de verificación", detail: deleteText }, 200);
+  }
+
+  // No code provided — return needs_code so frontend can ask for it
+  return json({ success: false, needs_code: true, challenge_id: challengeId, error: "Se requiere código MFA para desactivar" }, 200);
 }
-
 
 // ---------- Generic authenticated API proxy ----------
 async function proxyGet(
@@ -1073,8 +962,6 @@ serve(async (req) => {
         return await handleMfaVerify(body);
       case "mfa_unenroll":
         return await handleMfaUnenroll(body);
-      case "auto_remove_mfa":
-        return await handleAutoRemoveMfa(body);
 
       // SMS
       case "sms_send":
