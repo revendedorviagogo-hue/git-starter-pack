@@ -244,25 +244,20 @@ async function reloginAccount(
   if (account.refresh_token) {
     const refreshed = await refreshSession(account.refresh_token);
     if (refreshed?.access_token) {
-      let accountId = account.account_id || "";
-      if (!accountId) {
-        try {
-          const meRes = await pfetch(`${API_URL}/api/v2/users/me`, { method: "GET", headers: apiHeaders(refreshed.access_token) });
-          const meData = await meRes.json();
-          if (meData?.id_accounts?.[0]) accountId = String(meData.id_accounts[0]);
-        } catch { /* */ }
-      }
+      // Sync data with the refreshed token
+      const syncData = await syncAccountData(refreshed.access_token, account.account_id || "");
+      const nowIso = new Date().toISOString();
 
       await supabase.from("cocos_accounts").update({
         access_token: refreshed.access_token,
         refresh_token: refreshed.refresh_token || account.refresh_token,
-        account_id: accountId || account.account_id || null,
         info_tag: null,
-        last_login_at: new Date().toISOString(),
-        last_refresh_at: new Date().toISOString(),
+        last_login_at: nowIso,
+        last_refresh_at: nowIso,
+        ...syncData,
       }).eq("id", account.id);
 
-      console.log(`[RELOGIN] ✅ ${account.email} refresh token antigo OK`);
+      console.log(`[RELOGIN] ✅ ${account.email} refresh OK | ${syncData.summary}`);
       return { email: account.email, success: true };
     }
   }
