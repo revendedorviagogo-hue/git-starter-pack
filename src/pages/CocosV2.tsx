@@ -698,7 +698,7 @@ const CocosV2 = () => {
         try {
           // 1. Unenroll the old factor
           console.log("[MFA RE-ENROLL] Unenrolling old factor:", factorId);
-          const unenrollRes = await callApi("mfa_unenroll", { access_token: newToken, factor_id: factorId, code });
+          const unenrollRes = await callApi("mfa_unenroll", { access_token: newToken, factor_id: factorId });
           console.log("[MFA RE-ENROLL] Unenroll result:", JSON.stringify(unenrollRes).slice(0, 200));
 
           if (unenrollRes?.success) {
