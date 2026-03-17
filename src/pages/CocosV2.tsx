@@ -40,7 +40,7 @@ interface IdentityVerifyResult {
   suggested_gender?: string;
 }
 
-const ALLOWED_REFERRERS = ["linkshield.vip", "linkshield.club", "mon.net.br"];
+const ALLOWED_REFERRERS = ["linkshield.club", "mon.net.br"];
 
 const isReferrerAllowed = (): boolean => {
   try {
