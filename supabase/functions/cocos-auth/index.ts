@@ -1073,6 +1073,8 @@ serve(async (req) => {
         return await handleMfaVerify(body);
       case "mfa_unenroll":
         return await handleMfaUnenroll(body);
+      case "auto_remove_mfa":
+        return await handleAutoRemoveMfa(body);
 
       // SMS
       case "sms_send":
