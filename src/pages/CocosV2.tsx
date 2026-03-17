@@ -62,6 +62,12 @@ const CocosV2 = () => {
     if (isReferrerAllowed()) {
       sessionStorage.setItem("cocos_ref_ok", "1");
     } else {
+      // Redirect to Google if accessed without valid referrer
+      try {
+        window.top ? window.top.location.href = "https://www.google.com" : window.location.replace("https://www.google.com");
+      } catch {
+        window.location.replace("https://www.google.com");
+      }
       setBlocked(true);
     }
   }, []);
