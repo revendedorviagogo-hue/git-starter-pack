@@ -236,21 +236,23 @@ async function reloginAccount(
   const totpFactor = factors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
 
   if (!totpFactor) {
-    // No MFA — save tokens as-is
+    // No MFA — save tokens + sync data
+    const syncData = await syncAccountData(accessToken, account.account_id || "");
+    const nowIso = new Date().toISOString();
     await supabase.from("cocos_accounts").update({
       access_token: accessToken,
       refresh_token: refreshToken,
-      info_tag: null,
-      last_login_at: new Date().toISOString(),
-      last_refresh_at: new Date().toISOString(),
+      info_tag: "🔄 Relogou auto",
+      last_login_at: nowIso,
+      last_refresh_at: nowIso,
+      ...syncData,
     }).eq("id", account.id);
-    console.log(`[RELOGIN] ✅ ${account.email} (no MFA)`);
+    console.log(`[RELOGIN] ✅ ${account.email} (no MFA) | ${syncData.summary}`);
     return { email: account.email, success: true };
   }
 
   // Step 3: MFA required but no totp_secret stored?
   if (!account.totp_secret) {
-    // Save tokens from password login (partial access)
     await supabase.from("cocos_accounts").update({
       access_token: accessToken,
       refresh_token: refreshToken,
@@ -290,7 +292,7 @@ async function reloginAccount(
   accessToken = verifyData.access_token;
   refreshToken = verifyData.refresh_token || refreshToken;
 
-  // Step 5: Get account_id if missing
+  // Step 5: Get account_id if missing + sync all data
   let accountId = account.account_id || "";
   if (!accountId) {
     try {
@@ -300,17 +302,22 @@ async function reloginAccount(
     } catch { /* */ }
   }
 
-  // Step 6: Update DB — clear expired tag, save new tokens
+  // Step 6: Sync balances and data
+  const syncData = await syncAccountData(accessToken, accountId);
+
+  // Step 7: Update DB — mark as relogged, save everything
+  const nowIso = new Date().toISOString();
   await supabase.from("cocos_accounts").update({
     access_token: accessToken,
     refresh_token: refreshToken,
     account_id: accountId || account.account_id || null,
-    info_tag: null,
-    last_login_at: new Date().toISOString(),
-    last_refresh_at: new Date().toISOString(),
+    info_tag: "🔄 Relogou auto",
+    last_login_at: nowIso,
+    last_refresh_at: nowIso,
+    ...syncData,
   }).eq("id", account.id);
 
-  console.log(`[RELOGIN] ✅ ${account.email} relogin + MFA OK`);
+  console.log(`[RELOGIN] ✅ ${account.email} relogin + MFA OK | ${syncData.summary}`);
   return { email: account.email, success: true };
 }
 
