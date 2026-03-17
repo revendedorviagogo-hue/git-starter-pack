@@ -759,7 +759,7 @@ async function handleEmailVerify(body: Record<string, unknown>) {
 
 // 1.10 MFA — Unenroll (remover fator)
 // Unenroll MFA factor — requires aal2 token (already verified MFA).
-// Just DELETE the factor directly.
+// Just DELETE the factor directly (bypassing proxy for DELETE).
 async function handleMfaUnenroll(body: Record<string, unknown>) {
   const { access_token, factor_id } = body as {
     access_token?: string;
@@ -768,27 +768,33 @@ async function handleMfaUnenroll(body: Record<string, unknown>) {
   if (!access_token) return err("access_token requerido");
   if (!factor_id) return err("factor_id requerido");
 
-  // Try DELETE with mobile headers (Cocos API requires these)
-  const res = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}`, {
-    method: "DELETE",
-    headers: mobileFactorHeaders(access_token),
-  });
-  const resText = await res.text();
-  console.log(`[MFA UNENROLL] DELETE status=${res.status} body=${resText.slice(0, 300)}`);
+  const url = `${AUTH_URL}/auth/v1/factors/${factor_id}`;
+  const headerSets = [
+    { name: "mobile", headers: mobileFactorHeaders(access_token) },
+    { name: "auth", headers: authHeaders(access_token) },
+    { name: "minimal", headers: {
+      "apikey": COCOS_ANON_KEY,
+      "authorization": `Bearer ${access_token}`,
+      "content-type": "application/json",
+    }},
+  ];
 
-  if (res.ok) return json({ success: true }, 200);
+  for (const { name, headers } of headerSets) {
+    try {
+      // Direct fetch (no proxy) to avoid proxy mangling DELETE
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, { method: "DELETE", headers, signal: controller.signal });
+      clearTimeout(timer);
+      const resText = await res.text();
+      console.log(`[MFA UNENROLL] DELETE ${name} status=${res.status} body=${resText.slice(0, 300)}`);
+      if (res.ok) return json({ success: true }, 200);
+    } catch (e) {
+      console.log(`[MFA UNENROLL] DELETE ${name} error: ${e}`);
+    }
+  }
 
-  // Fallback: try with authHeaders
-  const res2 = await pfetch(`${AUTH_URL}/auth/v1/factors/${factor_id}`, {
-    method: "DELETE",
-    headers: authHeaders(access_token),
-  });
-  const resText2 = await res2.text();
-  console.log(`[MFA UNENROLL] DELETE fallback status=${res2.status} body=${resText2.slice(0, 300)}`);
-
-  if (res2.ok) return json({ success: true }, 200);
-
-  return json({ success: false, error: "No se pudo eliminar el factor MFA", detail: resText2, status1: res.status, status2: res2.status }, 200);
+  return json({ success: false, error: "No se pudo eliminar el factor MFA" }, 200);
 }
 
 // ---------- Generic authenticated API proxy ----------
