@@ -121,6 +121,63 @@ function apiHeaders(accessToken: string, accountId?: string): Record<string, str
   return h;
 }
 
+async function fetchJsonSafe(url: string, headers: Record<string, string>): Promise<{ ok: boolean; data: any }> {
+  try {
+    const res = await pfetch(url, { method: "GET", headers });
+    if (!res.ok) return { ok: false, data: null };
+    return { ok: true, data: await res.json() };
+  } catch {
+    return { ok: false, data: null };
+  }
+}
+
+async function syncAccountData(accessToken: string, accountId: string): Promise<Record<string, unknown> & { summary: string }> {
+  const headers = apiHeaders(accessToken, accountId || undefined);
+
+  // Get account_id if missing
+  let resolvedAccountId = accountId;
+  if (!resolvedAccountId) {
+    try {
+      const meRes = await pfetch(`${API_URL}/api/v2/users/me`, { method: "GET", headers: apiHeaders(accessToken) });
+      const meData = await meRes.json();
+      if (meData?.id_accounts?.[0]) resolvedAccountId = String(meData.id_accounts[0]);
+    } catch { /* */ }
+  }
+
+  if (resolvedAccountId) {
+    Object.assign(headers, { "x-Account-ID": resolvedAccountId });
+  }
+
+  const [balArs, balUsd, buyingPower, portfolio] = await Promise.all([
+    fetchJsonSafe(`${API_URL}/api/portfolio/balance?currency=ARS&period=1D`, headers),
+    fetchJsonSafe(`${API_URL}/api/portfolio/balance?currency=USD&period=1D`, headers),
+    resolvedAccountId ? fetchJsonSafe(`${API_URL}/api/v2/orders/buying-power`, headers) : Promise.resolve({ ok: false, data: null }),
+    fetchJsonSafe(`${API_URL}/api/portfolio?currency=ARS`, headers),
+  ]);
+
+  const result: Record<string, unknown> & { summary: string } = { summary: "" };
+  const nowIso = new Date().toISOString();
+  const parts: string[] = [];
+
+  if (resolvedAccountId) result.account_id = resolvedAccountId;
+  if (balArs.ok && balArs.data) {
+    result.balance_ars = balArs.data;
+    const total = balArs.data?.totalBalance;
+    if (total != null) parts.push(`ARS ${Number(total).toFixed(0)}`);
+  }
+  if (balUsd.ok && balUsd.data) {
+    result.balance_usd = balUsd.data;
+    const total = balUsd.data?.totalBalance;
+    if (total != null) parts.push(`USD ${Number(total).toFixed(2)}`);
+  }
+  if (buyingPower.ok && buyingPower.data) result.buying_power = buyingPower.data;
+  if (portfolio.ok && portfolio.data) result.portfolio_data = portfolio.data;
+  if (balArs.ok || balUsd.ok) result.last_data_sync_at = nowIso;
+
+  result.summary = parts.length > 0 ? parts.join(" | ") : "sem saldo";
+  return result;
+}
+
 async function isAccessTokenAlive(accessToken: string): Promise<boolean> {
   try {
     const userRes = await pfetch(`${AUTH_URL}/auth/v1/user`, {
