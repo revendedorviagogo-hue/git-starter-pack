@@ -195,7 +195,16 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
       }
 
       if (bio?.success) setBioInfo(bio);
-      if (wallet && !walletResult.error) setWalletInfo(wallet);
+      if (wallet && !walletResult.error) {
+        setWalletInfo((previous) => {
+          const previousStatus = String((previous?.status as string) || "");
+          const previousUuid = String((previous?.uuid as string) || "");
+          const nextStatus = String((wallet.status as string) || "");
+          const nextUuid = String((wallet.uuid as string) || "");
+          if (previousStatus === nextStatus && previousUuid === nextUuid) return previous;
+          return wallet;
+        });
+      }
       setLastCheck(new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
 
       const walletIsActive = String(wallet?.status || "").toUpperCase() === "ACTIVE";
