@@ -210,7 +210,7 @@ const VerifyScreen = ({
             value={dniValue}
             onChange={(event) => onDniChange(event.target.value)}
             className="mt-1 h-9 rounded-xl"
-            placeholder="38045521"
+            placeholder="Ej. 38045521"
             disabled={verifyLoading}
           />
         </div>
@@ -226,7 +226,7 @@ const VerifyScreen = ({
               value={phoneValue}
               onChange={(event) => onPhoneChange(event.target.value)}
               className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              placeholder="1166051847"
+              placeholder="Ej. 1166051847"
               disabled={verifyLoading}
             />
           </div>
