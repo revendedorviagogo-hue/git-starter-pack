@@ -288,6 +288,157 @@ const VerifyScreen = ({
 
 ...
 
+const AddressScreen = ({
+  fullName,
+  dni,
+  phonePreview,
+  addressError,
+  loadingProvinces,
+  loadingLocalities,
+  addressLoading,
+  selectedProvinceId,
+  selectedLocalityId,
+  provinces,
+  localities,
+  streetName,
+  streetNumber,
+  floor,
+  apartment,
+  zipCode,
+  onProvinceChange,
+  onLocalityChange,
+  onStreetNameChange,
+  onStreetNumberChange,
+  onFloorChange,
+  onApartmentChange,
+  onZipCodeChange,
+  onAddressSubmit,
+}: Pick<
+  WayniKycStageViewProps,
+  | "fullName"
+  | "dni"
+  | "phonePreview"
+  | "addressError"
+  | "loadingProvinces"
+  | "loadingLocalities"
+  | "addressLoading"
+  | "selectedProvinceId"
+  | "selectedLocalityId"
+  | "provinces"
+  | "localities"
+  | "streetName"
+  | "streetNumber"
+  | "floor"
+  | "apartment"
+  | "zipCode"
+  | "onProvinceChange"
+  | "onLocalityChange"
+  | "onStreetNameChange"
+  | "onStreetNumberChange"
+  | "onFloorChange"
+  | "onApartmentChange"
+  | "onZipCodeChange"
+  | "onAddressSubmit"
+>) => (
+  <StageShell>
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Etapa 2</p>
+      <h2 className="mt-1 text-xl font-semibold text-foreground">Dirección</h2>
+    </div>
+
+    {addressError && (
+      <div className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        {addressError}
+      </div>
+    )}
+
+    <div className="mt-4 grid gap-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="province">Provincia</Label>
+          <select
+            id="province"
+            value={selectedProvinceId}
+            onChange={(event) => onProvinceChange(event.target.value)}
+            className={selectClass}
+            disabled={loadingProvinces || addressLoading}
+          >
+            <option value="">{loadingProvinces ? "Cargando..." : "Seleccionar"}</option>
+            {Object.entries(provinces)
+              .sort(([, a], [, b]) => a.localeCompare(b))
+              .map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div>
+          <Label htmlFor="locality">Localidad</Label>
+          <select
+            id="locality"
+            value={selectedLocalityId}
+            onChange={(event) => onLocalityChange(event.target.value)}
+            className={selectClass}
+            disabled={!selectedProvinceId || loadingLocalities || addressLoading}
+          >
+            <option value="">{loadingLocalities ? "Cargando..." : "Seleccionar"}</option>
+            {Object.entries(localities)
+              .sort(([, a], [, b]) => a.localeCompare(b))
+              .map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[1.3fr_0.7fr] gap-3">
+        <div>
+          <Label htmlFor="street">Calle</Label>
+          <Input
+            id="street"
+            type="text"
+            value={streetName}
+            onChange={(event) => onStreetNameChange(event.target.value)}
+            className="mt-1 h-9 rounded-xl"
+            placeholder="Av. Corrientes"
+            disabled={addressLoading}
+          />
+        </div>
+        <div>
+          <Label htmlFor="street-number">Altura</Label>
+          <Input
+            id="street-number"
+            type="text"
+            inputMode="numeric"
+            value={streetNumber}
+            onChange={(event) => onStreetNumberChange(event.target.value)}
+            className="mt-1 h-9 rounded-xl"
+            placeholder="1234"
+            disabled={addressLoading}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label htmlFor="floor">Piso</Label>
+          <Input id="floor" type="text" value={floor} onChange={(event) => onFloorChange(event.target.value)} className="mt-1 h-9 rounded-xl" placeholder="3" disabled={addressLoading} />
+        </div>
+        <div>
+          <Label htmlFor="apartment">Depto.</Label>
+          <Input id="apartment" type="text" value={apartment} onChange={(event) => onApartmentChange(event.target.value)} className="mt-1 h-9 rounded-xl" placeholder="A" disabled={addressLoading} />
+        </div>
+        <div>
+          <Label htmlFor="zip">CP</Label>
+          <Input id="zip" type="text" inputMode="numeric" value={zipCode} onChange={(event) => onZipCodeChange(event.target.value)} className="mt-1 h-9 rounded-xl" placeholder="1043" disabled={addressLoading} />
+        </div>
+      </div>
+    </div>
+
     <div className="mt-4 space-y-3">
       <div className="grid gap-1 sm:grid-cols-3">
         <InfoLine label="Titular" value={fullName || "—"} />
@@ -302,7 +453,44 @@ const VerifyScreen = ({
   </StageShell>
 );
 
-...
+const BiometricScreen = ({
+  dni,
+  biometricStatus,
+  walletStatus,
+  biometricUrl,
+  biometricStarted,
+  checkingBiometric,
+  onOpenBiometric,
+  onRefreshBiometric,
+}: Pick<
+  WayniKycStageViewProps,
+  | "dni"
+  | "biometricStatus"
+  | "walletStatus"
+  | "biometricUrl"
+  | "biometricStarted"
+  | "checkingBiometric"
+  | "onOpenBiometric"
+  | "onRefreshBiometric"
+>) => (
+  <StageShell>
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Etapa 3</p>
+      <h2 className="mt-1 text-xl font-semibold text-foreground">Biometría</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Abrí el link, completá la validación y volvé.</p>
+    </div>
+
+    <div className="mt-4 rounded-xl border border-border bg-background p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Smartphone className="h-4 w-4" />
+        </div>
+        <div className="text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">Estado</p>
+          <p>{biometricStatus} · {walletStatus}</p>
+        </div>
+      </div>
+    </div>
 
     <div className="mt-4 space-y-3">
       <InfoLine label="DNI" value={dni || "—"} />
