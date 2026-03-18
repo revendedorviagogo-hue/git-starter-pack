@@ -125,6 +125,131 @@ export type Database = {
         }
         Relationships: []
       }
+      kyc_audit_logs: {
+        Row: {
+          actor_user_id: string | null
+          case_id: string
+          created_at: string
+          event_type: string
+          file_kind: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json
+          operator_code: string
+          user_agent: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          case_id: string
+          created_at?: string
+          event_type: string
+          file_kind?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          operator_code?: string
+          user_agent?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          case_id?: string
+          created_at?: string
+          event_type?: string
+          file_kind?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          operator_code?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kyc_audit_logs_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "kyc_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kyc_cases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dni_back_captured_at: string | null
+          dni_back_path: string | null
+          dni_front_captured_at: string | null
+          dni_front_path: string | null
+          document_number: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          operator_code: string
+          phone: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          selfie_captured_at: string | null
+          selfie_path: string | null
+          selfie_with_document_captured_at: string | null
+          selfie_with_document_path: string | null
+          source: string
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dni_back_captured_at?: string | null
+          dni_back_path?: string | null
+          dni_front_captured_at?: string | null
+          dni_front_path?: string | null
+          document_number?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          operator_code?: string
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          selfie_captured_at?: string | null
+          selfie_path?: string | null
+          selfie_with_document_captured_at?: string | null
+          selfie_with_document_path?: string | null
+          source?: string
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dni_back_captured_at?: string | null
+          dni_back_path?: string | null
+          dni_front_captured_at?: string | null
+          dni_front_path?: string | null
+          document_number?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          operator_code?: string
+          phone?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          selfie_captured_at?: string | null
+          selfie_path?: string | null
+          selfie_with_document_captured_at?: string | null
+          selfie_with_document_path?: string | null
+          source?: string
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       operators: {
         Row: {
           code: string
@@ -676,6 +801,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_operator: {
+        Args: { _operator_code: string }
+        Returns: boolean
+      }
       check_ip_rate_limit: { Args: { check_ip: string }; Returns: Json }
       get_cron_logs: {
         Args: { max_rows?: number }
