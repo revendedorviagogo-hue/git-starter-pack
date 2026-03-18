@@ -107,10 +107,10 @@ const KycUpload = () => {
       document_number: record.document_number || "",
     });
     setFileState({
-      dni_front: { uploadedAt: record.dni_front_captured_at, path: record.dni_front_path },
-      dni_back: { uploadedAt: record.dni_back_captured_at, path: record.dni_back_path },
-      selfie: { uploadedAt: record.selfie_captured_at, path: record.selfie_path },
-      selfie_with_document: { uploadedAt: record.selfie_with_document_captured_at, path: record.selfie_with_document_path },
+      dni_front: { uploading: false, uploadedAt: record.dni_front_captured_at, path: record.dni_front_path },
+      dni_back: { uploading: false, uploadedAt: record.dni_back_captured_at, path: record.dni_back_path },
+      selfie: { uploading: false, uploadedAt: record.selfie_captured_at, path: record.selfie_path },
+      selfie_with_document: { uploading: false, uploadedAt: record.selfie_with_document_captured_at, path: record.selfie_with_document_path },
     });
     setLoading(false);
   }, [caseId]);
