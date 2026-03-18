@@ -113,12 +113,17 @@ const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
     void backfillOnboarding().then(() => loadData());
 
     const scheduleReload = () => {
+      const now = Date.now();
+      const elapsed = now - lastReloadAtRef.current;
+      const waitMs = elapsed >= 1500 ? 300 : 1500 - elapsed;
+
       if (reloadTimeoutRef.current) {
         window.clearTimeout(reloadTimeoutRef.current);
       }
       reloadTimeoutRef.current = window.setTimeout(() => {
+        lastReloadAtRef.current = Date.now();
         void loadData();
-      }, 350);
+      }, waitMs);
     };
 
     const sessionsChannel = supabase
