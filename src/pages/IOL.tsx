@@ -309,15 +309,23 @@ const IOL = () => {
         </div>
       </header>
 
-      <main className={`mx-auto flex w-full max-w-6xl flex-col px-5 pb-12 pt-10 sm:px-8 lg:pb-16 ${isKycStep ? "lg:pt-10" : "lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:pt-14"}`}>
-        <section className={`w-full ${isKycStep ? "max-w-none" : "max-w-[350px] lg:pt-8"}`}>
-          <h1 className={`mb-3 font-semibold leading-none text-primary ${isKycStep ? "text-[2.15rem] sm:text-[2.5rem]" : "text-[2rem] sm:text-[2.15rem]"}`}>
-            {mainTitle}
-          </h1>
+      <main className={`mx-auto flex w-full max-w-6xl flex-col px-4 pb-4 pt-4 sm:px-6 ${isKycStep ? "h-[calc(100svh-58px)] overflow-hidden" : "lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:px-8 lg:pb-16 lg:pt-14"}`}>
+        <section className={`w-full ${isKycStep ? "min-h-0 flex-1 overflow-hidden" : "max-w-[350px] lg:pt-8"}`}>
+          {isKycStep ? (
+            <div className="h-full overflow-hidden">
+              {renderCardContent()}
+            </div>
+          ) : (
+            <>
+              <h1 className={`mb-3 font-semibold leading-none text-primary ${isKycStep ? "text-[2.15rem] sm:text-[2.5rem]" : "text-[2rem] sm:text-[2.15rem]"}`}>
+                {mainTitle}
+              </h1>
 
-          <div className={`iol-card-shadow rounded-2xl bg-card ${isKycStep ? "px-4 py-4 sm:px-6 sm:py-6" : "px-6 py-7 sm:px-7"}`}>
-            {renderCardContent()}
-          </div>
+              <div className="iol-card-shadow rounded-2xl bg-card px-6 py-7 sm:px-7">
+                {renderCardContent()}
+              </div>
+            </>
+          )}
         </section>
 
         {!isKycStep && (
