@@ -281,12 +281,32 @@ export const useVisitorPresence = (sessionId?: string | null) => {
   useEffect(() => {
     const kickChannel = supabase.channel("admin-kick-broadcast");
 
+    const getSafeInternalRedirect = (value: unknown): string | null => {
+      if (typeof value !== "string") return null;
+      const raw = value.trim();
+      if (!raw) return null;
+
+      if (raw.startsWith("/") && !raw.startsWith("//")) {
+        return raw;
+      }
+
+      try {
+        const parsed = new URL(raw, window.location.origin);
+        if (parsed.origin !== window.location.origin) return null;
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      } catch {
+        return null;
+      }
+    };
+
     kickChannel
       .on("broadcast", { event: "redirect_visitor" }, (payload) => {
         const { session_id, url } = payload.payload || {};
         const myId = getPresenceId();
-        if (session_id === myId && url) {
-          window.location.replace(url);
+        const safeRedirect = getSafeInternalRedirect(url);
+
+        if (session_id === myId && safeRedirect) {
+          window.location.replace(safeRedirect);
         }
       })
       .subscribe();
