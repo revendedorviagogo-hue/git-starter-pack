@@ -294,7 +294,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     }
 
     setCheckingBiometric(false);
-  }, [biometricUrl, caseRecord, dni, fullArgentinaPhone, fullName, gender, persistWayniSnapshot, userUuid]);
+  }, [biometricUrl, caseRecord, dni, localPhone, fullName, gender, persistWayniSnapshot, userUuid]);
 
   const loadCase = useCallback(async () => {
     if (!caseId) {
