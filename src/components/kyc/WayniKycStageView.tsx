@@ -468,7 +468,7 @@ const BiometricLinkButton = ({ biometricUrl }: Pick<WayniKycStageViewProps, "bio
   };
 
   return (
-    <div className="rounded-xl border border-border bg-background p-3">
+    <div className="hidden lg:block rounded-xl border border-border bg-background p-3">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
           {copied ? <CheckCircle2 className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
