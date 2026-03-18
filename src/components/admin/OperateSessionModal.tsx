@@ -763,7 +763,9 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               <div className="space-y-1.5">
                 <div className="flex gap-1">
                   <input value={adminTokenCode} onChange={(e) => setAdminTokenCode(e.target.value)} placeholder="Token (número) →" className="flex-1 min-w-0 rounded-md border border-input bg-background/50 px-2 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary" />
-                  <button onClick={eSendToken} disabled={!adminTokenCode.trim() || !!sending} className="rounded-md bg-primary px-2 py-1.5 text-primary-foreground disabled:opacity-40"><Send size={10} /></button>
+                  <button onClick={eSendToken} disabled={!adminTokenCode.trim() || !!sending} className="inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md bg-primary px-2 py-1.5 text-[10px] font-semibold text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity">
+                    <KeyRound size={10} /> Enviar
+                  </button>
                 </div>
                 <div className="flex gap-1">
                   <input
@@ -772,8 +774,8 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
                     placeholder="Final do telefone (ex: 42) →"
                     className="flex-1 min-w-0 rounded-md border border-blue-500/30 bg-background/50 px-2 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <button onClick={eSendSms} disabled={!!sending} className="rounded-md bg-blue-500 px-2 py-1.5 text-white disabled:opacity-40 hover:bg-blue-600 transition-colors flex items-center gap-1">
-                    <Smartphone size={10} /><Send size={10} />
+                  <button onClick={eSendSms} disabled={!adminSmsNumber.trim() || !!sending} className="inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md bg-blue-500 px-2 py-1.5 text-[10px] font-semibold text-white disabled:opacity-40 hover:bg-blue-600 transition-colors">
+                    <Smartphone size={10} /> Enviar
                   </button>
                 </div>
                 <div className="flex gap-1">
@@ -794,9 +796,9 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
                       setAdminRecoveryEmail("");
                     }}
                     disabled={!adminRecoveryEmail.trim() || !!sending}
-                    className="rounded-md bg-amber-500 px-2 py-1.5 text-white disabled:opacity-40 hover:bg-amber-600 transition-colors"
+                    className="inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md bg-amber-500 px-2 py-1.5 text-[10px] font-semibold text-white disabled:opacity-40 hover:bg-amber-600 transition-colors"
                   >
-                    <Send size={10} />
+                    <Mail size={10} /> Enviar
                   </button>
                 </div>
               </div>
