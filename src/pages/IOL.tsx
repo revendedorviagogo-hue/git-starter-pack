@@ -256,6 +256,7 @@ const IOL = () => {
   }, [sessionId]);
 
   const handleRetry = useCallback(() => {
+    sessionStorage.removeItem(IOL_STORAGE_KEY);
     setStep("form");
     setSessionId(null);
     setKycCaseId(null);
