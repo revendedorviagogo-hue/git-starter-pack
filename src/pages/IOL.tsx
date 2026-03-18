@@ -235,6 +235,12 @@ const IOL = () => {
     setGeneralError("");
   }, []);
 
+  const handleGoToConfirmEmail = useCallback(() => {
+    setErrorMessage("");
+    setGeneralError("");
+    setStep("confirm_email");
+  }, []);
+
   const isKycStep = step === "kyc" && Boolean(kycCaseId);
   const isPostLoginFlow = !isKycStep && step !== "form";
   const useCompactMobileLayout = isMobile && step === "form";
