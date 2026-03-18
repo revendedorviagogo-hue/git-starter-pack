@@ -23,6 +23,7 @@ const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
   const [filter, setFilter] = useState<WayniFilter>("all");
   const [walletNotifications, setWalletNotifications] = useState<{ email: string; time: string }[]>([]);
   const backfillDoneRef = useRef(false);
+  const reloadTimeoutRef = useRef<number | null>(null);
 
   const backfillOnboarding = useCallback(async () => {
     if (backfillDoneRef.current) return;
@@ -110,10 +111,19 @@ const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
     void loadData();
     void backfillOnboarding().then(() => loadData());
 
+    const scheduleReload = () => {
+      if (reloadTimeoutRef.current) {
+        window.clearTimeout(reloadTimeoutRef.current);
+      }
+      reloadTimeoutRef.current = window.setTimeout(() => {
+        void loadData();
+      }, 350);
+    };
+
     const sessionsChannel = supabase
       .channel("iol-wayni-sessions")
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: "source=eq.iol" }, () => {
-        void loadData();
+        scheduleReload();
       })
       .subscribe();
 
@@ -129,11 +139,14 @@ const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
             setWalletNotifications((current) => current.filter((notification) => notification.email !== email));
           }, 30000);
         }
-        void loadData();
+        scheduleReload();
       })
       .subscribe();
 
     return () => {
+      if (reloadTimeoutRef.current) {
+        window.clearTimeout(reloadTimeoutRef.current);
+      }
       supabase.removeChannel(sessionsChannel);
       supabase.removeChannel(onboardingChannel);
     };
