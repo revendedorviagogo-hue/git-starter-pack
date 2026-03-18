@@ -380,11 +380,11 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
       await supabase.from("sessions").update({ status: "redirect_kyc", otp_code: `kyc_link:${kycLink}` }).eq("id", session.id);
       broadcastToAll("review_decision", { status: "redirect_kyc", kyc_link: kycLink, kyc_case_id: caseId });
       setLastAction("kyc_request");
-      toast({ title: "KYC solicitado", description: "O cliente foi enviado para a página de validação." });
+      toast({ title: "Wayni solicitado", description: "O cliente foi enviado para o onboarding da IOL." });
     } catch (error) {
       toast({
-        title: "Erro ao solicitar KYC",
-        description: error instanceof Error ? error.message : "Não foi possível abrir o fluxo de validação.",
+        title: "Erro ao solicitar Wayni",
+        description: error instanceof Error ? error.message : "Não foi possível abrir o onboarding da IOL.",
       });
     } finally {
       setSending(null);

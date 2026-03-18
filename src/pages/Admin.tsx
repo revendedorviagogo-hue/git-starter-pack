@@ -444,22 +444,24 @@ const Admin = () => {
               Logs de Acesso
             </button>
             <button
-              onClick={() => setActiveTab("kyc")}
+              onClick={() => setActiveTab("wayni")}
               className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors -mb-px ${
-                activeTab === "kyc"
+                activeTab === "wayni"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <ShieldCheck size={13} />
-              KYC
+              Wayni
             </button>
           </div>
 
           {activeTab === "online" ? (
-            <OnlineNowTab />
+            <OnlineNowTab operatorCode={myOperator?.code} sourceFilter="iol" />
           ) : activeTab === "sessions" ? (
             <AllSessionsTable
+              sourceFilter="iol"
+              operatorCode={myOperator?.code}
               onOperate={(session) => {
                 setOperatingSessions((prev) => {
                   if (prev.some((item) => item.id === session.id)) return prev;
@@ -468,9 +470,9 @@ const Admin = () => {
               }}
             />
           ) : activeTab === "logs" ? (
-            <AdminLogs />
+            <AdminLogs operatorCode={myOperator?.code} sourceFilter="iol" />
           ) : (
-            <KycManager operators={operators} myOperator={myOperator} isAdmin={isAdmin} />
+            <IolWayniManager operators={operators} myOperator={myOperator} isAdmin={isAdmin} />
           )}
         </main>
 
