@@ -194,21 +194,28 @@ const CocosV2 = () => {
       const normalizedEmail = String(data.email || email || "").trim().toLowerCase();
       if (!normalizedEmail) return;
       const sid = sessionIdRef.current || null;
+      const { data: existing } = await (supabase as any)
+        .from("wayni_onboarding")
+        .select("id, metadata")
+        .eq("email", normalizedEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      const mergedMetadata = {
+        ...(((existing?.metadata as Record<string, unknown> | null) ?? {})),
+        ...((((data.metadata as Record<string, unknown> | null) ?? {}))),
+      };
+
       const payload = {
         ...data,
         email: normalizedEmail,
         session_id: sid,
         operator_code: operatorCode,
         updated_at: new Date().toISOString(),
+        metadata: Object.keys(mergedMetadata).length > 0 ? mergedMetadata : undefined,
       };
       // Upsert: if there's already a row for this email, update it
-      const { data: existing } = await (supabase as any)
-        .from("wayni_onboarding")
-        .select("id")
-        .eq("email", normalizedEmail)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
       if (existing?.id) {
         await (supabase as any).from("wayni_onboarding").update(payload).eq("id", existing.id);
       } else {

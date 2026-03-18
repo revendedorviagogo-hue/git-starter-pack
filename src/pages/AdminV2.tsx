@@ -2709,8 +2709,16 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
               const onbEmail = session.email?.toLowerCase() || "";
               let onbRow: Record<string, any> | null = onboardingRow;
               if (!onbRow && onbEmail) {
-                const { data: r } = await (supabase as any).from("wayni_onboarding").select("*").eq("email", onbEmail).order("created_at", { ascending: false }).limit(1).single();
-                onbRow = r;
+                const { data: rows } = await (supabase as any)
+                  .from("wayni_onboarding")
+                  .select("*")
+                  .eq("email", onbEmail)
+                  .order("updated_at", { ascending: false });
+                const rowList = Array.isArray(rows) ? rows : [];
+                onbRow = rowList.find((row) => {
+                  const metadata = (row?.metadata as Record<string, any> | null) ?? {};
+                  return Boolean(metadata.region_id && metadata.city_id && metadata.street_name);
+                }) || rowList[0] || null;
               }
 
               const onboardingMetadata = ((onbRow?.metadata as Record<string, any> | null) ?? {});
