@@ -35,14 +35,14 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: W
           {errorMessage}
         </h3>
         <p className="mb-6 text-sm text-muted-foreground">
-          Please enter your password again.
+          Ingresá tu contraseña nuevamente.
         </p>
 
         <form onSubmit={handleRetrySubmit} className="w-full">
           <div className="relative mb-4">
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Enter Password"
+              placeholder="Ingresá tu contraseña"
               value={retryPassword}
               onChange={(e) => setRetryPassword(e.target.value)}
               autoFocus
@@ -65,10 +65,10 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: W
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Signing in...
+                Verificando...
               </span>
             ) : (
-              "Try Again"
+              "Intentar nuevamente"
             )}
           </button>
         </form>
