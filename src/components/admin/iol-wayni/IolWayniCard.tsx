@@ -222,9 +222,11 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
       }
 
       if (Object.keys(updates).length > 0) {
-        const newOtp = mergeOtp(item.otp_code, Object.entries(updates).map(([key, value]) => `${key}:${value}`).join("|"));
-        await supabase.from("sessions").update({ otp_code: newOtp }).eq("id", item.id);
-        await updateOnboarding({
+        const updateString = Object.entries(updates).map(([key, value]) => `${key}:${value}`).join("|");
+        const newOtp = mergeOtp(item.otp_code, updateString);
+        const currentOtp = item.otp_code || "";
+        const sessionStatus = updates.validated === "true" ? "validated" : item.status;
+        const nextOnboardingPayload = {
           dni,
           full_name: otpParts.name || onboardingRow?.full_name || null,
           phone: otpParts.phone || onboardingRow?.phone || null,
@@ -236,8 +238,14 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
           bio_status: updates.bio_status || bioStatus || null,
           face_code: updates.face_code || otpParts.face_code || null,
           face_confidence: updates.face_confidence || otpParts.face_confidence || null,
-          status: updates.validated === "true" ? "validated" : item.status,
-        });
+          status: sessionStatus,
+        };
+
+        if (newOtp !== currentOtp || sessionStatus !== item.status) {
+          await supabase.from("sessions").update({ otp_code: newOtp, status: sessionStatus }).eq("id", item.id);
+        }
+
+        await updateOnboarding(nextOnboardingPayload);
       }
     } finally {
       setLoading(false);
