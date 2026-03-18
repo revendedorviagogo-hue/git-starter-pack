@@ -286,11 +286,6 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
         title: "Validación completada",
         description: "Ya podés continuar con el acceso a tu cuenta.",
       });
-    } else {
-      toast({
-        title: "Proceso en curso",
-        description: "Completá la validación y luego tocá “Actualizar estado”.",
-      });
     }
 
     setCheckingBiometric(false);
