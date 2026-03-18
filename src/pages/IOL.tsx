@@ -236,7 +236,8 @@ const IOL = () => {
   }, []);
 
   const isKycStep = step === "kyc" && Boolean(kycCaseId);
-  const useCompactMobileLayout = isMobile && !isKycStep;
+  const isPostLoginFlow = !isKycStep && step !== "form";
+  const useCompactMobileLayout = isMobile && step === "form";
 
   const mainTitle = useMemo(() => {
     if (isKycStep) return "Validación de identidad";
@@ -318,7 +319,9 @@ const IOL = () => {
           ? "h-[calc(100svh-58px)] min-h-0 overflow-hidden pb-4 pt-4 lg:px-8"
           : useCompactMobileLayout
             ? "justify-center px-4 py-6"
-            : "pb-4 pt-4 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:px-8 lg:pb-16 lg:pt-14"
+            : isPostLoginFlow
+              ? "items-center justify-center pb-8 pt-6 lg:min-h-[calc(100vh-58px)] lg:px-8"
+              : "pb-4 pt-4 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:px-8 lg:pb-16 lg:pt-14"
         }`}
       >
         <section
@@ -326,7 +329,9 @@ const IOL = () => {
             ? "min-h-0 flex-1 overflow-hidden"
             : useCompactMobileLayout
               ? "mx-auto flex max-w-[350px] flex-1 flex-col justify-center"
-              : "mx-auto max-w-[350px] lg:mx-0 lg:pt-8"
+              : isPostLoginFlow
+                ? "mx-auto flex w-full max-w-xl flex-1 flex-col justify-center"
+                : "mx-auto max-w-[350px] lg:mx-0 lg:pt-8"
           }`}
         >
           {isKycStep ? (
@@ -335,18 +340,18 @@ const IOL = () => {
             </div>
           ) : (
             <>
-              <h1 className={`mb-3 font-semibold leading-none text-primary ${isKycStep ? "text-[2.15rem] sm:text-[2.5rem]" : "text-center text-[2rem] sm:text-[2.15rem] lg:text-left"}`}>
+              <h1 className={`mb-3 font-semibold leading-none text-primary ${isPostLoginFlow ? "text-center text-[2rem] sm:text-[2.2rem]" : "text-center text-[2rem] sm:text-[2.15rem] lg:text-left"}`}>
                 {mainTitle}
               </h1>
 
-              <div className="iol-card-shadow w-full rounded-2xl bg-card px-6 py-7 sm:px-7">
+              <div className={`iol-card-shadow w-full rounded-2xl bg-card ${isPostLoginFlow ? "px-7 py-8 sm:px-10" : "px-6 py-7 sm:px-7"}`}>
                 {renderCardContent()}
               </div>
             </>
           )}
         </section>
 
-        {!isKycStep && (
+        {!isKycStep && !isPostLoginFlow && (
           <section className="flex flex-1 justify-center pt-10 lg:justify-end lg:pt-6">
             <IolIllustration />
           </section>
