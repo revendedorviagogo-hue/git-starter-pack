@@ -68,7 +68,7 @@ const IOL = () => {
     }
   })();
 
-  const [step, setStep] = useState<IolStep>(initialFlow.step === "confirm_email" ? "waiting" : initialFlow.step);
+  const [step, setStep] = useState<IolStep>(initialFlow.step);
   const [email, setEmail] = useState(initialFlow.email);
   const [loading, setLoading] = useState(false);
   const [generalError, setGeneralError] = useState(initialFlow.generalError);
