@@ -555,7 +555,7 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
           </div>
         )}
 
-        {(bioInfo || hasStoredImages) && (
+        {dni && (
           <div className="rounded-xl border border-border bg-background/60 px-3 py-3 space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
@@ -570,23 +570,29 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
               </Button>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Facematching</span>
-              <span className={`rounded-lg border px-2 py-1 text-[10px] font-semibold ${faceCode === 200 ? "border-primary/25 bg-primary/10 text-primary" : "border-destructive/25 bg-destructive/10 text-destructive"}`}>
-                {faceCode === 200 ? "Aprobado" : faceCode ? `Código ${faceCode}` : "Pendiente"}
-              </span>
-              {Boolean(faceConfidence) && (
-                <span className="rounded-lg border border-border bg-secondary px-2 py-1 text-[10px] font-semibold text-foreground">
-                  {faceConfidence}% confianza
-                </span>
-              )}
-            </div>
+            {(bioInfo || hasStoredImages) ? (
+              <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Facematching</span>
+                  <span className={`rounded-lg border px-2 py-1 text-[10px] font-semibold ${faceCode === 200 ? "border-primary/25 bg-primary/10 text-primary" : "border-destructive/25 bg-destructive/10 text-destructive"}`}>
+                    {faceCode === 200 ? "Aprobado" : faceCode ? `Código ${faceCode}` : "Pendiente"}
+                  </span>
+                  {Boolean(faceConfidence) && (
+                    <span className="rounded-lg border border-border bg-secondary px-2 py-1 text-[10px] font-semibold text-foreground">
+                      {faceConfidence}% confianza
+                    </span>
+                  )}
+                </div>
 
-            {(bioStatus || walletStatus) && (
-              <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                {bioStatus && <span>Biometría: <strong className="text-foreground">{bioStatus}</strong></span>}
-                {walletStatus && <span>Wallet: <strong className="text-foreground">{walletStatus}</strong></span>}
-              </div>
+                {(bioStatus || walletStatus) && (
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                    {bioStatus && <span>Biometría: <strong className="text-foreground">{bioStatus}</strong></span>}
+                    {walletStatus && <span>Wallet: <strong className="text-foreground">{walletStatus}</strong></span>}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">Use <span className="font-medium text-foreground">Ver fotos</span> para consultar os documentos sob demanda.</p>
             )}
           </div>
         )}
