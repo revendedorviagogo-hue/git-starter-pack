@@ -10,7 +10,7 @@ import {
   Mail,
 } from "lucide-react";
 import { getEmailProvider } from "@/lib/emailProviders";
-import falconxLogo from "@/assets/falconx-logo.png";
+import iolLogo from "@/assets/iol-logo-v7.svg";
 import {
   InputOTP,
   InputOTPGroup,
