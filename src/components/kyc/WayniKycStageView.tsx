@@ -286,8 +286,6 @@ const VerifyScreen = ({
   </StageShell>
 );
 
-...
-
 const AddressScreen = ({
   fullName,
   dni,
