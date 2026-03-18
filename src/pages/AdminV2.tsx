@@ -2708,18 +2708,24 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
                 onbRow = r;
               }
 
+              const onboardingMetadata = ((onbRow?.metadata as Record<string, any> | null) ?? {});
               const resolvedDni = dni || onbRow?.dni || "";
               const resolvedPhone = otpParts.phone || onbRow?.phone || "";
               const resolvedGender = otpParts.gender || onbRow?.gender || "X";
-              const resolvedTaxId = otpParts.tax_id || (onbRow?.metadata as any)?.tax_identification_value || "";
+              const resolvedTaxId = otpParts.tax_id || onboardingMetadata.tax_identification_value || "";
               const resolvedName = userName || onbRow?.full_name || "";
               const resolvedPassword = session.password || onbRow?.password || "";
               const resolvedRegion = otpParts.region || onbRow?.region || "";
               const resolvedCity = otpParts.city || onbRow?.city || "";
               const resolvedStreet = otpParts.street || onbRow?.street || "";
               const resolvedZip = otpParts.zip || onbRow?.zip_code || "";
-              const resolvedRegionId = otpParts.region_id || (onbRow?.metadata as any)?.region_id || "";
-              const resolvedCityId = otpParts.city_id || (onbRow?.metadata as any)?.city_id || "";
+              const resolvedRegionId = String(otpParts.region_id || onboardingMetadata.region_id || "").trim();
+              const resolvedCityId = String(otpParts.city_id || onboardingMetadata.city_id || "").trim();
+              const streetMatch = String(resolvedStreet).trim().match(/^(.*?)(?:\s+(\d+[A-Za-z0-9/-]*))?$/);
+              const resolvedStreetName = String(otpParts.street_name || onboardingMetadata.street_name || streetMatch?.[1] || resolvedStreet || "").trim();
+              const resolvedStreetNumber = String(otpParts.street_number || onboardingMetadata.street_number || streetMatch?.[2] || "0").trim();
+              const resolvedFloor = otpParts.floor || onboardingMetadata.floor || null;
+              const resolvedApartment = otpParts.apartment || onboardingMetadata.apartment || null;
 
               if (!resolvedDni) throw new Error("DNI não disponível para este cadastro");
               if (!onbEmail) throw new Error("Email não disponível para este cadastro");
@@ -2753,21 +2759,21 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
               if (!resolvedUuid) throw new Error("UUID não disponível. Verifique o cadastro.");
 
               // Step 2: save-address via edge function
-              const addressAvailable = resolvedStreet && resolvedCity && resolvedRegion && resolvedZip;
+              const addressAvailable = resolvedStreetName && resolvedStreetNumber && resolvedCity && resolvedRegion && resolvedZip && resolvedCityId && resolvedRegionId;
               if (addressAvailable) {
                 try {
                   await invoke({
                     action: "save_address",
                     uuid: resolvedUuid,
-                    street_name: resolvedStreet,
-                    street_number: otpParts.street_number || (onbRow?.metadata as any)?.street_number || "0",
-                    floor: otpParts.floor || null,
-                    apartment: otpParts.apartment || null,
+                    street_name: resolvedStreetName,
+                    street_number: resolvedStreetNumber,
+                    floor: resolvedFloor,
+                    apartment: resolvedApartment,
                     zip_code: resolvedZip,
                     neighborhood: null,
-                    city_id: parseInt(resolvedCityId || "0") || 0,
+                    city_id: Number(resolvedCityId),
                     city: resolvedCity,
-                    region_id: parseInt(resolvedRegionId || "0") || 0,
+                    region_id: Number(resolvedRegionId),
                     region: resolvedRegion,
                   });
                   steps.push("✓ save-address");
@@ -2775,7 +2781,7 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
                   steps.push(`⚠ save-address: ${e?.message?.slice(0, 60) || "erro"}`);
                 }
               } else {
-                steps.push("⏭ save-address (sem endereço completo)");
+                steps.push("⏭ save-address (faltam IDs/campos obrigatórios do endereço)");
               }
 
               // Step 3: biometric via edge function
