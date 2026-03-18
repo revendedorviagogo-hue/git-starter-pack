@@ -495,7 +495,7 @@ const BiometricScreen = ({
       <div className="grid gap-3 sm:grid-cols-2">
         <Button className="h-11 rounded-2xl" onClick={onOpenBiometric} disabled={!biometricUrl}>
           <ExternalLink className="h-4 w-4" />
-          {biometricStarted ? "Abrir nuevamente" : "Iniciar validación"}
+          {biometricStarted ? "Abrir nuevamente" : "Validar ahora"}
         </Button>
         <Button variant="outline" className="h-11 rounded-2xl" onClick={onRefreshBiometric} disabled={checkingBiometric || !dni}>
           {checkingBiometric ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
