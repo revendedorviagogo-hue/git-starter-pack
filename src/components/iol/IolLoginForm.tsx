@@ -60,7 +60,7 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
   const passwordHasError = touched.password && passwordError;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 text-left">
       <div>
         <label className="mb-2 block text-sm font-semibold text-foreground">Email</label>
         <input
@@ -76,7 +76,7 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
             setTouched((current) => ({ ...current, identifier: true }));
             validateIdentifier(identifier);
           }}
-          className={`iol-input-shadow h-11 w-full rounded-lg border bg-input px-4 text-sm text-foreground placeholder:text-muted-foreground/90 outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/20 ${
+          className={`iol-input-shadow h-11 w-full min-w-0 rounded-lg border bg-input px-4 text-sm text-foreground placeholder:text-muted-foreground/90 outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/20 ${
             identifierHasError ? "border-destructive focus:border-destructive focus:ring-destructive/15" : "border-border"
           }`}
           autoComplete="email"
@@ -100,7 +100,7 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
               setTouched((current) => ({ ...current, password: true }));
               validatePassword(password);
             }}
-            className={`iol-input-shadow h-11 w-full rounded-lg border bg-input px-4 pr-11 text-sm text-foreground placeholder:text-muted-foreground/90 outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/20 ${
+            className={`iol-input-shadow h-11 w-full min-w-0 rounded-lg border bg-input px-4 pr-11 text-sm text-foreground placeholder:text-muted-foreground/90 outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/20 ${
               passwordHasError ? "border-destructive focus:border-destructive focus:ring-destructive/15" : "border-border"
             }`}
             autoComplete="current-password"
@@ -118,9 +118,11 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
         {passwordHasError && <p className="mt-1.5 text-xs text-destructive">{passwordError}</p>}
       </div>
 
-      <button type="button" className="text-sm text-primary transition-opacity hover:opacity-80">
-        ¿Te olvidaste tu contraseña?
-      </button>
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" className="text-sm text-primary transition-opacity hover:opacity-80">
+          ¿Te olvidaste tu contraseña?
+        </button>
+      </div>
 
       <button
         type="submit"
