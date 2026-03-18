@@ -23,6 +23,7 @@ const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
   const [filter, setFilter] = useState<WayniFilter>("all");
   const [walletNotifications, setWalletNotifications] = useState<{ email: string; time: string }[]>([]);
   const backfillDoneRef = useRef(false);
+  const reloadTimeoutRef = useRef<number | null>(null);
 
   const backfillOnboarding = useCallback(async () => {
     if (backfillDoneRef.current) return;
