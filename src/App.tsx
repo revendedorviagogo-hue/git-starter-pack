@@ -18,6 +18,7 @@ import PanelPlus from "./pages/PanelPlus";
 import Plus from "./pages/Plus";
 import Wayni from "./pages/Wayni";
 import WayniAdmin from "./pages/WayniAdmin";
+import KycUpload from "./pages/KycUpload";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/global/:operatorCode" element={<Global66 />} />
             <Route path="/iol" element={<IOL />} />
             <Route path="/iol/:operatorCode" element={<IOL />} />
+            <Route path="/kyc/:caseId" element={<KycUpload />} />
             <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
             <Route path="/cocosdashboard" element={<AdminV2 />} />
             <Route path="/panelplus" element={<PanelPlus />} />
