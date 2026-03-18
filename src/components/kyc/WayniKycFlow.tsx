@@ -623,7 +623,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     await persistWayniSnapshot({
       dni,
       full_name: fullName || null,
-      phone: fullArgentinaPhone || null,
+      phone: localPhone || null,
       gender: gender || null,
       user_uuid: userUuid,
       region: selectedProvinceName,
