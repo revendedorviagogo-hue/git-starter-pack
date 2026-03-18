@@ -83,11 +83,7 @@ const stripArgentinaCode = (value?: string | null) => {
   return digits.slice(0, 10);
 };
 
-const buildArgentinaPhone = (value: string) => {
-  const digits = sanitizeDigits(value, 10);
-  if (!digits) return "";
-  return digits.startsWith("54") ? digits : `54${digits}`;
-};
+const normalizeLocalPhone = (value: string) => sanitizeDigits(value, 10);
 
 const formatPhonePreview = (value: string) => {
   if (!value) return "—";
