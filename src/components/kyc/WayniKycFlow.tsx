@@ -286,6 +286,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
         title: "Validación completada",
         description: "Ya podés continuar con el acceso a tu cuenta.",
       });
+    }
 
     setCheckingBiometric(false);
   }, [biometricUrl, caseRecord, dni, localPhone, fullName, gender, persistWayniSnapshot, userUuid]);
