@@ -124,7 +124,7 @@ const InfoLine = ({ label, value }: { label: string; value: string }) => (
 );
 
 const StageShell = ({ children }: { children: React.ReactNode }) => (
-  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col rounded-[24px] p-4 sm:p-5">{children}</section>
+  <section className="kyc-stage-card mx-auto flex w-full max-w-2xl flex-col rounded-[24px] p-4 sm:p-5">{children}</section>
 );
 
 const IntroScreen = ({ onStart, email }: Pick<WayniKycStageViewProps, "onStart" | "email">) => (
