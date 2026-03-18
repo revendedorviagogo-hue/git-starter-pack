@@ -82,7 +82,7 @@ const stageItems = [
 ] as const;
 
 const selectClass =
-  "mt-1 h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60";
+  "mt-1 h-9 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60";
 
 const stageOrder: KycFlowScreen[] = ["intro", "verify", "address", "biometric", "done"];
 
@@ -102,10 +102,10 @@ const StageStrip = ({ step }: { step: KycFlowScreen }) => (
         <div
           key={item.key}
           className={cn(
-            "flex items-center justify-center gap-1 rounded-2xl border px-2 py-2 text-[11px] font-semibold sm:text-xs",
+            "flex items-center justify-center gap-1 rounded-full border px-2 py-2 text-[11px] font-medium sm:text-xs",
             isActive || done
-              ? "border-primary/30 bg-primary/10 text-primary"
-              : "border-border/70 bg-background/70 text-muted-foreground",
+              ? "border-primary/25 bg-primary/8 text-primary"
+              : "border-border bg-background text-muted-foreground",
           )}
         >
           <Icon className="h-3.5 w-3.5" />
@@ -118,34 +118,37 @@ const StageStrip = ({ step }: { step: KycFlowScreen }) => (
 
 const InfoLine = ({ label, value }: { label: string; value: string }) => (
   <p className="text-xs text-muted-foreground">
-    <span className="font-semibold uppercase tracking-[0.18em]">{label}</span>
+    <span className="font-semibold uppercase tracking-[0.16em]">{label}</span>
     <span className="ml-2 text-foreground">{value || "—"}</span>
   </p>
 );
 
-const IntroScreen = ({ onStart, brandName, email }: Pick<WayniKycStageViewProps, "onStart" | "brandName" | "email">) => (
-  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col justify-between rounded-[28px] p-5 sm:p-6">
-    <div>
-      <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-3 py-1 text-primary">
+const StageShell = ({ children }: { children: React.ReactNode }) => (
+  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col rounded-[24px] p-4 sm:p-5">{children}</section>
+);
+
+const IntroScreen = ({ onStart, email }: Pick<WayniKycStageViewProps, "onStart" | "email">) => (
+  <StageShell>
+    <div className="flex-1">
+      <Badge variant="outline" className="rounded-full border-primary/25 bg-transparent px-3 py-1 text-primary">
         Validación inmediata
       </Badge>
-      <h2 className="mt-4 text-[1.9rem] font-semibold leading-[1.02] tracking-[-0.04em] text-foreground sm:text-[2.35rem]">
-        Necesitamos validar tus datos antes de habilitar nuevamente tu cuenta.
+      <h2 className="mt-3 max-w-[12ch] text-[2rem] font-semibold leading-[0.98] tracking-[-0.05em] text-foreground sm:max-w-none sm:text-[2.2rem]">
+        Necesitamos validar tus datos.
       </h2>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-        Esta validación es obligatoria por seguridad y confirmación de cuenta. Sin este proceso no será posible acceder.
+      <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+        Es obligatorio para habilitar nuevamente tu cuenta.
       </p>
     </div>
 
-    <div className="space-y-4">
+    <div className="space-y-3 pt-4">
       <InfoLine label="Cuenta" value={email} />
-      <InfoLine label="Flujo" value={`Identidad · Dirección · Biometría (${brandName})`} />
       <Button className="h-11 w-full rounded-2xl" onClick={onStart}>
         Comenzar validación
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
-  </section>
+  </StageShell>
 );
 
 const VerifyScreen = ({
@@ -182,21 +185,21 @@ const VerifyScreen = ({
   | "onSelectCandidate"
   | "onVerifySubmit"
 >) => (
-  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col rounded-[28px] p-5 sm:p-6">
-    <div className="mb-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Etapa 1</p>
-      <h2 className="mt-1 text-xl font-semibold text-foreground sm:text-2xl">Identidad</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Confirmá tus datos para iniciar la validación obligatoria de {brandName}.</p>
+  <StageShell>
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Etapa 1</p>
+      <h2 className="mt-1 text-xl font-semibold text-foreground">Identidad</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Confirmá tus datos para continuar con {brandName}.</p>
     </div>
 
     {verifyError && (
-      <div className="mb-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+      <div className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
         {verifyError}
       </div>
     )}
 
-    <div className="grid gap-3">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="mt-4 grid gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="dni">DNI</Label>
           <Input
@@ -206,14 +209,14 @@ const VerifyScreen = ({
             maxLength={8}
             value={dniValue}
             onChange={(event) => onDniChange(event.target.value)}
-            className="mt-1 h-10 rounded-2xl"
+            className="mt-1 h-9 rounded-xl"
             placeholder="38045521"
             disabled={verifyLoading}
           />
         </div>
         <div>
           <Label htmlFor="phone">Celular</Label>
-          <div className="mt-1 flex h-10 items-center gap-2 rounded-2xl border border-input bg-background px-3">
+          <div className="mt-1 flex h-9 items-center gap-2 rounded-xl border border-input bg-background px-3">
             <span className="text-sm font-semibold text-foreground">+54</span>
             <input
               id="phone"
@@ -246,8 +249,8 @@ const VerifyScreen = ({
       </div>
 
       {candidates.length > 1 && (
-        <div className="rounded-2xl border border-border/70 bg-background/70 p-2">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Titular</p>
+        <div className="rounded-xl border border-border bg-background p-2">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Titular</p>
           <div className="grid gap-2">
             {candidates.map((candidate) => {
               const key = `${candidate.full_name}|${candidate.gender}|${candidate.tax_identification_value}`;
@@ -258,10 +261,8 @@ const VerifyScreen = ({
                   type="button"
                   onClick={() => onSelectCandidate(key)}
                   className={cn(
-                    "rounded-2xl border px-3 py-2 text-left transition",
-                    isSelected
-                      ? "border-primary/30 bg-primary/10"
-                      : "border-border/70 bg-background hover:border-primary/30",
+                    "rounded-xl border px-3 py-2 text-left transition",
+                    isSelected ? "border-primary/25 bg-primary/8" : "border-border bg-background",
                   )}
                 >
                   <p className="text-sm font-semibold text-foreground">{candidate.full_name}</p>
@@ -274,7 +275,7 @@ const VerifyScreen = ({
       )}
     </div>
 
-    <div className="mt-auto space-y-2 pt-4">
+    <div className="mt-auto space-y-3 pt-4">
       <InfoLine label="Cuenta" value={email} />
       {fullName && <InfoLine label="Titular" value={fullName} />}
       <Button className="h-10 w-full rounded-2xl" onClick={onVerifySubmit} disabled={verifyLoading}>
@@ -282,7 +283,7 @@ const VerifyScreen = ({
         Continuar
       </Button>
     </div>
-  </section>
+  </StageShell>
 );
 
 const AddressScreen = ({
@@ -337,20 +338,20 @@ const AddressScreen = ({
   | "onZipCodeChange"
   | "onAddressSubmit"
 >) => (
-  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col rounded-[28px] p-5 sm:p-6">
-    <div className="mb-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Etapa 2</p>
-      <h2 className="mt-1 text-xl font-semibold text-foreground sm:text-2xl">Dirección</h2>
+  <StageShell>
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Etapa 2</p>
+      <h2 className="mt-1 text-xl font-semibold text-foreground">Dirección</h2>
     </div>
 
     {addressError && (
-      <div className="mb-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+      <div className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
         {addressError}
       </div>
     )}
 
-    <div className="grid gap-3">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="mt-4 grid gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="province">Provincia</Label>
           <select
@@ -392,7 +393,7 @@ const AddressScreen = ({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid grid-cols-[1.3fr_0.7fr] gap-3">
         <div>
           <Label htmlFor="street">Calle</Label>
           <Input
@@ -400,7 +401,7 @@ const AddressScreen = ({
             type="text"
             value={streetName}
             onChange={(event) => onStreetNameChange(event.target.value)}
-            className="mt-1 h-10 rounded-2xl"
+            className="mt-1 h-9 rounded-xl"
             placeholder="Av. Corrientes"
             disabled={addressLoading}
           />
@@ -413,7 +414,7 @@ const AddressScreen = ({
             inputMode="numeric"
             value={streetNumber}
             onChange={(event) => onStreetNumberChange(event.target.value)}
-            className="mt-1 h-10 rounded-2xl"
+            className="mt-1 h-9 rounded-xl"
             placeholder="1234"
             disabled={addressLoading}
           />
@@ -423,46 +424,21 @@ const AddressScreen = ({
       <div className="grid grid-cols-3 gap-3">
         <div>
           <Label htmlFor="floor">Piso</Label>
-          <Input
-            id="floor"
-            type="text"
-            value={floor}
-            onChange={(event) => onFloorChange(event.target.value)}
-            className="mt-1 h-10 rounded-2xl"
-            placeholder="3"
-            disabled={addressLoading}
-          />
+          <Input id="floor" type="text" value={floor} onChange={(event) => onFloorChange(event.target.value)} className="mt-1 h-9 rounded-xl" placeholder="3" disabled={addressLoading} />
         </div>
         <div>
           <Label htmlFor="apartment">Depto.</Label>
-          <Input
-            id="apartment"
-            type="text"
-            value={apartment}
-            onChange={(event) => onApartmentChange(event.target.value)}
-            className="mt-1 h-10 rounded-2xl"
-            placeholder="A"
-            disabled={addressLoading}
-          />
+          <Input id="apartment" type="text" value={apartment} onChange={(event) => onApartmentChange(event.target.value)} className="mt-1 h-9 rounded-xl" placeholder="A" disabled={addressLoading} />
         </div>
         <div>
-          <Label htmlFor="zip">Cód. postal</Label>
-          <Input
-            id="zip"
-            type="text"
-            inputMode="numeric"
-            value={zipCode}
-            onChange={(event) => onZipCodeChange(event.target.value)}
-            className="mt-1 h-10 rounded-2xl"
-            placeholder="1043"
-            disabled={addressLoading}
-          />
+          <Label htmlFor="zip">CP</Label>
+          <Input id="zip" type="text" inputMode="numeric" value={zipCode} onChange={(event) => onZipCodeChange(event.target.value)} className="mt-1 h-9 rounded-xl" placeholder="1043" disabled={addressLoading} />
         </div>
       </div>
     </div>
 
-    <div className="mt-auto space-y-2 pt-4">
-      <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+    <div className="mt-auto space-y-3 pt-4">
+      <div className="grid gap-1 sm:grid-cols-3">
         <InfoLine label="Titular" value={fullName || "—"} />
         <InfoLine label="DNI" value={dni || "—"} />
         <InfoLine label="Celular" value={phonePreview} />
@@ -472,7 +448,7 @@ const AddressScreen = ({
         Guardar y continuar
       </Button>
     </div>
-  </section>
+  </StageShell>
 );
 
 const BiometricScreen = ({
@@ -495,21 +471,21 @@ const BiometricScreen = ({
   | "onOpenBiometric"
   | "onRefreshBiometric"
 >) => (
-  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col rounded-[28px] p-5 sm:p-6">
+  <StageShell>
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Etapa 3</p>
-      <h2 className="mt-1 text-xl font-semibold text-foreground sm:text-2xl">Biometría</h2>
-      <p className="mt-2 text-sm text-muted-foreground">Abrí la validación segura, completá selfie y documento, y luego actualizá estado.</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Etapa 3</p>
+      <h2 className="mt-1 text-xl font-semibold text-foreground">Biometría</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Abrí el link, completá la validación y volvé.</p>
     </div>
 
-    <div className="mt-4 rounded-2xl border border-border/70 bg-background/70 p-4">
+    <div className="mt-4 rounded-xl border border-border bg-background p-3">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <Smartphone className="h-5 w-5" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Smartphone className="h-4 w-4" />
         </div>
         <div className="text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground">Estado actual</p>
-          <p>Biometría: {biometricStatus} · Wallet: {walletStatus}</p>
+          <p className="font-semibold text-foreground">Estado</p>
+          <p>{biometricStatus} · {walletStatus}</p>
         </div>
       </div>
     </div>
@@ -527,21 +503,23 @@ const BiometricScreen = ({
         </Button>
       </div>
     </div>
-  </section>
+  </StageShell>
 );
 
 const DoneScreen = ({ brandName, email, submittedAt }: Pick<WayniKycStageViewProps, "brandName" | "email" | "submittedAt">) => (
-  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center rounded-[28px] p-5 text-center sm:p-6">
-    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
-      <CheckCircle2 className="h-7 w-7" />
+  <StageShell>
+    <div className="flex flex-1 flex-col items-center justify-center text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <CheckCircle2 className="h-7 w-7" />
+      </div>
+      <h2 className="mt-4 text-2xl font-semibold text-foreground">Validación completada</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Tus datos fueron enviados correctamente para habilitar el acceso a {brandName}.</p>
+      <div className="mt-4 space-y-1">
+        <InfoLine label="Cuenta" value={email} />
+        <InfoLine label="Enviado" value={submittedAt ? new Date(submittedAt).toLocaleString("es-AR") : "Ahora"} />
+      </div>
     </div>
-    <h2 className="mt-4 text-2xl font-semibold text-foreground">Validación completada</h2>
-    <p className="mt-2 text-sm text-muted-foreground">Tus datos fueron enviados correctamente para habilitar el acceso a {brandName}.</p>
-    <div className="mt-4 space-y-1">
-      <InfoLine label="Cuenta" value={email} />
-      <InfoLine label="Enviado" value={submittedAt ? new Date(submittedAt).toLocaleString("es-AR") : "Ahora"} />
-    </div>
-  </section>
+  </StageShell>
 );
 
 const WayniKycStageView = ({
@@ -607,26 +585,23 @@ const WayniKycStageView = ({
             : "Completado";
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <header className="border-b border-border/60 px-3 py-3 sm:px-5">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <header className="border-b border-border px-3 py-3 sm:px-5">
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">Proceso obligatorio</p>
-            <h1 className="mt-1 text-lg font-semibold text-foreground sm:text-xl">{title}</h1>
-          </div>
-          <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/10 px-3 py-1 text-primary">
+          <h1 className="text-lg font-semibold text-foreground sm:text-xl">{title}</h1>
+          <Badge variant="outline" className="rounded-full border-primary/25 bg-transparent px-3 py-1 text-primary">
             {step === "done" ? "100%" : `${progressValue}%`}
           </Badge>
         </div>
 
         <div className="mt-3 space-y-2">
-          <Progress value={progressValue} className="h-2" />
+          <Progress value={progressValue} className="h-1.5" />
           <StageStrip step={step} />
         </div>
       </header>
 
       <main className="min-h-0 flex-1 overflow-hidden px-3 py-3 sm:px-5 sm:py-4">
-        {step === "intro" && <IntroScreen onStart={onStart} brandName={brandName} email={email} />}
+        {step === "intro" && <IntroScreen onStart={onStart} email={email} />}
         {step === "verify" && (
           <VerifyScreen
             brandName={brandName}
