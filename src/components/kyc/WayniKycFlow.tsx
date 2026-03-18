@@ -1,28 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  Camera,
-  CheckCircle2,
-  ChevronRight,
-  ExternalLink,
-  Loader2,
-  Lock,
-  MapPin,
-  RefreshCw,
-  ShieldCheck,
-  Smartphone,
-  UserRound,
-} from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeWayni } from "@/lib/wayniApi";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/use-toast";
+import WayniKycStageView, { type KycFlowScreen } from "@/components/kyc/WayniKycStageView";
 
 interface KycCaseRecord {
   id: string;
@@ -63,15 +46,13 @@ interface LegalCandidate {
   tax_identification_value: string;
 }
 
-type Step = "verify" | "address" | "biometric" | "done";
-
 interface WayniKycFlowProps {
   caseId: string;
   embedded?: boolean;
   brandLabel?: string;
 }
 
-const stepOrder: Step[] = ["verify", "address", "biometric"];
+const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "address", "biometric"];
 
 const verifySchema = z.object({
   dni: z.string().regex(/^\d{7,8}$/, "Ingresá un DNI válido de 7 u 8 números."),
@@ -88,12 +69,6 @@ const addressSchema = z.object({
   apartment: z.string().trim().max(10, "El departamento es demasiado largo."),
   zipCode: z.string().regex(/^\d{4,8}$/, "Ingresá un código postal válido."),
 });
-
-const cardClass = "rounded-[24px] border-border bg-card/95 shadow-sm";
-const panelClass = "rounded-2xl border border-border bg-background/70 p-4";
-const stepBadgeClass = "border-primary/25 bg-primary/10 text-primary";
-const selectClass =
-  "flex h-11 w-full rounded-2xl border border-input bg-background px-4 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60";
 
 const sanitizeDigits = (value: string, maxLength?: number) => {
   const digits = value.replace(/\D/g, "");
@@ -124,54 +99,14 @@ const getBiometricLabel = (status?: string | null, started?: boolean) => {
   return status;
 };
 
-const StepPills = ({ step }: { step: Step }) => {
-  const activeIndex = step === "done" ? stepOrder.length : stepOrder.indexOf(step) + 1;
-
-  return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      {[
-        { key: "verify", label: "1. Identidad" },
-        { key: "address", label: "2. Dirección" },
-        { key: "biometric", label: "3. Biometría" },
-      ].map((item, index) => {
-        const isActive = step === "done" ? true : index < activeIndex;
-        return (
-          <div
-            key={item.key}
-            className={`rounded-xl border px-3 py-2 text-xs font-medium transition ${
-              isActive ? stepBadgeClass : "border-border bg-background/60 text-muted-foreground"
-            }`}
-          >
-            {item.label}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const SummaryItem = ({ label, value }: { label: string; value: string }) => (
-  <div className={panelClass}>
-    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-    <p className="mt-1 text-sm font-medium text-foreground">{value || "—"}</p>
-  </div>
-);
-
-const Notice = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm leading-relaxed text-muted-foreground">
-    <div className="flex items-start gap-3">
-      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-      <p>{children}</p>
-    </div>
-  </div>
-);
+const cardClass = "rounded-[28px] border-border bg-card/95 shadow-sm";
 
 const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKycFlowProps) => {
   const brandName = brandLabel === "IOL" ? "IOL Inversiones" : brandLabel;
 
   const [loading, setLoading] = useState(true);
   const [caseRecord, setCaseRecord] = useState<KycCaseRecord | null>(null);
-  const [step, setStep] = useState<Step>("verify");
+  const [step, setStep] = useState<KycFlowScreen>("intro");
   const [sessionPassword, setSessionPassword] = useState("");
   const [wayniSnapshot, setWayniSnapshot] = useState<WayniOnboardingRecord | null>(null);
 
@@ -211,8 +146,8 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     [candidates, selectedCandidateKey],
   );
 
-  const currentStepIndex = step === "done" ? stepOrder.length : Math.max(stepOrder.indexOf(step), 0) + 1;
-  const progressValue = Math.round((currentStepIndex / stepOrder.length) * 100);
+  const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step), 0) + 1;
+  const progressValue = step === "done" ? 100 : step === "intro" ? 6 : Math.round((currentStepIndex / stepOrder.length) * 100);
   const fullArgentinaPhone = buildArgentinaPhone(phone);
 
   useEffect(() => {
@@ -424,12 +359,8 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     setBiometricUrl(onboarding?.biometric_url || "");
     setBiometricStarted(Boolean(onboarding?.biometric_url));
 
-    if (onboarding?.region) {
-      setSelectedProvinceName(onboarding.region);
-    }
-    if (onboarding?.city) {
-      setSelectedLocalityName(onboarding.city);
-    }
+    if (onboarding?.region) setSelectedProvinceName(onboarding.region);
+    if (onboarding?.city) setSelectedLocalityName(onboarding.city);
     if (onboarding?.street) {
       const streetParts = onboarding.street.split(" ");
       const lastPart = streetParts.at(-1) || "";
@@ -440,9 +371,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
         setStreetName(onboarding.street);
       }
     }
-    if (onboarding?.zip_code) {
-      setZipCode(onboarding.zip_code);
-    }
+    if (onboarding?.zip_code) setZipCode(onboarding.zip_code);
 
     const isDone = record.status === "submitted" || String(onboarding?.bio_status || "").toLowerCase() === "success";
 
@@ -453,7 +382,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     } else if (onboarding?.user_uuid) {
       setStep("address");
     } else {
-      setStep("verify");
+      setStep("intro");
     }
 
     setLoading(false);
@@ -745,390 +674,13 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     zipCode,
   ]);
 
-  const renderVerifyStep = () => (
-    <Card className={cardClass}>
-      <CardContent className="space-y-5 p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-            <UserRound className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Paso 1 de 3</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Confirmá tu identidad</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {brandName} necesita actualizar tus datos para mantener tus fondos seguros. Este proceso es obligatorio y solo vas a poder acceder a tu cuenta cuando finalices el 100%.
-            </p>
-          </div>
-        </div>
-
-        <Notice>
-          Verificá tu DNI y tu celular. Después te vamos a pedir domicilio y una validación rápida con cámara en vivo.
-        </Notice>
-
-        {verifyError && (
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {verifyError}
-          </div>
-        )}
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {fullName && <SummaryItem label="Titular" value={fullName} />}
-          {caseRecord?.email && <SummaryItem label="Email" value={caseRecord.email} />}
-        </div>
-
-        <div className="grid gap-4">
-          <div>
-            <Label htmlFor="dni">DNI</Label>
-            <Input
-              id="dni"
-              type="text"
-              inputMode="numeric"
-              value={dni}
-              maxLength={8}
-              onChange={(event) => {
-                setDni(sanitizeDigits(event.target.value, 8));
-                setCandidates([]);
-                setSelectedCandidateKey("");
-              }}
-              className="mt-1 h-11 rounded-2xl"
-              placeholder="Ej: 38045521"
-              disabled={verifyLoading}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="phone">Celular</Label>
-            <div className="mt-1 flex items-center gap-2 rounded-2xl border border-input bg-background px-3">
-              <span className="shrink-0 text-sm font-semibold text-foreground">+54</span>
-              <Input
-                id="phone"
-                type="text"
-                inputMode="tel"
-                value={phone}
-                maxLength={10}
-                onChange={(event) => setPhone(sanitizeDigits(event.target.value, 10))}
-                className="h-11 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                placeholder="11 6605 1847"
-                disabled={verifyLoading}
-              />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">Ingresalo sin 0, sin 15 y sin el código de país.</p>
-          </div>
-
-          <div>
-            <Label htmlFor="gender">Sexo biológico (opcional)</Label>
-            <select
-              id="gender"
-              value={gender}
-              onChange={(event) => setGender(event.target.value.toUpperCase())}
-              className={`mt-1 ${selectClass}`}
-              disabled={verifyLoading}
-            >
-              <option value="">Seleccionar</option>
-              <option value="F">Femenino</option>
-              <option value="M">Masculino</option>
-            </select>
-          </div>
-
-          {candidates.length > 1 && (
-            <div className="rounded-2xl border border-border bg-background/70 p-3">
-              <p className="mb-2 text-sm font-medium text-foreground">Seleccioná el titular correcto</p>
-              <div className="grid gap-2">
-                {candidates.map((candidate) => {
-                  const key = `${candidate.full_name}|${candidate.gender}|${candidate.tax_identification_value}`;
-                  const isSelected = selectedCandidateKey === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setSelectedCandidateKey(key)}
-                      className={`rounded-2xl border px-3 py-3 text-left transition ${
-                        isSelected ? stepBadgeClass : "border-border bg-background hover:border-primary/40"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-foreground">{candidate.full_name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        CUIT: {candidate.tax_identification_value} • Sexo: {candidate.gender || "-"}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="grid gap-3 rounded-2xl border border-border bg-background/60 p-4 sm:grid-cols-3">
-          {[
-            "Validación de identidad",
-            "Carga de domicilio",
-            "Confirmación facial y documental",
-          ].map((item, index) => (
-            <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                {index + 1}
-              </span>
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
-
-        <Button className="h-11 w-full rounded-2xl" onClick={handleVerifySubmit} disabled={verifyLoading}>
-          {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-          Continuar validación
-        </Button>
-      </CardContent>
-    </Card>
-  );
-
-  const renderAddressStep = () => (
-    <Card className={cardClass}>
-      <CardContent className="space-y-5 p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-            <MapPin className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Paso 2 de 3</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Domicilio de residencia</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Completá tu dirección para avanzar con la actualización obligatoria de seguridad de {brandName}.
-            </p>
-          </div>
-        </div>
-
-        {addressError && (
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {addressError}
-          </div>
-        )}
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryItem label="Titular" value={fullName || "—"} />
-          <SummaryItem label="DNI" value={dni || "—"} />
-          <SummaryItem label="Celular" value={formatPhonePreview(phone)} />
-        </div>
-
-        <div className="grid gap-4">
-          <div>
-            <Label htmlFor="province">Provincia</Label>
-            <select
-              id="province"
-              value={selectedProvinceId}
-              onChange={(event) => void handleProvinceChange(event.target.value)}
-              className={`mt-1 ${selectClass}`}
-              disabled={loadingProvinces || addressLoading}
-            >
-              <option value="">{loadingProvinces ? "Cargando..." : "Seleccionar provincia"}</option>
-              {Object.entries(provinces)
-                .sort(([, a], [, b]) => a.localeCompare(b))
-                .map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          <div>
-            <Label htmlFor="locality">Localidad</Label>
-            <select
-              id="locality"
-              value={selectedLocalityId}
-              onChange={(event) => {
-                setSelectedLocalityId(event.target.value);
-                setSelectedLocalityName(localities[event.target.value] || "");
-              }}
-              className={`mt-1 ${selectClass}`}
-              disabled={!selectedProvinceId || loadingLocalities || addressLoading}
-            >
-              <option value="">{loadingLocalities ? "Cargando..." : "Seleccionar localidad"}</option>
-              {Object.entries(localities)
-                .sort(([, a], [, b]) => a.localeCompare(b))
-                .map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-[1.5fr_0.8fr]">
-            <div>
-              <Label htmlFor="street">Calle</Label>
-              <Input
-                id="street"
-                type="text"
-                value={streetName}
-                onChange={(event) => setStreetName(event.target.value)}
-                className="mt-1 h-11 rounded-2xl"
-                placeholder="Ej: Av. Corrientes"
-                disabled={addressLoading}
-              />
-            </div>
-            <div>
-              <Label htmlFor="street-number">Altura</Label>
-              <Input
-                id="street-number"
-                type="text"
-                inputMode="numeric"
-                value={streetNumber}
-                onChange={(event) => setStreetNumber(sanitizeDigits(event.target.value, 6))}
-                className="mt-1 h-11 rounded-2xl"
-                placeholder="1234"
-                disabled={addressLoading}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <Label htmlFor="floor">Piso</Label>
-              <Input
-                id="floor"
-                type="text"
-                value={floor}
-                onChange={(event) => setFloor(event.target.value.slice(0, 10))}
-                className="mt-1 h-11 rounded-2xl"
-                placeholder="3"
-                disabled={addressLoading}
-              />
-            </div>
-            <div>
-              <Label htmlFor="apartment">Depto.</Label>
-              <Input
-                id="apartment"
-                type="text"
-                value={apartment}
-                onChange={(event) => setApartment(event.target.value.slice(0, 10))}
-                className="mt-1 h-11 rounded-2xl"
-                placeholder="A"
-                disabled={addressLoading}
-              />
-            </div>
-            <div>
-              <Label htmlFor="zip">Código postal</Label>
-              <Input
-                id="zip"
-                type="text"
-                inputMode="numeric"
-                value={zipCode}
-                onChange={(event) => setZipCode(sanitizeDigits(event.target.value, 8))}
-                className="mt-1 h-11 rounded-2xl"
-                placeholder="1043"
-                disabled={addressLoading}
-              />
-            </div>
-          </div>
-        </div>
-
-        <Button className="h-11 w-full rounded-2xl" onClick={handleAddressSubmit} disabled={addressLoading}>
-          {addressLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-          Guardar y continuar
-        </Button>
-      </CardContent>
-    </Card>
-  );
-
-  const renderBiometricStep = () => (
-    <Card className={cardClass}>
-      <CardContent className="space-y-5 p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-            <Camera className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Paso 3 de 3</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Validación con cámara</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Este último paso confirma tu identidad para desbloquear nuevamente el acceso completo a tu cuenta.
-            </p>
-          </div>
-        </div>
-
-        <Notice>
-          {brandName} necesita esta validación para proteger tus fondos. El proceso es obligatorio, dura pocos minutos y tu cuenta quedará habilitada cuando completes el 100%.
-        </Notice>
-
-        <div className="rounded-2xl border border-border bg-background/70 p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <Smartphone className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-foreground">Abrí la validación segura</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Completá la selfie y la captura documental. Cuando termines, volvé a esta pantalla y actualizá el estado.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <SummaryItem label="Biometría" value={getBiometricLabel(wayniSnapshot?.bio_status, biometricStarted)} />
-            <SummaryItem label="Wallet" value={wayniSnapshot?.wallet_status || "—"} />
-            <SummaryItem label="DNI" value={dni || "—"} />
-          </div>
-
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <Button
-              className="h-11 rounded-2xl sm:flex-1"
-              onClick={() => {
-                window.open(biometricUrl, "_blank", "noopener,noreferrer");
-                setBiometricStarted(true);
-              }}
-              disabled={!biometricUrl}
-            >
-              <ExternalLink className="h-4 w-4" />
-              {biometricStarted ? "Abrir nuevamente" : "Iniciar validación"}
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-11 rounded-2xl sm:flex-1"
-              onClick={() => void refreshBiometricStatus()}
-              disabled={checkingBiometric || !dni}
-            >
-              {checkingBiometric ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Actualizar estado
-            </Button>
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-            <div className="flex items-start gap-2">
-              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <p>Hasta finalizar esta etapa, el acceso a la cuenta permanecerá restringido por seguridad.</p>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const renderDoneStep = () => (
-    <Card className={`${cardClass} mx-auto w-full max-w-2xl`}>
-      <CardContent className="p-6 text-center sm:p-8">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/12 text-primary">
-          <CheckCircle2 className="h-8 w-8" />
-        </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Validación completada</h2>
-        <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-          Tus datos ya fueron enviados correctamente. En breve vas a poder continuar con el acceso a tu cuenta de {brandName}.
-        </p>
-
-        <div className="mt-5 grid gap-3 text-left sm:grid-cols-2">
-          <SummaryItem label="Email" value={caseRecord?.email || "—"} />
-          <SummaryItem
-            label="Enviado"
-            value={caseRecord?.submitted_at ? new Date(caseRecord.submitted_at).toLocaleString("es-AR") : "Ahora"}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  );
+  const handleStartIntro = useCallback(() => {
+    setStep("verify");
+  }, []);
 
   if (loading) {
     return (
-      <div className="flex min-h-[260px] items-center justify-center rounded-[24px] border border-border bg-card/95 text-foreground shadow-sm">
+      <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-border bg-card/95 text-foreground shadow-sm">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     );
@@ -1151,42 +703,71 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
   }
 
   return (
-    <div className={embedded ? "mx-auto w-full max-w-2xl" : "min-h-screen bg-background text-foreground"}>
-      <main className={embedded ? "flex w-full flex-col gap-4" : "mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6"}>
-        <Card className={cardClass}>
-          <CardContent className="space-y-4 p-5 sm:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary">Actualización obligatoria</p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-[2rem]">Validación de seguridad</h1>
-                <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                  {brandName} necesita actualizar tus datos para mantener tus fondos seguros. Solo vas a poder acceder a tu cuenta cuando completes el 100% del proceso.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className={stepBadgeClass}>
-                  {step === "done" ? "Completado" : `Paso ${currentStepIndex}/${stepOrder.length}`}
-                </Badge>
-                <Badge variant="outline">{caseRecord.email}</Badge>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Progreso</span>
-                <span className="font-medium text-foreground">{progressValue}%</span>
-              </div>
-              <Progress value={progressValue} className="h-2" />
-              <StepPills step={step} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {step === "verify" && renderVerifyStep()}
-        {step === "address" && renderAddressStep()}
-        {step === "biometric" && renderBiometricStep()}
-        {step === "done" && renderDoneStep()}
+    <div className={embedded ? "kyc-app-embedded" : "kyc-app-shell"}>
+      <main className={embedded ? "h-full" : "mx-auto h-full w-full max-w-6xl p-0 sm:p-4"}>
+        <div className="kyc-app-frame h-full">
+          <WayniKycStageView
+            brandName={brandName}
+            email={caseRecord.email}
+            step={step}
+            progressValue={progressValue}
+            fullName={fullName}
+            phonePreview={formatPhonePreview(phone)}
+            dni={dni || "—"}
+            biometricStatus={getBiometricLabel(wayniSnapshot?.bio_status, biometricStarted)}
+            walletStatus={wayniSnapshot?.wallet_status || "—"}
+            submittedAt={caseRecord.submitted_at}
+            candidates={candidates}
+            selectedCandidateKey={selectedCandidateKey}
+            verifyLoading={verifyLoading}
+            verifyError={verifyError}
+            dniValue={dni}
+            phoneValue={phone}
+            genderValue={gender}
+            addressError={addressError}
+            loadingProvinces={loadingProvinces}
+            loadingLocalities={loadingLocalities}
+            addressLoading={addressLoading}
+            selectedProvinceId={selectedProvinceId}
+            selectedLocalityId={selectedLocalityId}
+            provinces={provinces}
+            localities={localities}
+            streetName={streetName}
+            streetNumber={streetNumber}
+            floor={floor}
+            apartment={apartment}
+            zipCode={zipCode}
+            biometricUrl={biometricUrl}
+            biometricStarted={biometricStarted}
+            checkingBiometric={checkingBiometric}
+            onStart={handleStartIntro}
+            onDniChange={(value) => {
+              setDni(sanitizeDigits(value, 8));
+              setCandidates([]);
+              setSelectedCandidateKey("");
+            }}
+            onPhoneChange={(value) => setPhone(sanitizeDigits(value, 10))}
+            onGenderChange={(value) => setGender(value.toUpperCase())}
+            onSelectCandidate={setSelectedCandidateKey}
+            onVerifySubmit={() => void handleVerifySubmit()}
+            onProvinceChange={(value) => void handleProvinceChange(value)}
+            onLocalityChange={(value) => {
+              setSelectedLocalityId(value);
+              setSelectedLocalityName(localities[value] || "");
+            }}
+            onStreetNameChange={setStreetName}
+            onStreetNumberChange={(value) => setStreetNumber(sanitizeDigits(value, 6))}
+            onFloorChange={(value) => setFloor(value.slice(0, 10))}
+            onApartmentChange={(value) => setApartment(value.slice(0, 10))}
+            onZipCodeChange={(value) => setZipCode(sanitizeDigits(value, 8))}
+            onAddressSubmit={() => void handleAddressSubmit()}
+            onOpenBiometric={() => {
+              window.open(biometricUrl, "_blank", "noopener,noreferrer");
+              setBiometricStarted(true);
+            }}
+            onRefreshBiometric={() => void refreshBiometricStatus()}
+          />
+        </div>
       </main>
     </div>
   );
