@@ -257,12 +257,12 @@ const IOL = () => {
   return (
     <div className="iol-theme min-h-screen bg-background text-foreground">
       <header className="iol-topbar-shadow border-b border-border/80 bg-background">
-        <div className="mx-auto flex h-[58px] w-full max-w-5xl items-center px-5 sm:px-8">
+        <div className="mx-auto flex h-[58px] w-full max-w-5xl items-center justify-center px-5 sm:px-8 lg:justify-start">
           <img src={iolLogo} alt="InvertirOnline" className="h-8 w-auto object-contain" />
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col px-5 pb-16 pt-10 sm:px-8 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:pt-14">
+      <main className="mx-auto flex w-full max-w-5xl flex-col px-5 pb-12 pt-10 sm:px-8 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:pt-14 lg:pb-16">
         <section className="w-full max-w-[350px] lg:pt-8">
           <h1 className="mb-3 text-[2rem] font-semibold leading-none text-primary sm:text-[2.15rem]">
             Ingresa a tu cuenta
@@ -277,6 +277,12 @@ const IOL = () => {
           <IolIllustration />
         </section>
       </main>
+
+      <footer className="border-t border-border/60 bg-background lg:hidden">
+        <div className="mx-auto flex w-full max-w-5xl justify-center px-5 py-5 sm:px-8">
+          <img src={iolLogo} alt="InvertirOnline" className="h-7 w-auto object-contain" />
+        </div>
+      </footer>
     </div>
   );
 };
