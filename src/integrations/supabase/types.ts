@@ -566,6 +566,7 @@ export type Database = {
           phone: string | null
           profile_data: Json | null
           refresh_token: string | null
+          source: string
           updated_at: string
           user_uuid: string | null
         }
@@ -588,6 +589,7 @@ export type Database = {
           phone?: string | null
           profile_data?: Json | null
           refresh_token?: string | null
+          source?: string
           updated_at?: string
           user_uuid?: string | null
         }
@@ -610,6 +612,7 @@ export type Database = {
           phone?: string | null
           profile_data?: Json | null
           refresh_token?: string | null
+          source?: string
           updated_at?: string
           user_uuid?: string | null
         }
@@ -638,6 +641,7 @@ export type Database = {
           region: string | null
           selfie_path: string | null
           session_id: string | null
+          source: string
           status: string
           street: string | null
           updated_at: string
@@ -667,6 +671,7 @@ export type Database = {
           region?: string | null
           selfie_path?: string | null
           session_id?: string | null
+          source?: string
           status?: string
           street?: string | null
           updated_at?: string
@@ -696,6 +701,7 @@ export type Database = {
           region?: string | null
           selfie_path?: string | null
           session_id?: string | null
+          source?: string
           status?: string
           street?: string | null
           updated_at?: string
