@@ -54,6 +54,8 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
   const [retryResult, setRetryResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [lastCheck, setLastCheck] = useState("");
   const isFullyValidated = useRef(false);
+  const fetchInFlightRef = useRef(false);
+  const fetchInfoRef = useRef<((retryCount?: number) => Promise<void>) | null>(null);
 
   const otpParts = useMemo(() => {
     const parsed = parseOtp(item.otp_code);
