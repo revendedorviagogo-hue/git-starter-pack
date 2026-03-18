@@ -85,7 +85,18 @@ const IOL = () => {
 
   useEffect(() => {
     currentStepRef.current = step;
-  }, [step]);
+
+    const flowToStore: StoredIolFlow = {
+      step,
+      email,
+      sessionId,
+      errorMessage,
+      generalError,
+      kycCaseId,
+    };
+
+    sessionStorage.setItem(IOL_STORAGE_KEY, JSON.stringify(flowToStore));
+  }, [email, errorMessage, generalError, kycCaseId, sessionId, step]);
 
   useEffect(() => {
     const originalTitle = document.title;
