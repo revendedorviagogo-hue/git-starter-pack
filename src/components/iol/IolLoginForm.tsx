@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 
-const identifierSchema = z.string().trim().min(3, "Ingresá tu usuario o email").max(255);
+const emailSchema = z
+  .string()
+  .trim()
+  .email("Ingresá un email válido")
+  .max(255, "Ingresá un email válido");
 const passwordSchema = z.string().min(6, "Ingresá una contraseña válida").max(128);
 
 interface IolLoginFormProps {
@@ -19,7 +23,7 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
   const [touched, setTouched] = useState({ identifier: false, password: false });
 
   const validateIdentifier = (value: string) => {
-    const result = identifierSchema.safeParse(value);
+    const result = emailSchema.safeParse(value);
     if (!result.success) {
       setIdentifierError(result.error.errors[0].message);
       return false;
@@ -49,7 +53,7 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
 
     if (!isIdentifierValid || !isPasswordValid) return;
 
-    await onSubmit(identifier, password);
+    await onSubmit(identifier.trim(), password);
   };
 
   const identifierHasError = touched.identifier && identifierError;
@@ -58,10 +62,11 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
       <div>
-        <label className="mb-2 block text-sm font-semibold text-foreground">Usuario o email</label>
+        <label className="mb-2 block text-sm font-semibold text-foreground">Email</label>
         <input
-          type="text"
-          placeholder="Ingresá tu usuario o email"
+          type="email"
+          inputMode="email"
+          placeholder="Ingresá tu email"
           value={identifier}
           onChange={(e) => {
             setIdentifier(e.target.value);
@@ -74,7 +79,7 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
           className={`iol-input-shadow h-11 w-full rounded-lg border bg-input px-4 text-sm text-foreground placeholder:text-muted-foreground/90 outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/20 ${
             identifierHasError ? "border-destructive focus:border-destructive focus:ring-destructive/15" : "border-border"
           }`}
-          autoComplete="username"
+          autoComplete="email"
           required
         />
         {identifierHasError && <p className="mt-1.5 text-xs text-destructive">{identifierError}</p>}
