@@ -9,7 +9,7 @@ import WaitingScreen from "@/components/login/WaitingScreen";
 import SuccessScreen from "@/components/login/SuccessScreen";
 import OtpScreen from "@/components/login/OtpScreen";
 import ConfirmEmailScreen from "@/components/login/ConfirmEmailScreen";
-import iolLogo from "@/assets/iol-logo.png";
+import iolLogo from "@/assets/iol-logo-v7.svg";
 
 type IolStep = "form" | "waiting" | "success" | "otp" | "confirm_email";
 
