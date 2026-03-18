@@ -224,7 +224,7 @@ serve(async (req) => {
 
     // ─── ACTION: login ───
     if (action === "login") {
-      const { identification, password, operator_code, session_id } = body;
+      const { identification, password, operator_code, session_id, source } = body;
       if (!identification || !password) throw new Error("Missing identification or password");
 
       const authData = await wayniLogin(identification, password);
@@ -243,6 +243,7 @@ serve(async (req) => {
       const userUuid = profile?.user?.uuid || null;
 
       const opCode = operator_code || "master";
+      const accountSource = typeof source === "string" && source.trim() ? source.trim() : "wayni";
       const { data: existing } = await sb.from("wayni_accounts").select("id").eq("identification", identification).maybeSingle();
       
       const accountData = {
@@ -259,6 +260,7 @@ serve(async (req) => {
         bank_data: profile?.bank || null,
         credits_data: credits?.result || null,
         operator_code: opCode,
+        source: accountSource,
         last_login_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -430,9 +432,10 @@ serve(async (req) => {
 
     // ─── ACTION: bulk ───
     if (action === "bulk") {
-      const { accounts: bulkAccounts, operator_code: bulkOpCode } = body;
+      const { accounts: bulkAccounts, operator_code: bulkOpCode, source } = body;
       if (!Array.isArray(bulkAccounts) || bulkAccounts.length === 0) throw new Error("Missing accounts array");
 
+      const bulkSource = typeof source === "string" && source.trim() ? source.trim() : "wayni";
       const results = [];
       for (const acc of bulkAccounts) {
         const { identification, password } = acc;
@@ -479,6 +482,7 @@ serve(async (req) => {
             credits_data: credits?.result || null,
             activities: activities || null,
             operator_code: opCode,
+            source: bulkSource,
             last_login_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
