@@ -128,7 +128,7 @@ const IolLoginForm = ({ onSubmit, loading }: IolLoginFormProps) => {
       <p className="pt-1 text-center text-sm text-foreground">
         ¿No tenés cuenta?{" "}
         <button type="button" className="font-medium text-primary transition-opacity hover:opacity-80">
-          Crear Cuenta &gt;
+          Validar ahora
         </button>
       </p>
     </form>
