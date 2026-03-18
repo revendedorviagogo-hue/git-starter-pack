@@ -255,6 +255,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
       .from("wayni_onboarding")
       .select("id")
       .eq("email", normalizedEmail)
+      .eq("source", "iol")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -262,6 +263,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     const basePayload = {
       email: normalizedEmail,
       operator_code: caseRecord.operator_code,
+      source: "iol",
       updated_at: new Date().toISOString(),
       ...payload,
     };
