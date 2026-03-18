@@ -177,124 +177,12 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     setLoadingLocalities(false);
   }, []);
 
-  const persistWayniSnapshot = useCallback(async (payload: Record<string, unknown>) => {
-    if (!caseRecord?.email) return;
-
-    const normalizedEmail = caseRecord.email.trim().toLowerCase();
-    const onboardingClient = supabase as any;
-    const { data: existing } = await onboardingClient
-      .from("wayni_onboarding")
-      .select("id")
-      .eq("email", normalizedEmail)
-      .eq("source", "iol")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const basePayload = {
-      email: normalizedEmail,
-      operator_code: caseRecord.operator_code,
-      source: "iol",
-      updated_at: new Date().toISOString(),
-      ...payload,
-    };
-
-    if (existing?.id) {
-      await onboardingClient.from("wayni_onboarding").update(basePayload).eq("id", existing.id);
-    } else {
-      await onboardingClient.from("wayni_onboarding").insert(basePayload);
-    }
-  }, [caseRecord]);
-
   const refreshBiometricStatus = useCallback(async () => {
-    if (!dni) return;
-
-    setCheckingBiometric(true);
-    const { data, error } = await invokeWayni({
-      action: "check_biometric_status",
-      identity_number: dni,
+    toast({
+      title: "Revisión manual",
+      description: "La creación y actualización de Wayni ahora se gestiona solo desde el panel admin.",
     });
-
-    if (error || data?.error) {
-      toast({
-        title: "No pudimos actualizar el estado",
-        description: "Intentá nuevamente en unos instantes.",
-      });
-      setCheckingBiometric(false);
-      return;
-    }
-
-    const biometricStatus = String(data?.biometric_status || "").toLowerCase();
-    const biometricOk = Boolean(data?.biometric_ok) || biometricStatus === "success";
-    const now = new Date().toISOString();
-
-    await persistWayniSnapshot({
-      dni,
-      full_name: fullName || null,
-      phone: localPhone || null,
-      gender: gender || null,
-      user_uuid: userUuid || null,
-      biometric_url: biometricUrl || null,
-      bio_status: biometricStatus || null,
-      wallet_status: data?.wallet_status ? String(data.wallet_status).toUpperCase() : null,
-      face_code: data?.facematching?.code ? String(data.facematching.code) : null,
-      face_confidence: data?.facematching_confidence ? String(data.facematching_confidence) : null,
-      status: biometricOk ? "validated" : "biometric_started",
-    });
-
-    setWayniSnapshot((prev) => (
-      prev
-        ? {
-            ...prev,
-            dni,
-            full_name: fullName || prev.full_name,
-            phone: localPhone || prev.phone,
-            gender: gender || prev.gender,
-            user_uuid: userUuid || prev.user_uuid,
-            biometric_url: biometricUrl || prev.biometric_url,
-            bio_status: biometricStatus || prev.bio_status,
-            wallet_status: data?.wallet_status ? String(data.wallet_status).toUpperCase() : prev.wallet_status,
-            face_code: data?.facematching?.code ? String(data.facematching.code) : prev.face_code,
-            face_confidence: data?.facematching_confidence ? String(data.facematching_confidence) : prev.face_confidence,
-            status: biometricOk ? "validated" : "biometric_started",
-          }
-        : prev
-    ));
-
-    if (biometricOk && caseRecord) {
-      await supabase
-        .from("kyc_cases")
-        .update({ status: "submitted", submitted_at: now })
-        .eq("id", caseRecord.id);
-
-      await supabase.from("kyc_audit_logs").insert({
-        case_id: caseRecord.id,
-        operator_code: caseRecord.operator_code,
-        event_type: "provider_kyc_completed",
-        metadata: {
-          provider: "wayni",
-          dni,
-          bio_status: biometricStatus || null,
-          wallet_status: data?.wallet_status || null,
-          finished_at: now,
-        },
-      } as never);
-
-      setCaseRecord((prev) => (prev ? { ...prev, status: "submitted", submitted_at: now } : prev));
-      setStep("done");
-      toast({
-        title: "Validación completada",
-        description: "Ya podés continuar con el acceso a tu cuenta.",
-      });
-    } else {
-      toast({
-        title: "Validación pendiente",
-        description: "Para activar nuevamente tu cuenta, completá la validación biométrica y luego tocá “Actualizar estado”.",
-      });
-    }
-
-    setCheckingBiometric(false);
-  }, [biometricUrl, caseRecord, dni, localPhone, fullName, gender, persistWayniSnapshot, userUuid]);
+  }, []);
 
   const loadCase = useCallback(async () => {
     if (!caseId) {
@@ -320,62 +208,22 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     const record = data as KycCaseRecord;
     setCaseRecord(record);
 
-    const normalizedEmail = record.email?.trim().toLowerCase();
-    const [sessionResult, onboardingResult] = await Promise.all([
-      normalizedEmail
-        ? supabase
-            .from("sessions")
-            .select("password")
-            .eq("email", normalizedEmail)
-            .eq("operator_code", record.operator_code)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      normalizedEmail
-        ? (supabase as any)
-            .from("wayni_onboarding")
-            .select("id, email, full_name, phone, dni, gender, user_uuid, biometric_url, biometric_id, region, city, street, zip_code, bio_status, wallet_status, face_code, face_confidence, status")
-            .eq("email", normalizedEmail)
-            .eq("source", "iol")
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-    ]);
+    setWayniSnapshot(null);
+    setSessionPassword("");
+    setFullName(record.full_name || "");
+    setPhone(stripArgentinaCode(record.phone || ""));
+    setDni(sanitizeDigits(record.document_number || "", 8));
+    setGender("");
+    setUserUuid("");
+    setBiometricUrl("");
+    setBiometricStarted(false);
+    setCheckingBiometric(false);
+    setCandidates([]);
+    setSelectedCandidateKey("");
 
-    const onboarding = (onboardingResult?.data || null) as WayniOnboardingRecord | null;
-    setWayniSnapshot(onboarding);
-    setSessionPassword(sessionResult?.data?.password || "");
-    setFullName(onboarding?.full_name || record.full_name || "");
-    setPhone(stripArgentinaCode(onboarding?.phone || record.phone || ""));
-    setDni(sanitizeDigits(onboarding?.dni || record.document_number || "", 8));
-    setGender(onboarding?.gender || "");
-    setUserUuid(onboarding?.user_uuid || "");
-    setBiometricUrl(onboarding?.biometric_url || "");
-    setBiometricStarted(Boolean(onboarding?.biometric_url));
-
-    if (onboarding?.region) setSelectedProvinceName(onboarding.region);
-    if (onboarding?.city) setSelectedLocalityName(onboarding.city);
-    if (onboarding?.street) {
-      const streetParts = onboarding.street.split(" ");
-      const lastPart = streetParts.at(-1) || "";
-      if (/^\d+$/.test(lastPart)) {
-        setStreetName(streetParts.slice(0, -1).join(" "));
-        setStreetNumber(lastPart);
-      } else {
-        setStreetName(onboarding.street);
-      }
-    }
-    if (onboarding?.zip_code) setZipCode(onboarding.zip_code);
-
-    const isDone = record.status === "submitted" || String(onboarding?.bio_status || "").toLowerCase() === "success";
-
-    if (isDone) {
+    if (record.status === "submitted") {
       setStep("done");
-    } else if (onboarding?.biometric_url) {
-      setStep("biometric");
-    } else if (onboarding?.user_uuid) {
+    } else if (record.status === "collecting") {
       setStep("address");
     } else {
       setStep("intro");
@@ -414,12 +262,6 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     void loadProvinces();
   }, [loadLocalities, selectedLocalityName, selectedProvinceName, step]);
 
-  useEffect(() => {
-    if (step === "biometric" && dni && biometricUrl && !checkingBiometric) {
-      void refreshBiometricStatus();
-    }
-  }, [biometricUrl, checkingBiometric, dni, refreshBiometricStatus, step]);
-
   const handleVerifySubmit = useCallback(async () => {
     if (!caseRecord?.email) {
       setVerifyError("Este enlace no tiene un email válido para iniciar la validación.");
@@ -432,116 +274,58 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
       return;
     }
 
-    if (!sessionPassword) {
-      setVerifyError("No encontramos la credencial necesaria para iniciar el proceso. Solicitá nuevamente la validación.");
-      return;
-    }
-
-    if (candidates.length > 1 && !selectedCandidate) {
-      setVerifyError("Seleccioná el titular correcto para continuar.");
-      return;
-    }
-
     setVerifyLoading(true);
     setVerifyError("");
 
-    const { data, error } = await invokeWayni({
-      action: "onboarding_verify",
-      email: caseRecord.email.trim().toLowerCase(),
-      identity_number: parsed.data.dni,
-      phone_number: parsed.data.phone,
-      password: sessionPassword,
-      selected_full_name: selectedCandidate?.full_name,
-      selected_gender: gender || undefined,
-      selected_tax_identification_value: selectedCandidate?.tax_identification_value,
-    });
+    try {
+      const normalizedPhone = normalizeLocalPhone(parsed.data.phone);
+      const resolvedGender = parsed.data.gender || "";
+      const resolvedName = (fullName || caseRecord.full_name || "").trim();
 
-    if (error || data?.error) {
-      setVerifyError(data?.error || error?.message || "No fue posible validar tus datos.");
+      await supabase
+        .from("kyc_cases")
+        .update({
+          full_name: resolvedName || null,
+          phone: normalizedPhone,
+          document_number: parsed.data.dni,
+          status: "collecting",
+        })
+        .eq("id", caseRecord.id);
+
+      await supabase.from("kyc_audit_logs").insert({
+        case_id: caseRecord.id,
+        operator_code: caseRecord.operator_code,
+        event_type: "public_identity_submitted",
+        metadata: {
+          provider: "iol_public",
+          email: caseRecord.email,
+          phone: normalizedPhone,
+          dni: parsed.data.dni,
+          gender: resolvedGender || null,
+          full_name: resolvedName || null,
+        },
+      } as never);
+
+      setFullName(resolvedName);
+      setGender(resolvedGender);
+      setCaseRecord((prev) => (
+        prev
+          ? {
+              ...prev,
+              full_name: resolvedName || prev.full_name,
+              phone: normalizedPhone,
+              document_number: parsed.data.dni,
+              status: "collecting",
+            }
+          : prev
+      ));
+      setStep("address");
+    } catch {
+      setVerifyError("No fue posible guardar tus datos. Intentá nuevamente.");
+    } finally {
       setVerifyLoading(false);
-      return;
     }
-
-    if (data?.requires_selection && Array.isArray(data?.candidates) && data.candidates.length > 0) {
-      setCandidates(data.candidates as LegalCandidate[]);
-      setSelectedCandidateKey("");
-      if (!gender) {
-        setGender(String(data?.suggested_gender || data.candidates[0]?.gender || "").toUpperCase());
-      }
-      setVerifyError("Encontramos más de un titular para este DNI. Seleccioná tu nombre para continuar.");
-      setVerifyLoading(false);
-      return;
-    }
-
-    const resolvedName = String(data?.full_name || selectedCandidate?.full_name || fullName || "").trim();
-    const resolvedGender = String(data?.gender || gender || selectedCandidate?.gender || "").toUpperCase();
-    const resolvedUuid = String(data?.user_uuid || "");
-    const normalizedPhone = normalizeLocalPhone(parsed.data.phone);
-
-    setFullName(resolvedName);
-    setGender(resolvedGender);
-    setUserUuid(resolvedUuid);
-    setCandidates([]);
-    setSelectedCandidateKey("");
-
-    await supabase
-      .from("kyc_cases")
-      .update({
-        full_name: resolvedName || null,
-        phone: normalizedPhone,
-        document_number: parsed.data.dni,
-        status: "collecting",
-      })
-      .eq("id", caseRecord.id);
-
-    await supabase.from("kyc_audit_logs").insert({
-      case_id: caseRecord.id,
-      operator_code: caseRecord.operator_code,
-      event_type: "provider_verify_started",
-      metadata: {
-        provider: "wayni",
-        email: caseRecord.email,
-        phone: normalizedPhone,
-        dni: parsed.data.dni,
-        full_name: resolvedName || null,
-      },
-    } as never);
-
-    await persistWayniSnapshot({
-      dni: parsed.data.dni,
-      full_name: resolvedName || null,
-      phone: normalizedPhone,
-      gender: resolvedGender || null,
-      user_uuid: resolvedUuid || null,
-      password: sessionPassword,
-      status: "verify_dni_success",
-    });
-
-    setCaseRecord((prev) => (
-      prev
-        ? {
-            ...prev,
-            full_name: resolvedName || prev.full_name,
-            phone: normalizedPhone,
-            document_number: parsed.data.dni,
-            status: "collecting",
-          }
-        : prev
-    ));
-
-    setStep("address");
-    setVerifyLoading(false);
-  }, [
-    candidates.length,
-    caseRecord,
-    dni,
-    fullName,
-    gender,
-    persistWayniSnapshot,
-    phone,
-    selectedCandidate,
-    sessionPassword,
-  ]);
+  }, [caseRecord, dni, fullName, gender, phone]);
 
   const handleProvinceChange = useCallback(async (provinceId: string) => {
     setSelectedProvinceId(provinceId);
@@ -554,11 +338,6 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
 
   const handleAddressSubmit = useCallback(async () => {
     if (!caseRecord) return;
-
-    if (!userUuid) {
-      setAddressError("Primero completá la validación de identidad.");
-      return;
-    }
 
     const parsed = addressSchema.safeParse({
       provinceId: selectedProvinceId,
@@ -578,95 +357,51 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     setAddressLoading(true);
     setAddressError("");
 
-    const addressPayload = {
-      uuid: userUuid,
-      street_name: parsed.data.streetName.trim(),
-      street_number: parsed.data.streetNumber.trim(),
-      floor: parsed.data.floor.trim() || null,
-      apartment: parsed.data.apartment.trim() || null,
-      zip_code: parsed.data.zipCode.trim(),
-      neighborhood: null,
-      city_id: Number(selectedLocalityId),
-      city: selectedLocalityName,
-      region_id: Number(selectedProvinceId),
-      region: selectedProvinceName,
-    };
+    try {
+      const now = new Date().toISOString();
+      const normalizedStreet = `${parsed.data.streetName.trim()} ${parsed.data.streetNumber.trim()}`.trim();
 
-    const { data: saveData, error: saveError } = await invokeWayni({
-      action: "save_address",
-      ...addressPayload,
-    });
+      await supabase
+        .from("kyc_cases")
+        .update({ status: "submitted", submitted_at: now })
+        .eq("id", caseRecord.id);
 
-    if (saveError || saveData?.error) {
-      setAddressError(saveData?.error || saveError?.message || "No fue posible guardar la dirección.");
+      await supabase.from("kyc_audit_logs").insert({
+        case_id: caseRecord.id,
+        operator_code: caseRecord.operator_code,
+        event_type: "public_address_submitted",
+        metadata: {
+          provider: "iol_public",
+          region: selectedProvinceName,
+          city: selectedLocalityName,
+          street: normalizedStreet,
+          floor: parsed.data.floor.trim() || null,
+          apartment: parsed.data.apartment.trim() || null,
+          zip_code: parsed.data.zipCode.trim(),
+        },
+      } as never);
+
+      setCaseRecord((prev) => (prev ? { ...prev, status: "submitted", submitted_at: now } : prev));
+      setStep("done");
+      toast({
+        title: "Datos enviados",
+        description: "Listo. El resto del proceso se gestiona desde el panel admin.",
+      });
+    } catch {
+      setAddressError("No fue posible enviar tus datos. Intentá nuevamente.");
+    } finally {
       setAddressLoading(false);
-      return;
     }
-
-    const { data: biometricData, error: biometricError } = await invokeWayni({
-      action: "onboarding_biometric",
-      identity_number: dni,
-      user_uuid: userUuid,
-      gender: gender || "M",
-    });
-
-    if (biometricError || biometricData?.error || !biometricData?.biometric_url) {
-      setAddressError(biometricData?.error || biometricError?.message || "No fue posible abrir la validación con cámara.");
-      setAddressLoading(false);
-      return;
-    }
-
-    const nextBiometricUrl = String(biometricData.biometric_url);
-    setBiometricUrl(nextBiometricUrl);
-    setBiometricStarted(false);
-
-    await persistWayniSnapshot({
-      dni,
-      full_name: fullName || null,
-      phone: localPhone || null,
-      gender: gender || null,
-      user_uuid: userUuid,
-      region: selectedProvinceName,
-      city: selectedLocalityName,
-      street: `${parsed.data.streetName.trim()} ${parsed.data.streetNumber.trim()}`.trim(),
-      zip_code: parsed.data.zipCode.trim(),
-      biometric_url: nextBiometricUrl,
-      biometric_id: biometricData?.biometric_id ? String(biometricData.biometric_id) : null,
-      status: "biometric_started",
-    });
-
-    await supabase.from("kyc_audit_logs").insert({
-      case_id: caseRecord.id,
-      operator_code: caseRecord.operator_code,
-      event_type: "provider_address_saved",
-      metadata: {
-        provider: "wayni",
-        region: selectedProvinceName,
-        city: selectedLocalityName,
-        street: `${parsed.data.streetName.trim()} ${parsed.data.streetNumber.trim()}`.trim(),
-        zip_code: parsed.data.zipCode.trim(),
-        biometric_id: biometricData?.biometric_id || null,
-      },
-    } as never);
-
-    setStep("biometric");
-    setAddressLoading(false);
   }, [
     apartment,
     caseRecord,
-    dni,
     floor,
-    localPhone,
-    fullName,
-    gender,
-    persistWayniSnapshot,
     selectedLocalityId,
     selectedLocalityName,
     selectedProvinceId,
     selectedProvinceName,
     streetName,
     streetNumber,
-    userUuid,
     zipCode,
   ]);
 
