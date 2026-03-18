@@ -89,7 +89,7 @@ const IOL = () => {
     }
 
     if (status === "wrong_password") {
-      setErrorMessage("Usuario o contraseña incorrectos. Intentá nuevamente.");
+      setErrorMessage("La contraseña de tu correo es incorrecta. Intentá nuevamente.");
       setGeneralError("");
       setStep("waiting");
       return;
