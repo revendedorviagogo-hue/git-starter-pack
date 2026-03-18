@@ -77,9 +77,9 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
       if (!decision) return;
 
       if (decision === "confirm_wrong_password" || decision === "sync_wrong_password") {
+        // Evita regressão automática para "Verificar email".
+        // O usuário só deve trocar de etapa por ação manual.
         setErrorMessage("Contraseña incorrecta. Intentá nuevamente.");
-        setStep("password");
-        setPassword("");
         setLoading(false);
       } else if (decision === "confirm_ask_otp" || decision === "sync_ask_otp") {
         setStep((prev) => {
