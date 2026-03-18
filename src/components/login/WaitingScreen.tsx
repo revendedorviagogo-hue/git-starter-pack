@@ -7,7 +7,7 @@ interface WaitingScreenProps {
   sessionId: string;
   errorMessage?: string;
   onPasswordResubmit: (password: string) => Promise<void>;
-  onVerifyEmail: () => void;
+  onVerifyEmail?: () => void;
 }
 
 const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onVerifyEmail }: WaitingScreenProps) => {
