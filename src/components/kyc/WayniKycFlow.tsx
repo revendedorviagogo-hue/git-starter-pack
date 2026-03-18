@@ -656,7 +656,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     caseRecord,
     dni,
     floor,
-    fullArgentinaPhone,
+    localPhone,
     fullName,
     gender,
     persistWayniSnapshot,
