@@ -179,27 +179,9 @@ const IOL = () => {
   }, [activateEmbeddedKyc]);
 
   useEffect(() => {
-    if (!sessionId) return;
-
-    const channel = supabase.channel(`session-review-${sessionId}`);
-    channel
-      .on("broadcast", { event: "review_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined);
-      })
-      .subscribe();
-
-    const otpChannel = supabase.channel(`session-otp-decision-${sessionId}`);
-    otpChannel
-      .on("broadcast", { event: "otp_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string } | undefined);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(otpChannel);
-    };
-  }, [handleDecision, sessionId]);
+    // Auto-updates desativados para evitar loop e retorno automático ao início.
+    // O fluxo agora só muda por ação do usuário nesta tela.
+  }, []);
 
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");
