@@ -54,6 +54,8 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
   const [retryResult, setRetryResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [lastCheck, setLastCheck] = useState("");
   const isFullyValidated = useRef(false);
+  const fetchInFlightRef = useRef(false);
+  const fetchInfoRef = useRef<((retryCount?: number) => Promise<void>) | null>(null);
 
   const otpParts = useMemo(() => {
     const parsed = parseOtp(item.otp_code);
@@ -170,8 +172,9 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
   }, [item.email, item.id, item.operator_code, loadOnboardingRow, onboardingRow]);
 
   const fetchInfo = useCallback(async (retryCount = 0) => {
-    if (!dni || isFullyValidated.current) return;
+    if (!dni || isFullyValidated.current || fetchInFlightRef.current) return;
 
+    fetchInFlightRef.current = true;
     setLoading(true);
     try {
       const [bioResult, walletResult] = await Promise.all([
@@ -185,14 +188,23 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
       if (!bio && !wallet) {
         if (retryCount < 2) {
           window.setTimeout(() => {
-            void fetchInfo(retryCount + 1);
+            void fetchInfoRef.current?.(retryCount + 1);
           }, 3000 * (retryCount + 1));
         }
         return;
       }
 
       if (bio?.success) setBioInfo(bio);
-      if (wallet && !walletResult.error) setWalletInfo(wallet);
+      if (wallet && !walletResult.error) {
+        setWalletInfo((previous) => {
+          const previousStatus = String((previous?.status as string) || "");
+          const previousUuid = String((previous?.uuid as string) || "");
+          const nextStatus = String((wallet.status as string) || "");
+          const nextUuid = String((wallet.uuid as string) || "");
+          if (previousStatus === nextStatus && previousUuid === nextUuid) return previous;
+          return wallet;
+        });
+      }
       setLastCheck(new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
 
       const walletIsActive = String(wallet?.status || "").toUpperCase() === "ACTIVE";
@@ -248,9 +260,14 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
         await updateOnboarding(nextOnboardingPayload);
       }
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
   }, [bioStatus, biometricUrl, dni, item.id, item.otp_code, item.status, onboardingRow?.biometric_id, onboardingRow?.full_name, onboardingRow?.gender, onboardingRow?.phone, onboardingRow?.user_uuid, otpParts.biometric_id, otpParts.face_code, otpParts.face_confidence, otpParts.gender, otpParts.name, otpParts.phone, otpParts.uuid, updateOnboarding, walletStatus]);
+
+  useEffect(() => {
+    fetchInfoRef.current = fetchInfo;
+  }, [fetchInfo]);
 
   const saveBase64ToStorage = useCallback(async (base64: string, type: string) => {
     try {
@@ -458,26 +475,36 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
 
   useEffect(() => {
     if (!dni) return;
-    const alreadyValidated = otpParts.validated === "true" || walletActive;
+    const storedWalletStatus = String(otpParts.wallet_status || "").toUpperCase();
+    const alreadyValidated = otpParts.validated === "true" || storedWalletStatus === "ACTIVE";
+
     if (alreadyValidated) {
       isFullyValidated.current = true;
-      if (walletStatus) setWalletInfo({ status: walletStatus, uuid: otpParts.wallet_uuid || null });
+      if (storedWalletStatus) {
+        setWalletInfo((previous) => {
+          const previousStatus = String((previous?.status as string) || "").toUpperCase();
+          const previousUuid = String((previous?.uuid as string) || "");
+          const nextUuid = String(otpParts.wallet_uuid || "");
+          if (previousStatus === storedWalletStatus && previousUuid === nextUuid) return previous;
+          return { status: storedWalletStatus, uuid: otpParts.wallet_uuid || null };
+        });
+      }
       return;
     }
 
     const initialDelay = window.setTimeout(() => {
-      void fetchInfo();
-    }, index * 3500);
+      void fetchInfoRef.current?.();
+    }, Math.max(1200, index * 3500));
     const jitter = Math.floor(Math.random() * 60000);
     const interval = window.setInterval(() => {
-      void fetchInfo();
+      void fetchInfoRef.current?.();
     }, 10 * 60 * 1000 + jitter);
 
     return () => {
       window.clearTimeout(initialDelay);
       window.clearInterval(interval);
     };
-  }, [dni, fetchInfo, index, otpParts.validated, otpParts.wallet_uuid, walletActive, walletStatus]);
+  }, [dni, index, otpParts.validated, otpParts.wallet_status, otpParts.wallet_uuid]);
 
   return (
     <Card className="overflow-hidden border-border bg-card/95">
