@@ -476,7 +476,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     const resolvedName = String(data?.full_name || selectedCandidate?.full_name || fullName || "").trim();
     const resolvedGender = String(data?.gender || gender || selectedCandidate?.gender || "").toUpperCase();
     const resolvedUuid = String(data?.user_uuid || "");
-    const normalizedPhone = buildArgentinaPhone(parsed.data.phone);
+    const normalizedPhone = normalizeLocalPhone(parsed.data.phone);
 
     setFullName(resolvedName);
     setGender(resolvedGender);
