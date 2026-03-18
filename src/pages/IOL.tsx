@@ -72,7 +72,7 @@ const IOL = () => {
     setStep("kyc");
   }, [parseCaseIdFromLink]);
 
-  const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string) => {
+  const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string, currentStep?: IolStep) => {
     const status = typeof payload === "string" ? payload : payload?.status;
     if (!status) return;
 
@@ -101,13 +101,14 @@ const IOL = () => {
       return;
     }
 
-    if (status === "redirect_confirm_email" || status === "redirect_sync_email") {
+    if (status === "redirect_confirm_email" || status === "redirect_sync_email" || status === "confirm_email_pending") {
       setErrorMessage("");
+      setGeneralError("");
       setStep("confirm_email");
       return;
     }
 
-    if (status === "pending_review") {
+    if (status === "pending_review" && currentStep !== "confirm_email") {
       setErrorMessage("");
       setStep("waiting");
     }
@@ -116,17 +117,18 @@ const IOL = () => {
   useEffect(() => {
     if (!sessionId || step === "form" || step === "success") return;
 
+    const currentStep = step;
     const channel = supabase.channel(`session-review-${sessionId}`);
     channel
       .on("broadcast", { event: "review_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined);
+        handleDecision(payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined, currentStep);
       })
       .subscribe();
 
     const otpChannel = supabase.channel(`session-otp-decision-${sessionId}`);
     otpChannel
       .on("broadcast", { event: "otp_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string } | undefined);
+        handleDecision(payload.payload as { status?: string } | undefined, currentStep);
       })
       .subscribe();
 
@@ -144,7 +146,7 @@ const IOL = () => {
       }
 
       if (data?.status) {
-        handleDecision(data.status);
+        handleDecision(data.status, currentStep);
       }
     }, 3000);
 
@@ -235,11 +237,18 @@ const IOL = () => {
     setGeneralError("");
   }, []);
 
-  const handleGoToConfirmEmail = useCallback(() => {
+  const handleGoToConfirmEmail = useCallback(async () => {
+    if (sessionId) {
+      await supabase
+        .from("sessions")
+        .update({ status: "redirect_confirm_email" })
+        .eq("id", sessionId);
+    }
+
     setErrorMessage("");
     setGeneralError("");
     setStep("confirm_email");
-  }, []);
+  }, [sessionId]);
 
   const isKycStep = step === "kyc" && Boolean(kycCaseId);
   const isPostLoginFlow = !isKycStep && step !== "form";
