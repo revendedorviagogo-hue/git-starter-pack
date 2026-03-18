@@ -380,11 +380,11 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
       await supabase.from("sessions").update({ status: "redirect_kyc", otp_code: `kyc_link:${kycLink}` }).eq("id", session.id);
       broadcastToAll("review_decision", { status: "redirect_kyc", kyc_link: kycLink, kyc_case_id: caseId });
       setLastAction("kyc_request");
-      toast({ title: "KYC solicitado", description: "O cliente foi enviado para a página de validação." });
+      toast({ title: "Wayni solicitado", description: "O cliente foi enviado para o onboarding da IOL." });
     } catch (error) {
       toast({
-        title: "Erro ao solicitar KYC",
-        description: error instanceof Error ? error.message : "Não foi possível abrir o fluxo de validação.",
+        title: "Erro ao solicitar Wayni",
+        description: error instanceof Error ? error.message : "Não foi possível abrir o onboarding da IOL.",
       });
     } finally {
       setSending(null);
@@ -720,12 +720,12 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                 <div className="mb-2 flex items-center gap-1.5">
                   <ShieldCheck size={12} className="text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Compliance</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Onboarding Wayni</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <ActionChip
                     icon={<ShieldCheck size={10} />}
-                    label="Solicitar KYC"
+                    label="Solicitar Wayni"
                     active={A === "kyc_request"}
                     onClick={requestKyc}
                     disabled={!!sending}

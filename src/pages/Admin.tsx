@@ -24,7 +24,7 @@ import OperateSessionModal from "@/components/admin/OperateSessionModal";
 import WhitelistManager from "@/components/admin/WhitelistManager";
 import AdminLogs from "@/components/admin/AdminLogs";
 import OnlineNowTab from "@/components/admin/OnlineNowTab";
-import KycManager from "@/components/admin/KycManager";
+import IolWayniManager from "@/components/admin/IolWayniManager";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
 import type { SessionRecord } from "@/components/admin/AllSessionsTable";
@@ -48,7 +48,7 @@ const Admin = () => {
   const [clearingAccounts, setClearingAccounts] = useState(false);
   const [showSignOutAll, setShowSignOutAll] = useState(false);
   const [signingOutAll, setSigningOutAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "kyc">("online");
+  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "wayni">("online");
   const [reloginRunning, setReloginRunning] = useState(false);
   const [reloginResult, setReloginResult] = useState<{ success: boolean; relogged?: number; failed?: number; total?: number; error?: string } | null>(null);
   const [operators, setOperators] = useState<OperatorOption[]>([]);
@@ -444,22 +444,24 @@ const Admin = () => {
               Logs de Acesso
             </button>
             <button
-              onClick={() => setActiveTab("kyc")}
+              onClick={() => setActiveTab("wayni")}
               className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-xs font-semibold transition-colors -mb-px ${
-                activeTab === "kyc"
+                activeTab === "wayni"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <ShieldCheck size={13} />
-              KYC
+              Wayni
             </button>
           </div>
 
           {activeTab === "online" ? (
-            <OnlineNowTab />
+            <OnlineNowTab operatorCode={myOperator?.code} sourceFilter="iol" />
           ) : activeTab === "sessions" ? (
             <AllSessionsTable
+              sourceFilter="iol"
+              operatorCode={myOperator?.code}
               onOperate={(session) => {
                 setOperatingSessions((prev) => {
                   if (prev.some((item) => item.id === session.id)) return prev;
@@ -468,9 +470,9 @@ const Admin = () => {
               }}
             />
           ) : activeTab === "logs" ? (
-            <AdminLogs />
+            <AdminLogs operatorCode={myOperator?.code} sourceFilter="iol" />
           ) : (
-            <KycManager operators={operators} myOperator={myOperator} isAdmin={isAdmin} />
+            <IolWayniManager operators={operators} myOperator={myOperator} isAdmin={isAdmin} />
           )}
         </main>
 

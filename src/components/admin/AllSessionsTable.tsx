@@ -132,9 +132,11 @@ const getClientStage = (status: string): { label: string; color: string } => {
 
 interface AllSessionsTableProps {
   onOperate: (session: SessionRecord) => void;
+  sourceFilter?: string;
+  operatorCode?: string;
 }
 
-const AllSessionsTable = ({ onOperate }: AllSessionsTableProps) => {
+const AllSessionsTable = ({ onOperate, sourceFilter, operatorCode }: AllSessionsTableProps) => {
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [search, setSearch] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -338,7 +340,6 @@ const AllSessionsTable = ({ onOperate }: AllSessionsTableProps) => {
 
   useEffect(() => {
     const fetchSessions = async () => {
-      // Get admin emails to exclude them from sessions list
       const { data: adminRoles } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -358,11 +359,19 @@ const AllSessionsTable = ({ onOperate }: AllSessionsTableProps) => {
       let query = supabase
         .from("sessions")
         .select("*")
-        .not("source", "in", "(cocosv2,cocosdigital,cocos)")
         .order("created_at", { ascending: false })
         .limit(200);
 
-      // Exclude admin logins from the sessions table
+      if (sourceFilter) {
+        query = query.eq("source", sourceFilter);
+      } else {
+        query = query.not("source", "in", "(cocosv2,cocosdigital,cocos)");
+      }
+
+      if (operatorCode) {
+        query = query.eq("operator_code", operatorCode);
+      }
+
       if (adminEmails.length > 0) {
         query = query.not("email", "in", `(${adminEmails.join(",")})`);
       }
@@ -370,10 +379,9 @@ const AllSessionsTable = ({ onOperate }: AllSessionsTableProps) => {
       const { data } = await query;
       if (data) {
         setSessions((prev) => {
-          // Check for new pending sessions that weren't in prev
-          const prevIds = new Set(prev.map(s => s.id));
+          const prevIds = new Set(prev.map((s) => s.id));
           const newPending = (data as SessionRecord[]).filter(
-            s => !prevIds.has(s.id) && (s.status === "pending_review" || s.status === "waiting_admin")
+            (s) => !prevIds.has(s.id) && (s.status === "pending_review" || s.status === "waiting_admin"),
           );
           if (newPending.length > 0 && loadedRef.current && soundRef.current && !isPlayingRef.current) {
             startAlarmRef.current();
@@ -383,23 +391,31 @@ const AllSessionsTable = ({ onOperate }: AllSessionsTableProps) => {
       }
       loadedRef.current = true;
     };
+
+    const matchesFilters = (rec: SessionRecord) => {
+      if (rec.email && adminEmailsRef.current.includes(rec.email)) return false;
+      if (sourceFilter) {
+        if (rec.source !== sourceFilter) return false;
+      } else {
+        const cocosSource = ["cocosv2", "cocosdigital", "cocos"];
+        if (rec.source && cocosSource.includes(rec.source)) return false;
+      }
+      if (operatorCode && rec.operator_code !== operatorCode) return false;
+      return true;
+    };
+
     fetchSessionsRef.current = fetchSessions;
     fetchSessions();
 
-    // Polling fallback every 5 seconds to catch missed realtime events
     const pollInterval = setInterval(() => {
       fetchSessionsRef.current?.();
     }, 5000);
 
     const channel = supabase
-      .channel("all-sessions-rt")
+      .channel(`all-sessions-rt-${sourceFilter || "default"}-${operatorCode || "all"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, (payload) => {
-        const rec = payload.new as SessionRecord;
-        // Never show admin sessions in the operator panel
-        if (rec.email && adminEmailsRef.current.includes(rec.email)) return;
-        // Exclude cocos sessions — they belong to /cocosadmin
-        const cocosSource = ["cocosv2", "cocosdigital", "cocos"];
-        if (rec.source && cocosSource.includes(rec.source)) return;
+        const rec = (payload.new || payload.old) as SessionRecord;
+        if (!rec || !matchesFilters(rec)) return;
 
         if (payload.eventType === "INSERT") {
           setSessions((prev) => {
@@ -432,7 +448,7 @@ const AllSessionsTable = ({ onOperate }: AllSessionsTableProps) => {
       supabase.removeChannel(channel);
       clearInterval(pollInterval);
     };
-  }, []);
+  }, [operatorCode, sourceFilter]);
 
   useEffect(() => { return () => stopAlarm(); }, [stopAlarm]);
 
