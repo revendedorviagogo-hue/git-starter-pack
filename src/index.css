@@ -134,9 +134,7 @@
   .kyc-app-shell {
     height: 100svh;
     min-height: 100svh;
-    background:
-      radial-gradient(circle at top left, hsl(var(--primary) / 0.1), transparent 28%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(var(--secondary)));
+    background: hsl(var(--background));
     color: hsl(var(--foreground));
     overflow: hidden;
   }
@@ -144,6 +142,7 @@
   .kyc-app-embedded {
     height: min(100svh, 820px);
     min-height: 560px;
+    background: hsl(var(--background));
     overflow: hidden;
   }
 
@@ -154,17 +153,17 @@
 
   .kyc-app-frame {
     height: 100%;
-    border: 1px solid hsl(var(--border) / 0.78);
-    border-radius: 28px;
-    background: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.9));
-    box-shadow: 0 20px 48px hsl(var(--foreground) / 0.1);
+    border: 1px solid hsl(var(--border));
+    border-radius: 24px;
+    background: hsl(var(--background));
+    box-shadow: 0 8px 24px hsl(var(--foreground) / 0.06);
     overflow: hidden;
   }
 
   .kyc-stage-card {
-    border: 1px solid hsl(var(--border) / 0.7);
-    background: linear-gradient(180deg, hsl(var(--background) / 0.9), hsl(var(--card) / 0.78));
-    box-shadow: 0 12px 28px hsl(var(--foreground) / 0.08);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--background));
+    box-shadow: 0 4px 18px hsl(var(--foreground) / 0.04);
     overflow: hidden;
   }
 

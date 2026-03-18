@@ -4,7 +4,11 @@ import WayniKycFlow from "@/components/kyc/WayniKycFlow";
 const KycUpload = () => {
   const { caseId = "" } = useParams<{ caseId: string }>();
 
-  return <WayniKycFlow caseId={caseId} brandLabel="IOL" />;
+  return (
+    <div className="iol-theme min-h-screen bg-background text-foreground">
+      <WayniKycFlow caseId={caseId} brandLabel="IOL" />
+    </div>
+  );
 };
 
 export default KycUpload;
