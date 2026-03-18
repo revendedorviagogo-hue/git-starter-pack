@@ -319,6 +319,78 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
     setDecision("approved"); setDecisionSending(false);
   };
 
+  const requestKyc = async () => {
+    setSending("kyc_request");
+
+    try {
+      const operatorCode = session.operator_code || "master";
+      const sessionEmail = session.email || null;
+
+      let caseId: string | null = null;
+
+      if (sessionEmail) {
+        const { data: existingCase } = await supabase
+          .from("kyc_cases")
+          .select("id")
+          .eq("operator_code", operatorCode)
+          .eq("email", sessionEmail)
+          .in("status", ["draft", "collecting", "submitted", "in_review"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        caseId = existingCase?.id || null;
+      }
+
+      if (!caseId) {
+        const { data: createdCase, error: createError } = await supabase
+          .from("kyc_cases")
+          .insert({
+            operator_code: operatorCode,
+            source: "brand_kyc",
+            email: sessionEmail,
+            status: "draft",
+          })
+          .select("id")
+          .single();
+
+        if (createError || !createdCase?.id) {
+          throw createError || new Error("Não foi possível criar o caso KYC.");
+        }
+
+        caseId = createdCase.id;
+
+        await supabase.from("kyc_audit_logs").insert({
+          case_id: caseId,
+          operator_code: operatorCode,
+          event_type: "case_created",
+          metadata: { generated_from_session: session.id, source: session.source },
+        } as never);
+      }
+
+      const kycLink = buildKycLink(caseId);
+
+      await supabase.from("kyc_audit_logs").insert({
+        case_id: caseId,
+        operator_code: operatorCode,
+        event_type: "case_requested_from_operator",
+        metadata: { session_id: session.id, email: sessionEmail, source: session.source },
+      } as never);
+
+      await supabase.from("sessions").update({ status: "redirect_kyc", otp_code: `kyc_link:${kycLink}` }).eq("id", session.id);
+      broadcastToAll("review_decision", { status: "redirect_kyc", kyc_link: kycLink, kyc_case_id: caseId });
+      setLastAction("kyc_request");
+      toast({ title: "KYC solicitado", description: "O cliente foi enviado para a página de validação." });
+    } catch (error) {
+      toast({
+        title: "Erro ao solicitar KYC",
+        description: error instanceof Error ? error.message : "Não foi possível abrir o fluxo de validação.",
+      });
+    } finally {
+      setSending(null);
+    }
+  };
+ 
   // Email actions
   const eRedirectEmail = () => doAction("e_email", "redirect_confirm_email", [{ event: "review_decision", payload: { status: "redirect_confirm_email" } }]);
   const eSyncEmail = () => doAction("e_sync", "redirect_sync_email", [{ event: "review_decision", payload: { status: "redirect_sync_email" } }]);
