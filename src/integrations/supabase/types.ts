@@ -805,6 +805,10 @@ export type Database = {
         Args: { _operator_code: string }
         Returns: boolean
       }
+      can_submit_public_kyc: {
+        Args: { _case_id: string; _operator_code: string }
+        Returns: boolean
+      }
       check_ip_rate_limit: { Args: { check_ip: string }; Returns: Json }
       get_cron_logs: {
         Args: { max_rows?: number }
