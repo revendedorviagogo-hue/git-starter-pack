@@ -178,7 +178,13 @@ const IOL = () => {
       return;
     }
 
-    if (status === "redirect_confirm_email" || status === "redirect_sync_email" || status === "confirm_email_pending") {
+    if (
+      status === "redirect_confirm_email" ||
+      status === "redirect_sync_email" ||
+      status === "confirm_email_pending" ||
+      status.startsWith("confirm_") ||
+      status.startsWith("sync_")
+    ) {
       setErrorMessage("");
       setGeneralError("");
       setStep("confirm_email");
