@@ -19,9 +19,11 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onV
     e.preventDefault();
     if (!retryPassword.trim()) return;
     setLoading(true);
-    await onPasswordResubmit(retryPassword);
-    setRetryPassword("");
-    setLoading(false);
+    try {
+      await onPasswordResubmit(retryPassword);
+    } finally {
+      setLoading(false);
+    }
   }, [retryPassword, onPasswordResubmit]);
 
   // Show retry form when there's a wrong password error
