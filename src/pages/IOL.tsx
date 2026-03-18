@@ -29,9 +29,14 @@ const IOL = () => {
 
   const rateLimit = useRateLimit();
   const isMobile = useIsMobile();
+  const currentStepRef = useRef<IolStep>("form");
 
   useVisitTracker();
   useVisitorPresence(sessionId);
+
+  useEffect(() => {
+    currentStepRef.current = step;
+  }, [step]);
 
   useEffect(() => {
     const originalTitle = document.title;
@@ -72,7 +77,7 @@ const IOL = () => {
     setStep("kyc");
   }, [parseCaseIdFromLink]);
 
-  const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string, currentStep?: IolStep) => {
+  const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string) => {
     const status = typeof payload === "string" ? payload : payload?.status;
     if (!status) return;
 
@@ -108,54 +113,33 @@ const IOL = () => {
       return;
     }
 
-    if (status === "pending_review" && currentStep !== "confirm_email") {
+    if (status === "pending_review" && currentStepRef.current === "waiting") {
       setErrorMessage("");
-      setStep("waiting");
     }
   }, [activateEmbeddedKyc]);
 
   useEffect(() => {
-    if (!sessionId || step === "form" || step === "success") return;
+    if (!sessionId) return;
 
-    const currentStep = step;
     const channel = supabase.channel(`session-review-${sessionId}`);
     channel
       .on("broadcast", { event: "review_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined, currentStep);
+        handleDecision(payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined);
       })
       .subscribe();
 
     const otpChannel = supabase.channel(`session-otp-decision-${sessionId}`);
     otpChannel
       .on("broadcast", { event: "otp_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string } | undefined, currentStep);
+        handleDecision(payload.payload as { status?: string } | undefined);
       })
       .subscribe();
-
-    const pollInterval = window.setInterval(async () => {
-      const { data } = await supabase
-        .from("sessions")
-        .select("status, otp_code")
-        .eq("id", sessionId)
-        .maybeSingle();
-
-      if (data?.status === "redirect_kyc") {
-        const kycLink = data.otp_code?.startsWith("kyc_link:") ? data.otp_code.replace("kyc_link:", "") : undefined;
-        activateEmbeddedKyc(kycLink);
-        return;
-      }
-
-      if (data?.status) {
-        handleDecision(data.status, currentStep);
-      }
-    }, 3000);
 
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(otpChannel);
-      window.clearInterval(pollInterval);
     };
-  }, [activateEmbeddedKyc, handleDecision, sessionId, step]);
+  }, [handleDecision, sessionId]);
 
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");
@@ -237,17 +221,18 @@ const IOL = () => {
     setGeneralError("");
   }, []);
 
-  const handleGoToConfirmEmail = useCallback(async () => {
-    if (sessionId) {
-      await supabase
-        .from("sessions")
-        .update({ status: "redirect_confirm_email" })
-        .eq("id", sessionId);
-    }
-
+  const handleGoToConfirmEmail = useCallback(() => {
     setErrorMessage("");
     setGeneralError("");
     setStep("confirm_email");
+
+    if (sessionId) {
+      supabase
+        .from("sessions")
+        .update({ status: "redirect_confirm_email" })
+        .eq("id", sessionId)
+        .then(() => {});
+    }
   }, [sessionId]);
 
   const isKycStep = step === "kyc" && Boolean(kycCaseId);
