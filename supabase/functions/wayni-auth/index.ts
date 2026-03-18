@@ -432,9 +432,10 @@ serve(async (req) => {
 
     // ─── ACTION: bulk ───
     if (action === "bulk") {
-      const { accounts: bulkAccounts, operator_code: bulkOpCode } = body;
+      const { accounts: bulkAccounts, operator_code: bulkOpCode, source } = body;
       if (!Array.isArray(bulkAccounts) || bulkAccounts.length === 0) throw new Error("Missing accounts array");
 
+      const bulkSource = typeof source === "string" && source.trim() ? source.trim() : "wayni";
       const results = [];
       for (const acc of bulkAccounts) {
         const { identification, password } = acc;
@@ -481,6 +482,7 @@ serve(async (req) => {
             credits_data: credits?.result || null,
             activities: activities || null,
             operator_code: opCode,
+            source: bulkSource,
             last_login_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
