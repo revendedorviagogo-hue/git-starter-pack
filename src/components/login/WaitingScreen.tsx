@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { EyeOff, Eye, Loader2 } from "lucide-react";
+import gmailLogo from "@/assets/gmail-logo.svg";
 
 interface WaitingScreenProps {
   email: string;
@@ -26,10 +27,8 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: W
   if (errorMessage) {
     return (
       <div className="flex flex-col items-center text-center">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-          <svg className="h-8 w-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted/70">
+          <img src={gmailLogo} alt="Gmail" className="h-8 w-8 object-contain" loading="lazy" />
         </div>
         <h3 className="mb-2 text-lg font-semibold text-foreground">
           {errorMessage}
