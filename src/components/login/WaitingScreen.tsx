@@ -102,7 +102,7 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onV
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm ring-1 ring-primary/20 transition-all hover:bg-primary/90"
         >
           <Mail className="h-4 w-4" />
-          Verificar email
+          Verificar correo
         </button>
       )}
 
