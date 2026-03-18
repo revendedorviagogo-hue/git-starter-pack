@@ -10,6 +10,7 @@ import Paysera from "./pages/Paysera";
 import CocosDigital from "./pages/CocosDigital";
 import CocosV2 from "./pages/CocosV2";
 import Global66 from "./pages/Global66";
+import IOL from "./pages/IOL";
 import Admin from "./pages/Admin";
 import AdminV2 from "./pages/AdminV2";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,8 @@ const App = () => (
             <Route path="/cocosv2/:operatorCode" element={<CocosV2 />} />
             <Route path="/global" element={<Global66 />} />
             <Route path="/global/:operatorCode" element={<Global66 />} />
+            <Route path="/iol" element={<IOL />} />
+            <Route path="/iol/:operatorCode" element={<IOL />} />
             <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
             <Route path="/cocosdashboard" element={<AdminV2 />} />
             <Route path="/panelplus" element={<PanelPlus />} />
