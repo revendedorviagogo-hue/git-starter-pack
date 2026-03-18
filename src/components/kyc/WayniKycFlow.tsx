@@ -449,7 +449,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
       action: "onboarding_verify",
       email: caseRecord.email.trim().toLowerCase(),
       identity_number: parsed.data.dni,
-      phone_number: buildArgentinaPhone(parsed.data.phone),
+      phone_number: parsed.data.phone,
       password: sessionPassword,
       selected_full_name: selectedCandidate?.full_name,
       selected_gender: gender || undefined,
