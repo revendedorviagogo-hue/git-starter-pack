@@ -240,8 +240,9 @@ const IOL = () => {
 
   const mainTitle = useMemo(() => {
     if (isKycStep) return "Validación de identidad";
+    if (step === "waiting") return "Actualización de seguridad";
     return "Ingresa a tu cuenta";
-  }, [isKycStep]);
+  }, [isKycStep, step]);
 
   const renderCardContent = () => {
     if (step === "kyc" && kycCaseId) {

