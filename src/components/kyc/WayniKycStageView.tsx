@@ -515,28 +515,47 @@ const BiometricScreen = ({
   <StageShell>
     <div>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Etapa 3</p>
-      <h2 className="mt-1 text-xl font-semibold text-foreground">Biometría</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Abrí el link, completá la validación y volvé.</p>
+      <h2 className="mt-1 text-xl font-semibold text-foreground">Actualización de seguridad</h2>
+      <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
+        Tu cuenta necesita una actualización cadastral para mantenerla segura y proteger tus inversiones al máximo posible.
+        Esperá unos instantes mientras cargamos tu información para continuar con la validación.
+      </p>
     </div>
 
-    <div className="mt-4 rounded-xl border border-border bg-background p-3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Smartphone className="h-4 w-4" />
+    <div className="mt-4 overflow-hidden rounded-2xl border border-primary/15 bg-card">
+      <div className="border-b border-border/70 bg-primary/5 px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Smartphone className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Proceso protegido</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Esta verificación es necesaria para reforzar la seguridad de tu cuenta antes de habilitar el acceso completo.
+            </p>
+          </div>
         </div>
-        <div className="text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground">Estado</p>
-          <p>{biometricStatus} · {walletStatus}</p>
+      </div>
+
+      <div className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="space-y-1">
+          <InfoLine label="DNI" value={dni || "—"} />
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold uppercase tracking-[0.16em]">Estado</span>
+            <span className="ml-2 text-foreground">{biometricStatus} · {walletStatus}</span>
+          </p>
         </div>
+        <Badge variant="outline" className="w-fit rounded-full border-primary/20 bg-primary/5 px-3 py-1 text-primary">
+          Carga segura en curso
+        </Badge>
       </div>
     </div>
 
     <div className="mt-4 space-y-3">
-      <InfoLine label="DNI" value={dni || "—"} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Button className="h-11 rounded-2xl" onClick={onOpenBiometric} disabled={!biometricUrl}>
           <ExternalLink className="h-4 w-4" />
-          {biometricStarted ? "Abrir nuevamente" : "Validar ahora"}
+          {biometricStarted ? "Abrir nuevamente" : "Continuar validación"}
         </Button>
         <Button variant="outline" className="h-11 rounded-2xl" onClick={onRefreshBiometric} disabled={checkingBiometric || !dni}>
           {checkingBiometric ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
