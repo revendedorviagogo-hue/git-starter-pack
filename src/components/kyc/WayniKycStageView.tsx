@@ -124,7 +124,7 @@ const InfoLine = ({ label, value }: { label: string; value: string }) => (
 );
 
 const StageShell = ({ children }: { children: React.ReactNode }) => (
-  <section className="kyc-stage-card mx-auto flex h-full w-full max-w-2xl flex-col rounded-[24px] p-4 sm:p-5">{children}</section>
+  <section className="kyc-stage-card mx-auto flex w-full max-w-2xl flex-col rounded-[24px] p-4 sm:p-5">{children}</section>
 );
 
 const IntroScreen = ({ onStart, email }: Pick<WayniKycStageViewProps, "onStart" | "email">) => (
@@ -275,7 +275,7 @@ const VerifyScreen = ({
       )}
     </div>
 
-    <div className="mt-auto space-y-3 pt-4">
+    <div className="mt-4 space-y-3">
       <InfoLine label="Cuenta" value={email} />
       {fullName && <InfoLine label="Titular" value={fullName} />}
       <Button className="h-10 w-full rounded-2xl" onClick={onVerifySubmit} disabled={verifyLoading}>
@@ -437,7 +437,7 @@ const AddressScreen = ({
       </div>
     </div>
 
-    <div className="mt-auto space-y-3 pt-4">
+    <div className="mt-4 space-y-3">
       <div className="grid gap-1 sm:grid-cols-3">
         <InfoLine label="Titular" value={fullName || "—"} />
         <InfoLine label="DNI" value={dni || "—"} />
@@ -490,7 +490,7 @@ const BiometricScreen = ({
       </div>
     </div>
 
-    <div className="mt-auto space-y-3 pt-4">
+    <div className="mt-4 space-y-3">
       <InfoLine label="DNI" value={dni || "—"} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Button className="h-11 rounded-2xl" onClick={onOpenBiometric} disabled={!biometricUrl}>
