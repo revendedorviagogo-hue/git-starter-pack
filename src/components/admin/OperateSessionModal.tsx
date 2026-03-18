@@ -756,24 +756,6 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               </div>
             </div>
 
-            {session.source === "iol" && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-                <div className="mb-2 flex items-center gap-1.5">
-                  <ShieldCheck size={12} className="text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Onboarding Wayni</span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <ActionChip
-                    icon={<ShieldCheck size={10} />}
-                    label="Solicitar Wayni"
-                    active={A === "kyc_request"}
-                    onClick={requestKyc}
-                    disabled={!!sending}
-                    variant="primary"
-                  />
-                </div>
-              </div>
-            )}
 
             {/* ── Enviar Dados (inputs) ── */}
             <div className="rounded-lg border border-border bg-background/30 p-3">
