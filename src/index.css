@@ -55,6 +55,62 @@
   }
 }
 
+@layer components {
+  .iol-theme {
+    --background: 0 0% 100%;
+    --foreground: 239 72% 20%;
+    --card: 240 70% 95%;
+    --card-foreground: 239 72% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 239 72% 20%;
+    --primary: 248 93% 61%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 60% 98%;
+    --secondary-foreground: 239 72% 20%;
+    --muted: 236 40% 96%;
+    --muted-foreground: 232 24% 61%;
+    --accent: 164 84% 49%;
+    --accent-foreground: 0 0% 100%;
+    --border: 239 40% 90%;
+    --input: 0 0% 100%;
+    --ring: 248 93% 61%;
+  }
+
+  .iol-topbar-shadow {
+    box-shadow: 0 4px 18px hsl(var(--primary) / 0.08);
+  }
+
+  .iol-card-shadow {
+    box-shadow: 0 18px 44px hsl(var(--primary) / 0.12);
+  }
+
+  .iol-input-shadow {
+    box-shadow: 0 8px 20px hsl(var(--foreground) / 0.08);
+  }
+
+  .iol-button-glow {
+    box-shadow: 0 14px 28px hsl(var(--primary) / 0.28);
+  }
+
+  .iol-art-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--accent) / 0.9) 2px, transparent 2px),
+      linear-gradient(to bottom, hsl(var(--accent) / 0.9) 2px, transparent 2px);
+    background-size: 22px 22px;
+    background-position: center;
+  }
+
+  .iol-art-hex {
+    clip-path: polygon(28% 5%, 72% 5%, 100% 50%, 72% 95%, 28% 95%, 0 50%);
+    background:
+      repeating-linear-gradient(
+        -12deg,
+        hsl(var(--primary) / 0.9) 0 24px,
+        hsl(var(--primary) / 0.55) 24px 44px
+      );
+  }
+}
+
 @keyframes gradient {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
