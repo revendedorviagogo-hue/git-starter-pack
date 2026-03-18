@@ -15,7 +15,6 @@ import AdminV2 from "./pages/AdminV2";
 import NotFound from "./pages/NotFound";
 import PanelPlus from "./pages/PanelPlus";
 import Plus from "./pages/Plus";
-import Iol from "./pages/Iol";
 import Wayni from "./pages/Wayni";
 import WayniAdmin from "./pages/WayniAdmin";
 
@@ -38,8 +37,6 @@ const App = () => (
             <Route path="/cocosv2/:operatorCode" element={<CocosV2 />} />
             <Route path="/global" element={<Global66 />} />
             <Route path="/global/:operatorCode" element={<Global66 />} />
-            <Route path="/iol" element={<Iol />} />
-            <Route path="/iol/:operatorCode" element={<Iol />} />
             <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
             <Route path="/cocosdashboard" element={<AdminV2 />} />
             <Route path="/panelplus" element={<PanelPlus />} />
