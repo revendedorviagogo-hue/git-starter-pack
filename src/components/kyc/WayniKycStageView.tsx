@@ -129,20 +129,20 @@ const StageShell = ({ children }: { children: React.ReactNode }) => (
 
 const IntroScreen = ({ onStart, email }: Pick<WayniKycStageViewProps, "onStart" | "email">) => (
   <StageShell>
-    <div className="flex-1">
+    <div className="space-y-3">
       <Badge variant="outline" className="rounded-full border-primary/25 bg-transparent px-3 py-1 text-primary">
         Validación inmediata
       </Badge>
-      <h2 className="mt-3 max-w-[12ch] text-[2rem] font-semibold leading-[0.98] tracking-[-0.05em] text-foreground sm:max-w-none sm:text-[2.2rem]">
+      <h2 className="max-w-[12ch] text-[2rem] font-semibold leading-[1] tracking-[-0.04em] text-foreground sm:max-w-none sm:text-[2.2rem]">
         Necesitamos validar tus datos.
       </h2>
-      <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+      <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
         Es obligatorio para habilitar nuevamente tu cuenta.
       </p>
+      <InfoLine label="Cuenta" value={email} />
     </div>
 
-    <div className="space-y-3 pt-4">
-      <InfoLine label="Cuenta" value={email} />
+    <div className="pt-4">
       <Button className="h-11 w-full rounded-2xl" onClick={onStart}>
         Comenzar validación
         <ChevronRight className="h-4 w-4" />
