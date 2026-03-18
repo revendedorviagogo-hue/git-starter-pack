@@ -248,7 +248,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
             ...prev,
             dni,
             full_name: fullName || prev.full_name,
-            phone: fullArgentinaPhone || prev.phone,
+            phone: localPhone || prev.phone,
             gender: gender || prev.gender,
             user_uuid: userUuid || prev.user_uuid,
             biometric_url: biometricUrl || prev.biometric_url,
