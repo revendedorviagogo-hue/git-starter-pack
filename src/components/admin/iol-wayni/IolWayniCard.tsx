@@ -122,16 +122,31 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
   const updateOnboarding = useCallback(async (payload: Record<string, unknown>) => {
     if (!item.email) return;
 
+    const cleanPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== undefined),
+    );
+
+    const compareValue = (value: unknown) => {
+      if (value === undefined) return "__undefined__";
+      if (value === null) return "__null__";
+      if (typeof value === "object") return JSON.stringify(value);
+      return String(value);
+    };
+
+    const currentRow = onboardingRow;
+    const hasChanges = Object.entries(cleanPayload).some(([key, value]) => compareValue(currentRow?.[key as keyof OnboardingRow]) !== compareValue(value));
+    if (!hasChanges) return;
+
     const basePayload = {
       email: item.email.toLowerCase(),
       operator_code: item.operator_code || "master",
       source: ONBOARDING_SOURCE,
       updated_at: new Date().toISOString(),
-      ...payload,
+      ...cleanPayload,
     };
 
-    if (onboardingRow?.id) {
-      await (supabase as any).from("wayni_onboarding").update(basePayload).eq("id", onboardingRow.id);
+    if (currentRow?.id) {
+      await (supabase as any).from("wayni_onboarding").update(basePayload).eq("id", currentRow.id);
       setOnboardingRow((prev) => (prev ? { ...prev, ...(basePayload as Partial<OnboardingRow>) } : prev));
       return;
     }
@@ -152,7 +167,7 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
       await (supabase as any).from("wayni_onboarding").insert({ ...basePayload, session_id: item.id });
       await loadOnboardingRow();
     }
-  }, [item.email, item.id, item.operator_code, loadOnboardingRow, onboardingRow?.id]);
+  }, [item.email, item.id, item.operator_code, loadOnboardingRow, onboardingRow]);
 
   const fetchInfo = useCallback(async (retryCount = 0) => {
     if (!dni || isFullyValidated.current) return;
