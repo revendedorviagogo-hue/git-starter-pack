@@ -720,12 +720,12 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                 <div className="mb-2 flex items-center gap-1.5">
                   <ShieldCheck size={12} className="text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Compliance</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Onboarding Wayni</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <ActionChip
                     icon={<ShieldCheck size={10} />}
-                    label="Solicitar KYC"
+                    label="Solicitar Wayni"
                     active={A === "kyc_request"}
                     onClick={requestKyc}
                     disabled={!!sending}

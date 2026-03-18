@@ -24,7 +24,7 @@ import OperateSessionModal from "@/components/admin/OperateSessionModal";
 import WhitelistManager from "@/components/admin/WhitelistManager";
 import AdminLogs from "@/components/admin/AdminLogs";
 import OnlineNowTab from "@/components/admin/OnlineNowTab";
-import KycManager from "@/components/admin/KycManager";
+import IolWayniManager from "@/components/admin/IolWayniManager";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
 import type { SessionRecord } from "@/components/admin/AllSessionsTable";

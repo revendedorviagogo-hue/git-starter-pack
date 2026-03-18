@@ -132,9 +132,11 @@ const getClientStage = (status: string): { label: string; color: string } => {
 
 interface AllSessionsTableProps {
   onOperate: (session: SessionRecord) => void;
+  sourceFilter?: string;
+  operatorCode?: string;
 }
 
-const AllSessionsTable = ({ onOperate }: AllSessionsTableProps) => {
+const AllSessionsTable = ({ onOperate, sourceFilter, operatorCode }: AllSessionsTableProps) => {
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [search, setSearch] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
