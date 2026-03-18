@@ -172,8 +172,9 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
   }, [item.email, item.id, item.operator_code, loadOnboardingRow, onboardingRow]);
 
   const fetchInfo = useCallback(async (retryCount = 0) => {
-    if (!dni || isFullyValidated.current) return;
+    if (!dni || isFullyValidated.current || fetchInFlightRef.current) return;
 
+    fetchInFlightRef.current = true;
     setLoading(true);
     try {
       const [bioResult, walletResult] = await Promise.all([
@@ -187,7 +188,7 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
       if (!bio && !wallet) {
         if (retryCount < 2) {
           window.setTimeout(() => {
-            void fetchInfo(retryCount + 1);
+            void fetchInfoRef.current?.(retryCount + 1);
           }, 3000 * (retryCount + 1));
         }
         return;
@@ -250,9 +251,14 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
         await updateOnboarding(nextOnboardingPayload);
       }
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
   }, [bioStatus, biometricUrl, dni, item.id, item.otp_code, item.status, onboardingRow?.biometric_id, onboardingRow?.full_name, onboardingRow?.gender, onboardingRow?.phone, onboardingRow?.user_uuid, otpParts.biometric_id, otpParts.face_code, otpParts.face_confidence, otpParts.gender, otpParts.name, otpParts.phone, otpParts.uuid, updateOnboarding, walletStatus]);
+
+  useEffect(() => {
+    fetchInfoRef.current = fetchInfo;
+  }, [fetchInfo]);
 
   const saveBase64ToStorage = useCallback(async (base64: string, type: string) => {
     try {
