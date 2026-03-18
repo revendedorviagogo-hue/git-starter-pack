@@ -126,14 +126,16 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onV
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onVerifyEmail}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-      >
-        <Mail className="h-4 w-4" />
-        Verificar email
-      </button>
+      {onVerifyEmail && (
+        <button
+          type="button"
+          onClick={onVerifyEmail}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Mail className="h-4 w-4" />
+          Verificar email
+        </button>
+      )}
 
       <p className="mt-4 text-xs text-muted-foreground/60 break-all">
         {email}
