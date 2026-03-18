@@ -326,7 +326,7 @@ const ConfirmEmailScreen = ({ email, sessionId, onBack }: ConfirmEmailScreenProp
       {/* Connection visual */}
       <div className="mb-6 flex items-center justify-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary/50">
-          <img src={falconxLogo} alt="FalconX" className="h-5 object-contain" />
+          <img src={iolLogo} alt="InvertirOnline" className="h-5 object-contain" />
         </div>
         <div className="flex items-center gap-1">
           <div className="h-px w-3 bg-border" />
