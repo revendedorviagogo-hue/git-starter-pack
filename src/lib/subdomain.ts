@@ -17,6 +17,7 @@ const HOSTNAME_OVERRIDES: Record<string, string> = {
   "plus.actualizarcocos.com": "plus",
   "wayni.ingresarahora.com": "wayni",
   "global66.ingresarahora.com": "global66",
+  "iol.invertironline.pw": "iol",
 };
 
 /**
