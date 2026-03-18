@@ -83,11 +83,7 @@ const stripArgentinaCode = (value?: string | null) => {
   return digits.slice(0, 10);
 };
 
-const buildArgentinaPhone = (value: string) => {
-  const digits = sanitizeDigits(value, 10);
-  if (!digits) return "";
-  return digits.startsWith("54") ? digits : `54${digits}`;
-};
+const normalizeLocalPhone = (value: string) => sanitizeDigits(value, 10);
 
 const formatPhonePreview = (value: string) => {
   if (!value) return "—";
@@ -146,9 +142,9 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     [candidates, selectedCandidateKey],
   );
 
-  const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step), 0) + 1;
+const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step), 0) + 1;
   const progressValue = step === "done" ? 100 : step === "intro" ? 6 : Math.round((currentStepIndex / stepOrder.length) * 100);
-  const fullArgentinaPhone = buildArgentinaPhone(phone);
+  const localPhone = normalizeLocalPhone(phone);
 
   useEffect(() => {
     if (embedded) return;
@@ -235,7 +231,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     await persistWayniSnapshot({
       dni,
       full_name: fullName || null,
-      phone: fullArgentinaPhone || null,
+      phone: localPhone || null,
       gender: gender || null,
       user_uuid: userUuid || null,
       biometric_url: biometricUrl || null,
@@ -252,7 +248,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
             ...prev,
             dni,
             full_name: fullName || prev.full_name,
-            phone: fullArgentinaPhone || prev.phone,
+            phone: localPhone || prev.phone,
             gender: gender || prev.gender,
             user_uuid: userUuid || prev.user_uuid,
             biometric_url: biometricUrl || prev.biometric_url,
@@ -298,7 +294,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     }
 
     setCheckingBiometric(false);
-  }, [biometricUrl, caseRecord, dni, fullArgentinaPhone, fullName, gender, persistWayniSnapshot, userUuid]);
+  }, [biometricUrl, caseRecord, dni, localPhone, fullName, gender, persistWayniSnapshot, userUuid]);
 
   const loadCase = useCallback(async () => {
     if (!caseId) {
@@ -453,7 +449,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
       action: "onboarding_verify",
       email: caseRecord.email.trim().toLowerCase(),
       identity_number: parsed.data.dni,
-      phone_number: buildArgentinaPhone(parsed.data.phone),
+      phone_number: parsed.data.phone,
       password: sessionPassword,
       selected_full_name: selectedCandidate?.full_name,
       selected_gender: gender || undefined,
@@ -480,7 +476,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     const resolvedName = String(data?.full_name || selectedCandidate?.full_name || fullName || "").trim();
     const resolvedGender = String(data?.gender || gender || selectedCandidate?.gender || "").toUpperCase();
     const resolvedUuid = String(data?.user_uuid || "");
-    const normalizedPhone = buildArgentinaPhone(parsed.data.phone);
+    const normalizedPhone = normalizeLocalPhone(parsed.data.phone);
 
     setFullName(resolvedName);
     setGender(resolvedGender);
@@ -627,7 +623,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     await persistWayniSnapshot({
       dni,
       full_name: fullName || null,
-      phone: fullArgentinaPhone || null,
+      phone: localPhone || null,
       gender: gender || null,
       user_uuid: userUuid,
       region: selectedProvinceName,
@@ -660,7 +656,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     caseRecord,
     dni,
     floor,
-    fullArgentinaPhone,
+    localPhone,
     fullName,
     gender,
     persistWayniSnapshot,
