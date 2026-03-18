@@ -704,8 +704,8 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
 
   return (
     <div className={embedded ? "kyc-app-embedded" : "kyc-app-shell"}>
-      <main className={embedded ? "h-full" : "mx-auto h-full w-full max-w-6xl p-0 sm:p-4"}>
-        <div className="kyc-app-frame h-full">
+      <main className={embedded ? "kyc-app-main" : "kyc-app-main mx-auto w-full max-w-4xl"}>
+        <div className="kyc-app-frame">
           <WayniKycStageView
             brandName={brandName}
             email={caseRecord.email}
