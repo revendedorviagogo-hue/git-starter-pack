@@ -452,6 +452,46 @@ const AddressScreen = ({
   </StageShell>
 );
 
+const BiometricLinkButton = ({ biometricUrl }: Pick<WayniKycStageViewProps, "biometricUrl">) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = async () => {
+    if (!biometricUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(biometricUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // ignore clipboard errors silently
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-background p-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          {copied ? <CheckCircle2 className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-foreground">¿Querés terminarlo en tu celular?</p>
+          <p className="mt-1 text-sm text-muted-foreground">Copiá el link y abrilo desde tu navegador móvil para completar la verificación.</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 h-11 w-full rounded-2xl"
+            onClick={handleCopyLink}
+            disabled={!biometricUrl}
+          >
+            {copied ? <CheckCircle2 className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
+            {copied ? "Link copiado" : "Copiar link para enviarlo al celular"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const BiometricScreen = ({
   dni,
   biometricStatus,
@@ -503,6 +543,7 @@ const BiometricScreen = ({
           Actualizar estado
         </Button>
       </div>
+      <BiometricLinkButton biometricUrl={biometricUrl} />
     </div>
   </StageShell>
 );
