@@ -24,6 +24,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { parseBrowser } from "@/lib/adminUtils";
+import { buildKycLink } from "@/lib/kyc";
+import { toast } from "@/components/ui/use-toast";
 import type { SessionRecord } from "@/components/admin/AllSessionsTable";
 import { useSessionPresence } from "@/hooks/useSessionPresence";
 
