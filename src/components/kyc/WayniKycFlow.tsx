@@ -142,9 +142,9 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     [candidates, selectedCandidateKey],
   );
 
-  const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step), 0) + 1;
+const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step), 0) + 1;
   const progressValue = step === "done" ? 100 : step === "intro" ? 6 : Math.round((currentStepIndex / stepOrder.length) * 100);
-  const fullArgentinaPhone = buildArgentinaPhone(phone);
+  const localPhone = normalizeLocalPhone(phone);
 
   useEffect(() => {
     if (embedded) return;
