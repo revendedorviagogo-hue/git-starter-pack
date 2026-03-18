@@ -271,6 +271,7 @@ const IOL = () => {
           sessionId={sessionId}
           errorMessage={errorMessage}
           onPasswordResubmit={handlePasswordResubmit}
+          onVerifyEmail={handleGoToConfirmEmail}
         />
       );
     }
