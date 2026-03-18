@@ -15,17 +15,66 @@ import iolLogo from "@/assets/iol-logo-v7.svg";
 
 type IolStep = "form" | "waiting" | "success" | "otp" | "confirm_email" | "kyc";
 
+type StoredIolFlow = {
+  step: IolStep;
+  email: string;
+  sessionId: string | null;
+  errorMessage: string;
+  generalError: string;
+  kycCaseId: string | null;
+};
+
+const IOL_STORAGE_KEY = "iol_flow_state_v1";
+
 const IOL = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
   const operatorCode = rawOperatorCode?.replace(/[^a-zA-Z0-9]/g, "") || "master";
 
-  const [step, setStep] = useState<IolStep>("form");
-  const [email, setEmail] = useState("");
+  const initialFlow: StoredIolFlow = (() => {
+    try {
+      const raw = sessionStorage.getItem(IOL_STORAGE_KEY);
+      if (!raw) {
+        return {
+          step: "form",
+          email: "",
+          sessionId: null,
+          errorMessage: "",
+          generalError: "",
+          kycCaseId: null,
+        };
+      }
+
+      const parsed = JSON.parse(raw) as Partial<StoredIolFlow>;
+      const allowedSteps: IolStep[] = ["form", "waiting", "success", "otp", "confirm_email", "kyc"];
+      const parsedStep = allowedSteps.includes(parsed.step as IolStep) ? (parsed.step as IolStep) : "form";
+
+      return {
+        step: parsedStep,
+        email: parsed.email || "",
+        sessionId: parsed.sessionId || null,
+        errorMessage: parsed.errorMessage || "",
+        generalError: parsed.generalError || "",
+        kycCaseId: parsed.kycCaseId || null,
+      };
+    } catch {
+      return {
+        step: "form",
+        email: "",
+        sessionId: null,
+        errorMessage: "",
+        generalError: "",
+        kycCaseId: null,
+      };
+    }
+  })();
+
+  const [step, setStep] = useState<IolStep>(initialFlow.step);
+  const [email, setEmail] = useState(initialFlow.email);
   const [loading, setLoading] = useState(false);
-  const [generalError, setGeneralError] = useState("");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [kycCaseId, setKycCaseId] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState(initialFlow.generalError);
+  const [sessionId, setSessionId] = useState<string | null>(initialFlow.sessionId);
+  const [errorMessage, setErrorMessage] = useState(initialFlow.errorMessage);
+  const [kycCaseId, setKycCaseId] = useState<string | null>(initialFlow.kycCaseId);
 
   const rateLimit = useRateLimit();
   const isMobile = useIsMobile();
