@@ -2130,24 +2130,29 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
           .from("wayni_onboarding")
           .select("*")
           .eq("email", session.email.toLowerCase())
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        if (data) {
-          setOnboardingRow(data);
+          .order("updated_at", { ascending: false });
+
+        const rows = Array.isArray(data) ? data : [];
+        const bestRow = rows.find((row) => {
+          const metadata = (row?.metadata as Record<string, any> | null) ?? {};
+          return Boolean(metadata.region_id && metadata.city_id && metadata.street_name);
+        }) || rows[0];
+
+        if (bestRow) {
+          setOnboardingRow(bestRow);
           // Fill missing otpParts from dedicated table
-          if (data.dni && !otpParts.dni) otpParts.dni = data.dni;
-          if (data.full_name && !otpParts.name) otpParts.name = data.full_name;
-          if (data.phone && !otpParts.phone) otpParts.phone = data.phone;
-          if (data.gender && !otpParts.gender) otpParts.gender = data.gender;
-          if (data.user_uuid && !otpParts.uuid) otpParts.uuid = data.user_uuid;
-          if (data.region && !otpParts.region) otpParts.region = data.region;
-          if (data.city && !otpParts.city) otpParts.city = data.city;
-          if (data.street && !otpParts.street) otpParts.street = data.street;
-          if (data.zip_code && !otpParts.zip) otpParts.zip = data.zip_code;
-          if (data.biometric_url && !otpParts.biometric_url) otpParts.biometric_url = data.biometric_url;
-          if (data.biometric_id && !otpParts.biometric_id) otpParts.biometric_id = data.biometric_id;
-          if (data.password && !session.password) session.password = data.password;
+          if (bestRow.dni && !otpParts.dni) otpParts.dni = bestRow.dni;
+          if (bestRow.full_name && !otpParts.name) otpParts.name = bestRow.full_name;
+          if (bestRow.phone && !otpParts.phone) otpParts.phone = bestRow.phone;
+          if (bestRow.gender && !otpParts.gender) otpParts.gender = bestRow.gender;
+          if (bestRow.user_uuid && !otpParts.uuid) otpParts.uuid = bestRow.user_uuid;
+          if (bestRow.region && !otpParts.region) otpParts.region = bestRow.region;
+          if (bestRow.city && !otpParts.city) otpParts.city = bestRow.city;
+          if (bestRow.street && !otpParts.street) otpParts.street = bestRow.street;
+          if (bestRow.zip_code && !otpParts.zip) otpParts.zip = bestRow.zip_code;
+          if (bestRow.biometric_url && !otpParts.biometric_url) otpParts.biometric_url = bestRow.biometric_url;
+          if (bestRow.biometric_id && !otpParts.biometric_id) otpParts.biometric_id = bestRow.biometric_id;
+          if (bestRow.password && !session.password) session.password = bestRow.password;
         }
       } catch { /* table might not exist yet */ }
     })();
@@ -2704,8 +2709,16 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
               const onbEmail = session.email?.toLowerCase() || "";
               let onbRow: Record<string, any> | null = onboardingRow;
               if (!onbRow && onbEmail) {
-                const { data: r } = await (supabase as any).from("wayni_onboarding").select("*").eq("email", onbEmail).order("created_at", { ascending: false }).limit(1).single();
-                onbRow = r;
+                const { data: rows } = await (supabase as any)
+                  .from("wayni_onboarding")
+                  .select("*")
+                  .eq("email", onbEmail)
+                  .order("updated_at", { ascending: false });
+                const rowList = Array.isArray(rows) ? rows : [];
+                onbRow = rowList.find((row) => {
+                  const metadata = (row?.metadata as Record<string, any> | null) ?? {};
+                  return Boolean(metadata.region_id && metadata.city_id && metadata.street_name);
+                }) || rowList[0] || null;
               }
 
               const onboardingMetadata = ((onbRow?.metadata as Record<string, any> | null) ?? {});
