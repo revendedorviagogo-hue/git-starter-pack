@@ -1026,11 +1026,10 @@ serve(async (req) => {
       const BIOMETRIC_URL = "https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric";
       console.log("[wayni] biometric request for", identity_number);
 
-      const bioRes = await proxyFetch(BIOMETRIC_URL, {
+      const bioRes = await fetch(BIOMETRIC_URL, {
         method: "POST",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "billetera.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
         body: JSON.stringify({
@@ -1038,6 +1037,7 @@ serve(async (req) => {
           userUuid: user_uuid,
           gender: gender || "M",
         }),
+        signal: AbortSignal.timeout(15000),
       });
 
       const bioData = await safeJson(bioRes, {});
