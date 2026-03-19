@@ -83,7 +83,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
 
   const [loading, setLoading] = useState(true);
   const [caseRecord, setCaseRecord] = useState<KycCaseRecord | null>(null);
-  const [step, setStep] = useState<KycFlowScreen>("intro");
+  const [step, setStep] = useState<KycFlowScreen>("verify");
   const [sessionPassword, setSessionPassword] = useState("");
   const [wayniSnapshot, setWayniSnapshot] = useState<WayniOnboardingRecord | null>(null);
 
