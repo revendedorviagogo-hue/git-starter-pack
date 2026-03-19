@@ -200,38 +200,20 @@ const VerifyScreen = ({
     )}
 
     <div className="mt-4 grid gap-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="dni">DNI</Label>
-          <Input
-            id="dni"
-            type="text"
-            inputMode="numeric"
-            maxLength={8}
-            value={dniValue}
-            onChange={(event) => onDniChange(event.target.value)}
-            className="mt-1 h-9 rounded-xl"
-            placeholder="Ej. 38045521"
-            disabled={verifyLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="phone">Celular</Label>
-          <div className="mt-1 flex h-9 items-center gap-2 rounded-xl border border-input bg-background px-3">
-            <span className="text-sm font-semibold text-foreground">+54</span>
-            <input
-              id="phone"
-              type="text"
-              inputMode="tel"
-              maxLength={10}
-              value={phoneValue}
-              onChange={(event) => onPhoneChange(event.target.value)}
-              className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              placeholder="Ej. 1166051847"
-              disabled={verifyLoading}
-            />
-          </div>
-        </div>
+      <div>
+        <Label htmlFor="dni">Número de DNI</Label>
+        <Input
+          id="dni"
+          type="text"
+          inputMode="numeric"
+          maxLength={8}
+          value={dniValue}
+          onChange={(event) => onDniChange(event.target.value)}
+          className="mt-1 h-9 rounded-xl"
+          placeholder="Ej. 38045521"
+          autoFocus
+          disabled={verifyLoading}
+        />
       </div>
 
       <div>
@@ -439,10 +421,9 @@ const AddressScreen = ({
     </div>
 
     <div className="mt-4 space-y-3">
-      <div className="grid gap-1 sm:grid-cols-3">
+      <div className="grid gap-1 sm:grid-cols-2">
         <InfoLine label="Titular" value={fullName || "—"} />
         <InfoLine label="DNI" value={dni || "—"} />
-        <InfoLine label="Celular" value={phonePreview} />
       </div>
       <Button className="h-10 w-full rounded-2xl" onClick={onAddressSubmit} disabled={addressLoading}>
         {addressLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
