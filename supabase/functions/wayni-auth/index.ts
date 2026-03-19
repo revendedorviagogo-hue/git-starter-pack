@@ -892,23 +892,33 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── ACTION: get_provinces (direct fetch, no proxy) ───
+    // ─── ACTION: get_provinces (proxy BR → direct fallback) ───
     if (action === "get_provinces") {
-      console.log("[wayni] get_provinces: fetching DIRECT");
+      console.log("[wayni] get_provinces: fetching via proxy BR");
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
       const provinceHeaders: Record<string, string> = {
         "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
+        "User-Agent": "Waynimobile/1 CFNetwork/1331.0.7 Darwin/21.4.0",
+        "x-app-source": "ReactNativeApp",
         "x-ms-auth-key": AUTH_KEY,
         "x-correlation-id": makeCorrelationId(),
       };
-      const res = await fetch("https://api.waynimovil.ar/v3/province/32", {
-        method: "GET",
-        headers: provinceHeaders,
-        signal: AbortSignal.timeout(12000),
-      });
+      let res: Response;
+      try {
+        res = await fetchViaProxy("https://api.waynimovil.ar/v3/province/32", {
+          method: "GET",
+          headers: provinceHeaders,
+        }, PROXY_BR, 10000);
+      } catch (proxyErr: any) {
+        console.warn("[wayni] get_provinces proxy BR failed:", proxyErr?.message, "trying direct");
+        res = await fetch("https://api.waynimovil.ar/v3/province/32", {
+          method: "GET",
+          headers: provinceHeaders,
+          signal: AbortSignal.timeout(12000),
+        });
+      }
       const rawText = await res.text();
-      console.log("[wayni] get_provinces status:", res.status, "len:", rawText.length, "preview:", rawText.slice(0, 300));
+      console.log("[wayni] get_provinces status:", res.status, "len:", rawText.length, "preview:", rawText.slice(0, 500));
       if (!res.ok) {
         return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Provincias no disponibles (${res.status})`, raw: rawText.slice(0, 500) }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
