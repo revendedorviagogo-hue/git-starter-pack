@@ -243,7 +243,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
       // Has verified identity but no biometric yet → address step
       setStep("address");
     } else {
-      setStep("intro");
+      setStep("verify");
     }
 
     setLoading(false);
