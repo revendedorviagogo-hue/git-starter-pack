@@ -1061,13 +1061,13 @@ serve(async (req) => {
       const { identity_number, include_images } = body;
       if (!identity_number) throw new Error("Missing identity_number");
 
-      const res = await proxyFetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
+      const res = await fetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
         method: "GET",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "billetera.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
+        signal: AbortSignal.timeout(12000),
       });
 
       const data = await safeJson(res, {});
