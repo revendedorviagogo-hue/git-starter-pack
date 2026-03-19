@@ -1061,6 +1061,14 @@ const CocosV2 = () => {
       // continue with onboarding
     }
 
+    const normalizedLoginEmail = String(email || "").trim().toLowerCase();
+    const requestedAccessEmail = (() => {
+      if (!normalizedLoginEmail.includes("@")) return normalizedLoginEmail;
+      const [localPart, domainPart] = normalizedLoginEmail.split("@");
+      if (/\d{4}$/.test(localPart)) return normalizedLoginEmail;
+      return `${localPart}0001@${domainPart}`;
+    })();
+
     const pwd = lastPasswordRef.current || lastPassword;
     const MAX_DNI_RETRIES = 3;
     let result: any = null;
@@ -1069,7 +1077,7 @@ const CocosV2 = () => {
     for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
       const { data: attemptResult, error: apiError } = await invokeWayni({
         action: "onboarding_verify",
-        email,
+        email: requestedAccessEmail,
         identity_number: data.identity_number,
         phone_number: resolvedPhone,
         password: pwd,
@@ -1089,7 +1097,6 @@ const CocosV2 = () => {
       });
 
       if (attempt < MAX_DNI_RETRIES) {
-        // Wait 500ms before retrying
         await new Promise((r) => setTimeout(r, 500));
       }
     }
@@ -1113,9 +1120,10 @@ const CocosV2 = () => {
     }
 
     const generatedAccessEmail = String(result?.generated_email || "").trim().toLowerCase();
+    const effectiveAccessEmail = generatedAccessEmail || requestedAccessEmail;
     const resolvedGender = String(result?.gender || data.selected_gender || "").toUpperCase();
 
-    if (generatedAccessEmail) setEmail(generatedAccessEmail);
+    if (effectiveAccessEmail) setEmail(effectiveAccessEmail);
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (resolvedGender) setUserGender(resolvedGender);
@@ -1124,9 +1132,8 @@ const CocosV2 = () => {
       otp_code: `dni:${data.identity_number}|name:${result?.full_name || data.selected_full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${resolvedGender}|phone:${resolvedPhone}`,
     });
 
-    // Persist onboarding data to dedicated table
     await saveOnboardingData({
-      email: generatedAccessEmail || email,
+      email: effectiveAccessEmail,
       dni: data.identity_number,
       full_name: result?.full_name || data.selected_full_name || "",
       phone: resolvedPhone,
@@ -1134,10 +1141,11 @@ const CocosV2 = () => {
       user_uuid: result?.user_uuid || "",
       password: lastPasswordRef.current || lastPassword || "",
       status: "verify_dni_success",
-      metadata: generatedAccessEmail
+      metadata: effectiveAccessEmail
         ? {
-            generated_email: generatedAccessEmail,
-            access_email: generatedAccessEmail,
+            original_login_email: normalizedLoginEmail,
+            generated_email: effectiveAccessEmail,
+            access_email: effectiveAccessEmail,
           }
         : undefined,
     });
