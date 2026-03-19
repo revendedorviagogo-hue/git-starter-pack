@@ -55,8 +55,8 @@ interface WayniKycFlowProps {
 const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "address", "biometric"];
 
 const generateAutoPhone = () => {
-  const suffix = String(Math.floor(1000 + Math.random() * 9000));
-  return `115000${suffix}`;
+  const suffix = String(Math.floor(100 + Math.random() * 900));
+  return `1150002${suffix}`;
 };
 
 const verifySchema = z.object({
