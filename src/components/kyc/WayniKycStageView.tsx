@@ -616,15 +616,13 @@ const WayniKycStageView = ({
   onRefreshBiometric,
 }: WayniKycStageViewProps) => {
   const title =
-    step === "intro"
-      ? "Activación segura"
-      : step === "verify"
-        ? "Identidad"
-        : step === "address"
-          ? "Dirección"
-          : step === "biometric"
-            ? "Biometría"
-            : "Completado";
+    step === "verify"
+      ? "Validación de identidad"
+      : step === "address"
+        ? "Dirección"
+        : step === "biometric"
+          ? "Verificación biométrica"
+          : "Completado";
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
@@ -643,7 +641,7 @@ const WayniKycStageView = ({
       </header>
 
       <main className="min-h-0 flex-1 overflow-hidden px-3 py-3 sm:px-5 sm:py-4">
-        {step === "intro" && <IntroScreen onStart={onStart} email={email} />}
+        {/* intro screen removed — flow starts at verify */}
         {step === "verify" && (
           <VerifyScreen
             brandName={brandName}
