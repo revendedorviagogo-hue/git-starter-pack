@@ -786,6 +786,15 @@ serve(async (req) => {
           domain: sanitizeDomainPart(domainRaw, "gmail.com"),
         };
       };
+      const splitGeneratedEmailParts = (value: string) => {
+        const parts = splitEmailParts(value);
+        const match = parts.local.match(new RegExp(`^(.*?)(\\d{${ACCESS_ID_LENGTH}})$`));
+        return {
+          ...parts,
+          baseLocal: sanitizeEmailPart(match?.[1] || parts.local, "cliente"),
+          accessId: match?.[2] || "",
+        };
+      };
       const normalizeGeneratedAccessId = (value: unknown) => {
         const digits = String(value || "").replace(/\D/g, "");
         return digits ? digits.slice(-ACCESS_ID_LENGTH).padStart(ACCESS_ID_LENGTH, "0") : "";
@@ -796,6 +805,8 @@ serve(async (req) => {
         const match = localRaw.match(new RegExp(`(\\d{${ACCESS_ID_LENGTH}})$`));
         return match?.[1] || "";
       };
+      const submittedEmailParts = splitGeneratedEmailParts(submittedEmail);
+      const submittedLooksGenerated = !!submittedEmailParts.accessId;
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
 
       const onboardingCandidates = new Map<string, {
@@ -863,9 +874,12 @@ serve(async (req) => {
       const existingMetadata = existingOnboarding?.metadata && typeof existingOnboarding.metadata === "object"
         ? existingOnboarding.metadata as Record<string, unknown>
         : {};
-      const originalLoginEmail = typeof existingMetadata.original_login_email === "string"
+      const storedOriginalLoginEmail = typeof existingMetadata.original_login_email === "string"
         ? existingMetadata.original_login_email.trim().toLowerCase()
-        : submittedEmail;
+        : "";
+      const originalLoginEmail = storedOriginalLoginEmail || (submittedLooksGenerated
+        ? `${submittedEmailParts.baseLocal}@${submittedEmailParts.domain}`
+        : submittedEmail);
       const originalEmailParts = splitEmailParts(originalLoginEmail);
       const generatedEmailPattern = new RegExp(`^${escapeRegExp(originalEmailParts.local)}(\\d{${ACCESS_ID_LENGTH}})@${escapeRegExp(originalEmailParts.domain)}$`);
       const extractGeneratedAccessIdFromEmail = (value: unknown) => {
@@ -879,14 +893,11 @@ serve(async (req) => {
         ? existingMetadata.generated_email.trim().toLowerCase()
         : "";
       const rowGeneratedEmail = existingOnboarding?.email?.trim().toLowerCase() || "";
-      const submittedLooksGenerated = submittedEmail !== originalLoginEmail
-        ? extractGeneratedAccessIdFromEmail(submittedEmail)
-        : normalizeGeneratedAccessId(extractTrailingAccessId(submittedEmail));
 
       let generatedAccessId = normalizeGeneratedAccessId(existingMetadata.generated_access_id)
         || extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
         || extractGeneratedAccessIdFromEmail(rowGeneratedEmail)
-        || submittedLooksGenerated;
+        || (submittedLooksGenerated ? submittedEmailParts.accessId : "");
       let generatedEmail = extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
         ? metadataGeneratedEmail
         : (extractGeneratedAccessIdFromEmail(rowGeneratedEmail)
