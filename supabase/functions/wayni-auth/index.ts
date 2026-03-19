@@ -944,7 +944,7 @@ serve(async (req) => {
         console.error("[wayni] get_localities proxy failed, trying direct:", fetchErr?.message);
         res = await fetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
           method: "GET",
-          headers: { ...COMMON_HEADERS, "x-ms-auth-key": "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r", "x-correlation-id": makeCorrelationId() },
+          headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
           signal: AbortSignal.timeout(10000),
         });
       }
