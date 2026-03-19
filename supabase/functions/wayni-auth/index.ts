@@ -932,10 +932,16 @@ serve(async (req) => {
           if (p?.id != null && p?.name) provincesMap[String(p.id)] = String(p.name);
         }
       } else if (data && typeof data === "object") {
+        // Check nested arrays first
         const arr = data.data || data.provinces || data.items || data.result;
         if (Array.isArray(arr)) {
           for (const p of arr) {
             if (p?.id != null && p?.name) provincesMap[String(p.id)] = String(p.name);
+          }
+        } else {
+          // Flat object {id: name} format
+          for (const [k, v] of Object.entries(data)) {
+            if (typeof v === "string") provincesMap[k] = v;
           }
         }
       }
