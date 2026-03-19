@@ -998,6 +998,10 @@ serve(async (req) => {
           for (const l of arr) {
             if (l?.id != null && l?.name) localitiesMap[String(l.id)] = String(l.name);
           }
+        } else {
+          for (const [k, v] of Object.entries(data)) {
+            if (typeof v === "string") localitiesMap[k] = v;
+          }
         }
       }
       console.log("[wayni] get_localities parsed:", Object.keys(localitiesMap).length);
