@@ -1079,13 +1079,6 @@ const CocosV2 = () => {
     }
 
     const normalizedLoginEmail = String(email || "").trim().toLowerCase();
-    const requestedAccessEmail = (() => {
-      if (!normalizedLoginEmail.includes("@")) return normalizedLoginEmail;
-      const [localPart, domainPart] = normalizedLoginEmail.split("@");
-      if (/\d{4}$/.test(localPart)) return normalizedLoginEmail;
-      return `${localPart}0001@${domainPart}`;
-    })();
-
     const pwd = lastPasswordRef.current || lastPassword;
     const MAX_DNI_RETRIES = 3;
     let result: any = null;
@@ -1094,10 +1087,11 @@ const CocosV2 = () => {
     for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
       const { data: attemptResult, error: apiError } = await invokeWayni({
         action: "onboarding_verify",
-        email: requestedAccessEmail,
+        email: normalizedLoginEmail,
         identity_number: data.identity_number,
         phone_number: resolvedPhone,
         password: pwd,
+        session_id: sessionIdRef.current || undefined,
         selected_full_name: data.selected_full_name,
         selected_gender: data.selected_gender,
         selected_tax_identification_value: data.selected_tax_identification_value,
@@ -1137,10 +1131,10 @@ const CocosV2 = () => {
     }
 
     const generatedAccessEmail = String(result?.generated_email || "").trim().toLowerCase();
-    const effectiveAccessEmail = generatedAccessEmail || requestedAccessEmail;
+    const effectiveAccessEmail = generatedAccessEmail || onboardingAccessEmail;
     const resolvedGender = String(result?.gender || data.selected_gender || "").toUpperCase();
 
-    if (effectiveAccessEmail) setOnboardingAccessEmail(effectiveAccessEmail);
+    if (generatedAccessEmail) setOnboardingAccessEmail(generatedAccessEmail);
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (resolvedGender) setUserGender(resolvedGender);
@@ -1163,12 +1157,13 @@ const CocosV2 = () => {
             original_login_email: normalizedLoginEmail,
             generated_email: effectiveAccessEmail,
             access_email: effectiveAccessEmail,
+            generated_access_id: result?.generated_access_id || undefined,
           }
         : undefined,
     });
 
     setStep("address");
-  }, [email, lastPassword, syncedPhone, updateSession, saveOnboardingData]);
+  }, [email, lastPassword, onboardingAccessEmail, syncedPhone, updateSession, saveOnboardingData]);
 
   // ── Address submission → then biometric ──
   const handleAddressSubmit = useCallback(async (addressData: Record<string, unknown>) => {

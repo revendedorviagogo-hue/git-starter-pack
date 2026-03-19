@@ -155,13 +155,6 @@ const Wayni = () => {
 
   const handleVerifySubmit = useCallback(async (verifyData: VerifySubmitPayload): Promise<void | VerifySubmitResult> => {
     const normalizedLoginEmail = String(email || "").trim().toLowerCase();
-    const requestedAccessEmail = (() => {
-      if (!normalizedLoginEmail.includes("@")) return normalizedLoginEmail;
-      const [localPart, domainPart] = normalizedLoginEmail.split("@");
-      if (/\d{4}$/.test(localPart)) return normalizedLoginEmail;
-      return `${localPart}0001@${domainPart}`;
-    })();
-
     const MAX_DNI_RETRIES = 3;
     let result: any = null;
     let lastDniError = "";
@@ -169,7 +162,7 @@ const Wayni = () => {
     for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
       const { data, error: apiError } = await invokeWayni({
         action: "onboarding_verify",
-        email: requestedAccessEmail,
+        email: normalizedLoginEmail,
         identity_number: verifyData.identity_number,
         phone_number: verifyData.phone_number || phone,
         password,
@@ -199,13 +192,11 @@ const Wayni = () => {
         requires_selection: true,
         candidates: Array.isArray(result?.candidates) ? result.candidates : [],
         suggested_gender: String(result?.suggested_gender || verifyData.selected_gender || "").toUpperCase(),
-        generated_email: result?.generated_email ? String(result.generated_email) : requestedAccessEmail,
+        generated_email: result?.generated_email ? String(result.generated_email) : "",
       };
     }
 
     const resolvedGender = String(result?.gender || verifyData.selected_gender || "").toUpperCase();
-    const effectiveAccessEmail = String(result?.generated_email || requestedAccessEmail || "").trim().toLowerCase();
-    if (effectiveAccessEmail) setEmail(effectiveAccessEmail);
     setFullName(result.full_name || verifyData.selected_full_name || fullName);
 
     if (result?.biometric_url) {

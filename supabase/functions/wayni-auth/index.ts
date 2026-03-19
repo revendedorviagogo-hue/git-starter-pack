@@ -773,24 +773,44 @@ serve(async (req) => {
 
       if (!email || !identity_number) throw new Error("Missing email or identity_number");
 
-      const normalizedLoginEmail = String(email).trim().toLowerCase();
+      const submittedEmail = String(email).trim().toLowerCase();
       const normalizedDni = String(identity_number).replace(/\D/g, "");
-      const [emailLocalRaw, emailDomainRaw] = normalizedLoginEmail.split("@");
-      const safeLocal = (emailLocalRaw || "cliente").replace(/[^a-z0-9._-]/gi, "") || "cliente";
-      const safeDomain = (emailDomainRaw || "gmail.com").replace(/[^a-z0-9.-]/gi, "") || "gmail.com";
       const ACCESS_ID_LENGTH = 4;
       const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const generatedEmailPattern = new RegExp(`^${escapeRegExp(safeLocal)}(\\d{${ACCESS_ID_LENGTH}})@${escapeRegExp(safeDomain)}$`);
+      const sanitizeEmailPart = (value: string, fallback: string) => value.replace(/[^a-z0-9._-]/gi, "") || fallback;
+      const sanitizeDomainPart = (value: string, fallback: string) => value.replace(/[^a-z0-9.-]/gi, "") || fallback;
+      const splitEmailParts = (value: string) => {
+        const [localRaw = "", domainRaw = ""] = String(value || "").trim().toLowerCase().split("@");
+        return {
+          local: sanitizeEmailPart(localRaw, "cliente"),
+          domain: sanitizeDomainPart(domainRaw, "gmail.com"),
+        };
+      };
+      const splitGeneratedEmailParts = (value: string) => {
+        const parts = splitEmailParts(value);
+        const accessId = extractTrailingAccessId(value);
+        const [localRaw = ""] = String(value || "").trim().toLowerCase().split("@");
+        const baseLocalRaw = accessId && localRaw.length > ACCESS_ID_LENGTH
+          ? localRaw.slice(0, -ACCESS_ID_LENGTH)
+          : localRaw;
+        return {
+          ...parts,
+          baseLocal: sanitizeEmailPart(baseLocalRaw, "cliente"),
+          accessId,
+        };
+      };
       const normalizeGeneratedAccessId = (value: unknown) => {
         const digits = String(value || "").replace(/\D/g, "");
         return digits ? digits.slice(-ACCESS_ID_LENGTH).padStart(ACCESS_ID_LENGTH, "0") : "";
       };
-      const extractGeneratedAccessIdFromEmail = (value: unknown) => {
+      const extractTrailingAccessId = (value: unknown) => {
         const normalizedValue = String(value || "").trim().toLowerCase();
-        const match = generatedEmailPattern.exec(normalizedValue);
+        const [localRaw = ""] = normalizedValue.split("@");
+        const match = localRaw.match(new RegExp(`(\\d{${ACCESS_ID_LENGTH}})$`));
         return match?.[1] || "";
       };
-      const buildGeneratedEmail = (accessId: string) => `${safeLocal}${normalizeGeneratedAccessId(accessId) || "0001"}@${safeDomain}`;
+      const submittedEmailParts = splitGeneratedEmailParts(submittedEmail);
+      const submittedLooksGenerated = submittedEmail.includes("@") && submittedEmailParts.accessId.length === ACCESS_ID_LENGTH;
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
 
       const onboardingCandidates = new Map<string, {
@@ -828,7 +848,7 @@ serve(async (req) => {
       const { data: loginEmailRows } = await sb
         .from("wayni_onboarding")
         .select("id, email, metadata, session_id, dni, phone")
-        .eq("email", normalizedLoginEmail)
+        .eq("email", submittedEmail)
         .order("created_at", { ascending: false })
         .limit(5);
       pushCandidates(loginEmailRows as any[] | null);
@@ -848,28 +868,59 @@ serve(async (req) => {
         const originalLogin = typeof metadata.original_login_email === "string"
           ? metadata.original_login_email.trim().toLowerCase()
           : "";
-        return originalLogin === normalizedLoginEmail || row.email?.trim().toLowerCase() === normalizedLoginEmail;
+        const metadataGeneratedEmail = typeof metadata.generated_email === "string"
+          ? metadata.generated_email.trim().toLowerCase()
+          : "";
+        const rowEmail = row.email?.trim().toLowerCase() || "";
+        return originalLogin === submittedEmail || metadataGeneratedEmail === submittedEmail || rowEmail === submittedEmail;
       }) || Array.from(onboardingCandidates.values())[0] || null;
 
       const existingMetadata = existingOnboarding?.metadata && typeof existingOnboarding.metadata === "object"
         ? existingOnboarding.metadata as Record<string, unknown>
         : {};
+      const storedOriginalLoginEmail = typeof existingMetadata.original_login_email === "string"
+        ? existingMetadata.original_login_email.trim().toLowerCase()
+        : "";
+      const derivedOriginalLoginEmail = submittedLooksGenerated
+        ? `${submittedEmailParts.baseLocal}@${submittedEmailParts.domain}`
+        : submittedEmail;
+      const originalLoginEmail = submittedLooksGenerated
+        ? derivedOriginalLoginEmail
+        : (storedOriginalLoginEmail || submittedEmail);
+      const originalEmailParts = splitEmailParts(originalLoginEmail);
+      const generatedEmailPattern = new RegExp(`^${escapeRegExp(originalEmailParts.local)}(\\d{${ACCESS_ID_LENGTH}})@${escapeRegExp(originalEmailParts.domain)}$`);
+      const extractGeneratedAccessIdFromEmail = (value: unknown) => {
+        const normalizedValue = String(value || "").trim().toLowerCase();
+        const match = generatedEmailPattern.exec(normalizedValue);
+        return match?.[1] || "";
+      };
+      const buildGeneratedEmail = (accessId: string) => `${originalEmailParts.local}${normalizeGeneratedAccessId(accessId) || "0001"}@${originalEmailParts.domain}`;
+
       const metadataGeneratedEmail = typeof existingMetadata.generated_email === "string"
         ? existingMetadata.generated_email.trim().toLowerCase()
         : "";
       const rowGeneratedEmail = existingOnboarding?.email?.trim().toLowerCase() || "";
-      let generatedAccessId = normalizeGeneratedAccessId(existingMetadata.generated_access_id)
+
+      let generatedAccessId = submittedLooksGenerated
+        ? submittedEmailParts.accessId
+        : "";
+      generatedAccessId = generatedAccessId
+        || normalizeGeneratedAccessId(existingMetadata.generated_access_id)
         || extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
         || extractGeneratedAccessIdFromEmail(rowGeneratedEmail);
-      let generatedEmail = extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
-        ? metadataGeneratedEmail
-        : (extractGeneratedAccessIdFromEmail(rowGeneratedEmail) ? rowGeneratedEmail : "");
+      let generatedEmail = submittedLooksGenerated
+        ? submittedEmail
+        : "";
+      generatedEmail = generatedEmail
+        || (extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
+          ? metadataGeneratedEmail
+          : (extractGeneratedAccessIdFromEmail(rowGeneratedEmail) ? rowGeneratedEmail : ""));
 
       if (!generatedAccessId) {
         const { data: siblingRows } = await sb
           .from("wayni_onboarding")
           .select("email, metadata")
-          .ilike("email", `${safeLocal}%@${safeDomain}`)
+          .ilike("email", `${originalEmailParts.local}%@${originalEmailParts.domain}`)
           .limit(200);
 
         const highestAccessId = (siblingRows || []).reduce((maxValue, row) => {
@@ -878,6 +929,7 @@ serve(async (req) => {
             : {};
           const numericId = Number(
             normalizeGeneratedAccessId(rowMetadata.generated_access_id)
+            || extractGeneratedAccessIdFromEmail(rowMetadata.generated_email)
             || extractGeneratedAccessIdFromEmail(row?.email)
             || 0,
           );
@@ -906,7 +958,7 @@ serve(async (req) => {
       const persistOnboarding = async (payload: Record<string, unknown>, extraMetadata: Record<string, unknown> = {}) => {
         const mergedMetadata = {
           ...existingMetadata,
-          original_login_email: normalizedLoginEmail,
+          original_login_email: originalLoginEmail,
           generated_email: generatedEmail,
           access_email: generatedEmail,
           generated_access_id: generatedAccessId,
@@ -933,7 +985,6 @@ serve(async (req) => {
         }
       };
 
-      // Step 1: get-legal-data
       console.log("[wayni] Step 1: get-legal-data for", normalizedDni);
       const legalRes = await proxyFetch(`${ONBOARDING_URL}/get-legal-data`, {
         method: "POST",
@@ -1008,6 +1059,7 @@ serve(async (req) => {
           candidates: uniqueCandidates,
           suggested_gender: uniqueCandidates[0]?.gender || "",
           generated_email: generatedEmail,
+          generated_access_id: generatedAccessId,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -1018,8 +1070,6 @@ serve(async (req) => {
         : (selectedCandidate.gender || "M");
 
       console.log("[wayni] Legal data selected:", full_name, gender, tax_id, generatedEmail);
-
-      // Step 2: save-data
       console.log("[wayni] Step 2: save-data");
       const saveRes = await proxyFetch(`${ONBOARDING_URL}/save-data`, {
         method: "POST",
@@ -1057,7 +1107,6 @@ serve(async (req) => {
         tax_identification_value: tax_id,
       });
 
-      // Return without calling biometric - address step comes first
       return new Response(JSON.stringify({
         success: true,
         full_name,
@@ -1066,7 +1115,7 @@ serve(async (req) => {
         user_uuid: userUuid,
         generated_email: generatedEmail,
         generated_access_id: generatedAccessId,
-        original_login_email: normalizedLoginEmail,
+        original_login_email: originalLoginEmail,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
