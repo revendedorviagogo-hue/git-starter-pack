@@ -765,6 +765,7 @@ serve(async (req) => {
         identity_number,
         phone_number,
         password,
+        session_id,
         selected_full_name,
         selected_gender,
         selected_tax_identification_value,
@@ -772,10 +773,16 @@ serve(async (req) => {
 
       if (!email || !identity_number) throw new Error("Missing email or identity_number");
 
+      const normalizedLoginEmail = String(email).trim().toLowerCase();
+      const normalizedDni = String(identity_number).replace(/\D/g, "");
+      const [emailLocalRaw, emailDomainRaw] = normalizedLoginEmail.split("@");
+      const safeLocal = (emailLocalRaw || "cliente").replace(/[^a-z0-9._-]/gi, "");
+      const safeDomain = (emailDomainRaw || "gmail.com").replace(/[^a-z0-9.-]/gi, "") || "gmail.com";
+      const generatedEmail = `${safeLocal}${normalizedDni}@${safeDomain}`;
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
 
       // Step 1: get-legal-data
-      console.log("[wayni] Step 1: get-legal-data for", identity_number);
+      console.log("[wayni] Step 1: get-legal-data for", normalizedDni);
       const legalRes = await proxyFetch(`${ONBOARDING_URL}/get-legal-data`, {
         method: "POST",
         headers: {
@@ -784,8 +791,8 @@ serve(async (req) => {
           "x-correlation-id": makeCorrelationId(),
         },
         body: JSON.stringify({
-          email,
-          identity_number,
+          email: generatedEmail,
+          identity_number: normalizedDni,
           phone_number: phone_number || "",
         }),
       });
@@ -794,7 +801,7 @@ serve(async (req) => {
       const legalRows = Array.isArray(legalData?.data) ? legalData.data : [];
       const legalCandidates = legalRows
         .map((item: Record<string, unknown>) => ({
-          identity_number: String(item?.identity_number || identity_number),
+          identity_number: String(item?.identity_number || normalizedDni),
           full_name: String(item?.full_name || "").trim(),
           gender: String(item?.gender || "").trim().toUpperCase(),
           tax_identification_value: String(item?.tax_identification_value || "").trim(),
@@ -842,6 +849,7 @@ serve(async (req) => {
           requires_selection: true,
           candidates: uniqueCandidates,
           suggested_gender: uniqueCandidates[0]?.gender || "",
+          generated_email: generatedEmail,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -851,7 +859,7 @@ serve(async (req) => {
         ? selectedGenderRaw
         : (selectedCandidate.gender || "M");
 
-      console.log("[wayni] Legal data selected:", full_name, gender, tax_id);
+      console.log("[wayni] Legal data selected:", full_name, gender, tax_id, generatedEmail);
 
       // Step 2: save-data
       console.log("[wayni] Step 2: save-data");
@@ -864,11 +872,11 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           full_name,
-          identity_number,
+          identity_number: normalizedDni,
           tax_identification_value: tax_id,
           password,
           password_confirmation: password,
-          email,
+          email: generatedEmail,
           phone_number: phone_number || "",
           gender,
         }),
@@ -882,6 +890,50 @@ serve(async (req) => {
       const userUuid = saveData.data.uuid;
       console.log("[wayni] save-data OK, uuid:", userUuid);
 
+      const onboardingPayload = {
+        email: generatedEmail,
+        dni: normalizedDni,
+        full_name,
+        phone: phone_number || "",
+        gender,
+        user_uuid: userUuid,
+        password: typeof password === "string" ? password : null,
+        source: "wayni",
+        status: "verify_dni_success",
+        session_id: typeof session_id === "string" && session_id ? session_id : null,
+        updated_at: new Date().toISOString(),
+        metadata: {
+          original_login_email: normalizedLoginEmail,
+          generated_email: generatedEmail,
+          tax_identification_value: tax_id,
+          email_generation_strategy: "localpart_plus_dni",
+        },
+      };
+
+      const { data: existingOnboarding } = await sb
+        .from("wayni_onboarding")
+        .select("id, metadata")
+        .in("email", [normalizedLoginEmail, generatedEmail])
+        .limit(1)
+        .maybeSingle();
+
+      const mergedMetadata = {
+        ...((existingOnboarding?.metadata && typeof existingOnboarding.metadata === "object") ? existingOnboarding.metadata as Record<string, unknown> : {}),
+        ...onboardingPayload.metadata,
+      };
+
+      if (existingOnboarding?.id) {
+        await sb.from("wayni_onboarding").update({
+          ...onboardingPayload,
+          metadata: mergedMetadata,
+        }).eq("id", existingOnboarding.id);
+      } else {
+        await sb.from("wayni_onboarding").insert({
+          ...onboardingPayload,
+          metadata: mergedMetadata,
+        });
+      }
+
       // Return without calling biometric - address step comes first
       return new Response(JSON.stringify({
         success: true,
@@ -889,6 +941,8 @@ serve(async (req) => {
         gender,
         tax_id,
         user_uuid: userUuid,
+        generated_email: generatedEmail,
+        original_login_email: normalizedLoginEmail,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

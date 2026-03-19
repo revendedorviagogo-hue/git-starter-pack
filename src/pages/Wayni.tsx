@@ -165,6 +165,7 @@ const Wayni = () => {
         identity_number: verifyData.identity_number,
         phone_number: verifyData.phone_number || phone,
         password,
+        session_id: sessionId,
         selected_full_name: verifyData.selected_full_name,
         selected_gender: verifyData.selected_gender,
         selected_tax_identification_value: verifyData.selected_tax_identification_value,
@@ -190,10 +191,12 @@ const Wayni = () => {
         requires_selection: true,
         candidates: Array.isArray(result?.candidates) ? result.candidates : [],
         suggested_gender: String(result?.suggested_gender || verifyData.selected_gender || "").toUpperCase(),
+        generated_email: result?.generated_email ? String(result.generated_email) : undefined,
       };
     }
 
     const resolvedGender = String(result?.gender || verifyData.selected_gender || "").toUpperCase();
+    if (result?.generated_email) setEmail(String(result.generated_email));
     setFullName(result.full_name || verifyData.selected_full_name || fullName);
 
     if (result?.biometric_url) {
