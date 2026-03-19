@@ -616,15 +616,13 @@ const WayniKycStageView = ({
   onRefreshBiometric,
 }: WayniKycStageViewProps) => {
   const title =
-    step === "intro"
-      ? "Activación segura"
-      : step === "verify"
-        ? "Identidad"
-        : step === "address"
-          ? "Dirección"
-          : step === "biometric"
-            ? "Biometría"
-            : "Completado";
+    step === "verify"
+      ? "Validación de identidad"
+      : step === "address"
+        ? "Dirección"
+        : step === "biometric"
+          ? "Verificación biométrica"
+          : "Completado";
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
