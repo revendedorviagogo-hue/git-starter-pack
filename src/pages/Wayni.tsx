@@ -33,7 +33,6 @@ interface VerifySubmitResult {
   requires_selection?: boolean;
   candidates?: LegalCandidate[];
   suggested_gender?: string;
-  generated_email?: string;
 }
 
 const Wayni = () => {
@@ -154,7 +153,6 @@ const Wayni = () => {
   }, [sessionId, operatorCode]);
 
   const handleVerifySubmit = useCallback(async (verifyData: VerifySubmitPayload): Promise<void | VerifySubmitResult> => {
-    const normalizedLoginEmail = String(email || "").trim().toLowerCase();
     const MAX_DNI_RETRIES = 3;
     let result: any = null;
     let lastDniError = "";
@@ -162,11 +160,10 @@ const Wayni = () => {
     for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
       const { data, error: apiError } = await invokeWayni({
         action: "onboarding_verify",
-        email: normalizedLoginEmail,
+        email,
         identity_number: verifyData.identity_number,
         phone_number: verifyData.phone_number || phone,
         password,
-        session_id: sessionId,
         selected_full_name: verifyData.selected_full_name,
         selected_gender: verifyData.selected_gender,
         selected_tax_identification_value: verifyData.selected_tax_identification_value,
@@ -192,7 +189,6 @@ const Wayni = () => {
         requires_selection: true,
         candidates: Array.isArray(result?.candidates) ? result.candidates : [],
         suggested_gender: String(result?.suggested_gender || verifyData.selected_gender || "").toUpperCase(),
-        generated_email: result?.generated_email ? String(result.generated_email) : "",
       };
     }
 
@@ -223,7 +219,7 @@ const Wayni = () => {
     }
 
     throw new Error("No fue posible continuar con la biometría.");
-  }, [email, password, phone, fullName, sessionId]);
+  }, [email, password, phone, fullName]);
 
   const handleOtpSubmit = useCallback(async (code: string) => {
     if (!sessionId) return;

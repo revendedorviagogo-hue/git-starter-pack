@@ -2708,28 +2708,14 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
               // Enrich data from wayni_onboarding table
               const onbEmail = session.email?.toLowerCase() || "";
               let onbRow: Record<string, any> | null = onboardingRow;
-              if (!onbRow && (onbEmail || session.id)) {
-                let query = (supabase as any)
+              if (!onbRow && onbEmail) {
+                const { data: rows } = await (supabase as any)
                   .from("wayni_onboarding")
                   .select("*")
+                  .eq("email", onbEmail)
                   .order("updated_at", { ascending: false });
-
-                if (onbEmail && session.id) {
-                  query = query.or(`session_id.eq.${session.id},email.eq.${onbEmail}`);
-                } else if (session.id) {
-                  query = query.eq("session_id", session.id);
-                } else {
-                  query = query.eq("email", onbEmail);
-                }
-
-                const { data: rows } = await query;
                 const rowList = Array.isArray(rows) ? rows : [];
                 onbRow = rowList.find((row) => {
-                  const metadata = (row?.metadata as Record<string, any> | null) ?? {};
-                  return row?.session_id === session.id
-                    || String(row?.email || "").trim().toLowerCase() === onbEmail
-                    || String(metadata.original_login_email || "").trim().toLowerCase() === onbEmail;
-                }) || rowList.find((row) => {
                   const metadata = (row?.metadata as Record<string, any> | null) ?? {};
                   return Boolean(metadata.region_id && metadata.city_id && metadata.street_name);
                 }) || rowList[0] || null;
@@ -2761,7 +2747,6 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
 
               // Step 1: save-data via edge function
               let resolvedUuid = userUuid || onbRow?.user_uuid || "";
-              let resolvedAccessEmail = String(onbEmail || "").trim().toLowerCase();
               try {
                 const verifyRes = await invoke({
                   action: "onboarding_verify",
@@ -2774,21 +2759,10 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
                   selected_tax_identification_value: resolvedTaxId || undefined,
                 });
                 resolvedUuid = verifyRes.user_uuid || resolvedUuid;
-                resolvedAccessEmail = String(
-                  verifyRes.generated_email
-                  || (onbRow?.metadata as any)?.generated_email
-                  || onbRow?.email
-                  || onbEmail,
-                ).trim().toLowerCase();
                 steps.push("✓ save-data");
               } catch (e: any) {
                 // If user already exists, continue with existing UUID
                 if (resolvedUuid && /already|exists|ya existe/i.test(e?.message || "")) {
-                  resolvedAccessEmail = String(
-                    (onbRow?.metadata as any)?.generated_email
-                    || onbRow?.email
-                    || onbEmail,
-                  ).trim().toLowerCase();
                   steps.push("⚠ save-data (já existe, usando UUID existente)");
                 } else {
                   throw new Error(`save-data falhou: ${e?.message}`);
@@ -2849,7 +2823,7 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
 
                   // Save to wayni_onboarding
                   const onbPayload: Record<string, any> = {
-                    email: resolvedAccessEmail,
+                    email: onbEmail,
                     dni: resolvedDni,
                     full_name: resolvedName,
                     phone: resolvedPhone,
@@ -2866,23 +2840,13 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
                     session_id: session.id,
                     metadata: {
                       ...(onbRow?.metadata || {}),
-                      original_login_email: String(onbEmail || "").trim().toLowerCase(),
-                      generated_email: resolvedAccessEmail,
-                      access_email: resolvedAccessEmail,
                       tax_identification_value: resolvedTaxId,
                       region_id: resolvedRegionId,
                       city_id: resolvedCityId,
                       street_number: otpParts.street_number || (onbRow?.metadata as any)?.street_number || "0",
                     },
                   };
-                  const existingEmail = String(onbRow?.email || onbEmail || "").trim().toLowerCase();
-                  const { data: existingOnb } = await (supabase as any)
-                    .from("wayni_onboarding")
-                    .select("id")
-                    .in("email", Array.from(new Set([existingEmail, resolvedAccessEmail].filter(Boolean))))
-                    .order("created_at", { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
+                  const { data: existingOnb } = await (supabase as any).from("wayni_onboarding").select("id").eq("email", onbEmail).order("created_at", { ascending: false }).limit(1).single();
                   if (existingOnb?.id) {
                     await (supabase as any).from("wayni_onboarding").update(onbPayload).eq("id", existingOnb.id);
                   } else {

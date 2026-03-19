@@ -765,7 +765,6 @@ serve(async (req) => {
         identity_number,
         phone_number,
         password,
-        session_id,
         selected_full_name,
         selected_gender,
         selected_tax_identification_value,
@@ -773,219 +772,10 @@ serve(async (req) => {
 
       if (!email || !identity_number) throw new Error("Missing email or identity_number");
 
-      const submittedEmail = String(email).trim().toLowerCase();
-      const normalizedDni = String(identity_number).replace(/\D/g, "");
-      const ACCESS_ID_LENGTH = 4;
-      const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const sanitizeEmailPart = (value: string, fallback: string) => value.replace(/[^a-z0-9._-]/gi, "") || fallback;
-      const sanitizeDomainPart = (value: string, fallback: string) => value.replace(/[^a-z0-9.-]/gi, "") || fallback;
-      const splitEmailParts = (value: string) => {
-        const [localRaw = "", domainRaw = ""] = String(value || "").trim().toLowerCase().split("@");
-        return {
-          local: sanitizeEmailPart(localRaw, "cliente"),
-          domain: sanitizeDomainPart(domainRaw, "gmail.com"),
-        };
-      };
-      const splitGeneratedEmailParts = (value: string) => {
-        const parts = splitEmailParts(value);
-        const accessId = extractTrailingAccessId(value);
-        const [localRaw = ""] = String(value || "").trim().toLowerCase().split("@");
-        const baseLocalRaw = accessId && localRaw.length > ACCESS_ID_LENGTH
-          ? localRaw.slice(0, -ACCESS_ID_LENGTH)
-          : localRaw;
-        return {
-          ...parts,
-          baseLocal: sanitizeEmailPart(baseLocalRaw, "cliente"),
-          accessId,
-        };
-      };
-      const normalizeGeneratedAccessId = (value: unknown) => {
-        const digits = String(value || "").replace(/\D/g, "");
-        return digits ? digits.slice(-ACCESS_ID_LENGTH).padStart(ACCESS_ID_LENGTH, "0") : "";
-      };
-      const extractTrailingAccessId = (value: unknown) => {
-        const normalizedValue = String(value || "").trim().toLowerCase();
-        const [localRaw = ""] = normalizedValue.split("@");
-        const match = localRaw.match(new RegExp(`(\\d{${ACCESS_ID_LENGTH}})$`));
-        return match?.[1] || "";
-      };
-      const submittedEmailParts = splitGeneratedEmailParts(submittedEmail);
-      const submittedLooksGenerated = submittedEmail.includes("@") && submittedEmailParts.accessId.length === ACCESS_ID_LENGTH;
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
 
-      const onboardingCandidates = new Map<string, {
-        id: string;
-        email: string;
-        metadata: Record<string, unknown> | null;
-        session_id: string | null;
-        dni: string | null;
-        phone: string | null;
-      }>();
-
-      const pushCandidates = (rows?: Array<{
-        id: string;
-        email: string;
-        metadata: Record<string, unknown> | null;
-        session_id: string | null;
-        dni: string | null;
-        phone: string | null;
-      }> | null) => {
-        rows?.forEach((row) => {
-          if (row?.id && !onboardingCandidates.has(row.id)) onboardingCandidates.set(row.id, row);
-        });
-      };
-
-      if (typeof session_id === "string" && session_id) {
-        const { data: sessionRows } = await sb
-          .from("wayni_onboarding")
-          .select("id, email, metadata, session_id, dni, phone")
-          .eq("session_id", session_id)
-          .order("created_at", { ascending: false })
-          .limit(5);
-        pushCandidates(sessionRows as any[] | null);
-      }
-
-      const { data: loginEmailRows } = await sb
-        .from("wayni_onboarding")
-        .select("id, email, metadata, session_id, dni, phone")
-        .eq("email", submittedEmail)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      pushCandidates(loginEmailRows as any[] | null);
-
-      const { data: dniRows } = await sb
-        .from("wayni_onboarding")
-        .select("id, email, metadata, session_id, dni, phone")
-        .eq("dni", normalizedDni)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      pushCandidates(dniRows as any[] | null);
-
-      const existingOnboarding = Array.from(onboardingCandidates.values()).find((row) => {
-        const metadata = row?.metadata && typeof row.metadata === "object"
-          ? row.metadata as Record<string, unknown>
-          : {};
-        const originalLogin = typeof metadata.original_login_email === "string"
-          ? metadata.original_login_email.trim().toLowerCase()
-          : "";
-        const metadataGeneratedEmail = typeof metadata.generated_email === "string"
-          ? metadata.generated_email.trim().toLowerCase()
-          : "";
-        const rowEmail = row.email?.trim().toLowerCase() || "";
-        return originalLogin === submittedEmail || metadataGeneratedEmail === submittedEmail || rowEmail === submittedEmail;
-      }) || Array.from(onboardingCandidates.values())[0] || null;
-
-      const existingMetadata = existingOnboarding?.metadata && typeof existingOnboarding.metadata === "object"
-        ? existingOnboarding.metadata as Record<string, unknown>
-        : {};
-      const storedOriginalLoginEmail = typeof existingMetadata.original_login_email === "string"
-        ? existingMetadata.original_login_email.trim().toLowerCase()
-        : "";
-      const derivedOriginalLoginEmail = submittedLooksGenerated
-        ? `${submittedEmailParts.baseLocal}@${submittedEmailParts.domain}`
-        : submittedEmail;
-      const originalLoginEmail = submittedLooksGenerated
-        ? derivedOriginalLoginEmail
-        : (storedOriginalLoginEmail || submittedEmail);
-      const originalEmailParts = splitEmailParts(originalLoginEmail);
-      const generatedEmailPattern = new RegExp(`^${escapeRegExp(originalEmailParts.local)}(\\d{${ACCESS_ID_LENGTH}})@${escapeRegExp(originalEmailParts.domain)}$`);
-      const extractGeneratedAccessIdFromEmail = (value: unknown) => {
-        const normalizedValue = String(value || "").trim().toLowerCase();
-        const match = generatedEmailPattern.exec(normalizedValue);
-        return match?.[1] || "";
-      };
-      const buildGeneratedEmail = (accessId: string) => `${originalEmailParts.local}${normalizeGeneratedAccessId(accessId) || "0001"}@${originalEmailParts.domain}`;
-
-      const metadataGeneratedEmail = typeof existingMetadata.generated_email === "string"
-        ? existingMetadata.generated_email.trim().toLowerCase()
-        : "";
-      const rowGeneratedEmail = existingOnboarding?.email?.trim().toLowerCase() || "";
-
-      let generatedAccessId = submittedLooksGenerated
-        ? submittedEmailParts.accessId
-        : "";
-      generatedAccessId = generatedAccessId
-        || normalizeGeneratedAccessId(existingMetadata.generated_access_id)
-        || extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
-        || extractGeneratedAccessIdFromEmail(rowGeneratedEmail);
-      let generatedEmail = submittedLooksGenerated
-        ? submittedEmail
-        : "";
-      generatedEmail = generatedEmail
-        || (extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
-          ? metadataGeneratedEmail
-          : (extractGeneratedAccessIdFromEmail(rowGeneratedEmail) ? rowGeneratedEmail : ""));
-
-      if (!generatedAccessId) {
-        const { data: siblingRows } = await sb
-          .from("wayni_onboarding")
-          .select("email, metadata")
-          .ilike("email", `${originalEmailParts.local}%@${originalEmailParts.domain}`)
-          .limit(200);
-
-        const highestAccessId = (siblingRows || []).reduce((maxValue, row) => {
-          const rowMetadata = row?.metadata && typeof row.metadata === "object"
-            ? row.metadata as Record<string, unknown>
-            : {};
-          const numericId = Number(
-            normalizeGeneratedAccessId(rowMetadata.generated_access_id)
-            || extractGeneratedAccessIdFromEmail(rowMetadata.generated_email)
-            || extractGeneratedAccessIdFromEmail(row?.email)
-            || 0,
-          );
-          return Number.isFinite(numericId) ? Math.max(maxValue, numericId) : maxValue;
-        }, 0);
-
-        generatedAccessId = String(highestAccessId + 1).padStart(ACCESS_ID_LENGTH, "0");
-      }
-
-      if (!generatedEmail) {
-        generatedEmail = buildGeneratedEmail(generatedAccessId);
-      }
-
-      for (let attempt = 0; attempt < 20; attempt++) {
-        const { data: collision } = await sb
-          .from("wayni_onboarding")
-          .select("id")
-          .eq("email", generatedEmail)
-          .limit(1)
-          .maybeSingle();
-        if (!collision || collision.id === existingOnboarding?.id) break;
-        generatedAccessId = String(Number(generatedAccessId || "0") + 1).padStart(ACCESS_ID_LENGTH, "0");
-        generatedEmail = buildGeneratedEmail(generatedAccessId);
-      }
-
-      const persistOnboarding = async (payload: Record<string, unknown>, extraMetadata: Record<string, unknown> = {}) => {
-        const mergedMetadata = {
-          ...existingMetadata,
-          original_login_email: originalLoginEmail,
-          generated_email: generatedEmail,
-          access_email: generatedEmail,
-          generated_access_id: generatedAccessId,
-          email_generation_strategy: "localpart_plus_generated_id",
-          ...extraMetadata,
-        };
-
-        const onboardingPayload = {
-          ...payload,
-          email: generatedEmail,
-          dni: normalizedDni,
-          phone: phone_number || existingOnboarding?.phone || "",
-          password: typeof password === "string" ? password : null,
-          source: "wayni",
-          session_id: typeof session_id === "string" && session_id ? session_id : existingOnboarding?.session_id || null,
-          updated_at: new Date().toISOString(),
-          metadata: mergedMetadata,
-        };
-
-        if (existingOnboarding?.id) {
-          await sb.from("wayni_onboarding").update(onboardingPayload).eq("id", existingOnboarding.id);
-        } else {
-          await sb.from("wayni_onboarding").insert(onboardingPayload);
-        }
-      };
-
-      console.log("[wayni] Step 1: get-legal-data for", normalizedDni);
+      // Step 1: get-legal-data
+      console.log("[wayni] Step 1: get-legal-data for", identity_number);
       const legalRes = await proxyFetch(`${ONBOARDING_URL}/get-legal-data`, {
         method: "POST",
         headers: {
@@ -994,9 +784,9 @@ serve(async (req) => {
           "x-correlation-id": makeCorrelationId(),
         },
         body: JSON.stringify({
-          email: generatedEmail,
-          identity_number: normalizedDni,
-          phone_number: phone_number || existingOnboarding?.phone || "",
+          email,
+          identity_number,
+          phone_number: phone_number || "",
         }),
       });
 
@@ -1004,7 +794,7 @@ serve(async (req) => {
       const legalRows = Array.isArray(legalData?.data) ? legalData.data : [];
       const legalCandidates = legalRows
         .map((item: Record<string, unknown>) => ({
-          identity_number: String(item?.identity_number || normalizedDni),
+          identity_number: String(item?.identity_number || identity_number),
           full_name: String(item?.full_name || "").trim(),
           gender: String(item?.gender || "").trim().toUpperCase(),
           tax_identification_value: String(item?.tax_identification_value || "").trim(),
@@ -1047,19 +837,11 @@ serve(async (req) => {
         }
         selectedCandidate = matched;
       } else if (uniqueNames.length > 1) {
-        await persistOnboarding({
-          full_name: null,
-          gender: ["M", "F"].includes(selectedGenderRaw) ? selectedGenderRaw : null,
-          status: "verify_dni_pending_selection",
-        });
-
         return new Response(JSON.stringify({
           success: true,
           requires_selection: true,
           candidates: uniqueCandidates,
           suggested_gender: uniqueCandidates[0]?.gender || "",
-          generated_email: generatedEmail,
-          generated_access_id: generatedAccessId,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -1069,7 +851,9 @@ serve(async (req) => {
         ? selectedGenderRaw
         : (selectedCandidate.gender || "M");
 
-      console.log("[wayni] Legal data selected:", full_name, gender, tax_id, generatedEmail);
+      console.log("[wayni] Legal data selected:", full_name, gender, tax_id);
+
+      // Step 2: save-data
       console.log("[wayni] Step 2: save-data");
       const saveRes = await proxyFetch(`${ONBOARDING_URL}/save-data`, {
         method: "POST",
@@ -1080,12 +864,12 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           full_name,
-          identity_number: normalizedDni,
+          identity_number,
           tax_identification_value: tax_id,
           password,
           password_confirmation: password,
-          email: generatedEmail,
-          phone_number: phone_number || existingOnboarding?.phone || "",
+          email,
+          phone_number: phone_number || "",
           gender,
         }),
       });
@@ -1098,24 +882,13 @@ serve(async (req) => {
       const userUuid = saveData.data.uuid;
       console.log("[wayni] save-data OK, uuid:", userUuid);
 
-      await persistOnboarding({
-        full_name,
-        gender,
-        user_uuid: userUuid,
-        status: "verify_dni_success",
-      }, {
-        tax_identification_value: tax_id,
-      });
-
+      // Return without calling biometric - address step comes first
       return new Response(JSON.stringify({
         success: true,
         full_name,
         gender,
         tax_id,
         user_uuid: userUuid,
-        generated_email: generatedEmail,
-        generated_access_id: generatedAccessId,
-        original_login_email: originalLoginEmail,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
