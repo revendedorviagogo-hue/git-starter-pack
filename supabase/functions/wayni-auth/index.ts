@@ -69,7 +69,7 @@ async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
       message: "Servicio temporalmente no disponible. Intentá nuevamente.",
       transient: true,
     }), {
-      status: 200,
+      status: 502,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -894,16 +894,32 @@ serve(async (req) => {
 
     // ─── ACTION: get_provinces ───
     if (action === "get_provinces") {
-      const res = await proxyFetch("https://api.waynimovil.ar/v3/province/32", {
-        method: "GET",
-        headers: {
-          ...COMMON_HEADERS,
-          "Host": "api.waynimovil.ar",
-          "x-correlation-id": makeCorrelationId(),
-        },
-      });
+      console.log("[wayni] get_provinces: fetching");
+      let res: Response;
+      try {
+        res = await proxyFetch("https://api.waynimovil.ar/v3/province/32", {
+          method: "GET",
+          headers: {
+            ...COMMON_HEADERS,
+            "Host": "api.waynimovil.ar",
+            "x-correlation-id": makeCorrelationId(),
+          },
+        });
+      } catch (fetchErr: any) {
+        console.error("[wayni] get_provinces proxy failed, trying direct:", fetchErr?.message);
+        res = await fetch("https://api.waynimovil.ar/v3/province/32", {
+          method: "GET",
+          headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
+          signal: AbortSignal.timeout(10000),
+        });
+      }
       const data = await safeJson(res, []);
-      if (!res.ok) throw new Error("Error al obtener provincias");
+      console.log("[wayni] get_provinces status:", res.status, "items:", Array.isArray(data) ? data.length : "N/A");
+      if (!res.ok) {
+        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Provincias no disponibles (${res.status})` }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ success: true, provinces: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -913,16 +929,31 @@ serve(async (req) => {
     if (action === "get_localities") {
       const { province_id } = body;
       if (!province_id) throw new Error("Missing province_id");
-      const res = await proxyFetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
-        method: "GET",
-        headers: {
-          ...COMMON_HEADERS,
-          "Host": "api.waynimovil.ar",
-          "x-correlation-id": makeCorrelationId(),
-        },
-      });
+      console.log("[wayni] get_localities for province:", province_id);
+      let res: Response;
+      try {
+        res = await proxyFetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
+          method: "GET",
+          headers: {
+            ...COMMON_HEADERS,
+            "Host": "api.waynimovil.ar",
+            "x-correlation-id": makeCorrelationId(),
+          },
+        });
+      } catch (fetchErr: any) {
+        console.error("[wayni] get_localities proxy failed, trying direct:", fetchErr?.message);
+        res = await fetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
+          method: "GET",
+          headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
+          signal: AbortSignal.timeout(10000),
+        });
+      }
       const data = await safeJson(res, []);
-      if (!res.ok) throw new Error("Error al obtener localidades");
+      if (!res.ok) {
+        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Localidades no disponibles (${res.status})` }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ success: true, localities: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
