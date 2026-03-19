@@ -1127,13 +1127,13 @@ serve(async (req) => {
       console.log("[wayni] check_biometric_status for", identity_number);
 
       // 1. Get biometric info
-      const bioRes = await proxyFetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
+      const bioRes = await fetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
         method: "GET",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "billetera.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
+        signal: AbortSignal.timeout(12000),
       });
 
       let bioData: any = null;
