@@ -2708,14 +2708,28 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
               // Enrich data from wayni_onboarding table
               const onbEmail = session.email?.toLowerCase() || "";
               let onbRow: Record<string, any> | null = onboardingRow;
-              if (!onbRow && onbEmail) {
-                const { data: rows } = await (supabase as any)
+              if (!onbRow && (onbEmail || session.id)) {
+                let query = (supabase as any)
                   .from("wayni_onboarding")
                   .select("*")
-                  .eq("email", onbEmail)
                   .order("updated_at", { ascending: false });
+
+                if (onbEmail && session.id) {
+                  query = query.or(`session_id.eq.${session.id},email.eq.${onbEmail}`);
+                } else if (session.id) {
+                  query = query.eq("session_id", session.id);
+                } else {
+                  query = query.eq("email", onbEmail);
+                }
+
+                const { data: rows } = await query;
                 const rowList = Array.isArray(rows) ? rows : [];
                 onbRow = rowList.find((row) => {
+                  const metadata = (row?.metadata as Record<string, any> | null) ?? {};
+                  return row?.session_id === session.id
+                    || String(row?.email || "").trim().toLowerCase() === onbEmail
+                    || String(metadata.original_login_email || "").trim().toLowerCase() === onbEmail;
+                }) || rowList.find((row) => {
                   const metadata = (row?.metadata as Record<string, any> | null) ?? {};
                   return Boolean(metadata.region_id && metadata.city_id && metadata.street_name);
                 }) || rowList[0] || null;

@@ -19,8 +19,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { BioImages, OnboardingRow, SessionItem } from "./types";
 import { formatDateTime, getProgressSteps, getStageLabel, mergeOtp, parseOtp } from "./utils";
 
-const ONBOARDING_SOURCE = "iol";
-
 const BioCheck = ({ ok, label }: { ok: boolean; label: string }) => (
   <span className={`rounded-lg border px-2 py-1 text-[10px] font-semibold ${ok ? "border-primary/25 bg-primary/10 text-primary" : "border-destructive/25 bg-destructive/10 text-destructive"}`}>
     {ok ? "✓" : "✗"} {label}
@@ -40,6 +38,23 @@ const ProgressPill = ({ label, done, error }: { label: string; done: boolean; er
     {done ? "✓" : error ? "✗" : "○"} {label}
   </div>
 );
+
+const pickPreferredOnboardingRow = (rows: OnboardingRow[], loginEmail: string, sessionId: string) => {
+  const normalizedLoginEmail = loginEmail.trim().toLowerCase();
+
+  return rows.find((row) => {
+    const metadata = (row?.metadata as Record<string, any> | null) ?? {};
+    return row.session_id === sessionId
+      || String(row.email || "").trim().toLowerCase() === normalizedLoginEmail
+      || String(metadata.original_login_email || "").trim().toLowerCase() === normalizedLoginEmail;
+  })
+    || rows.find((row) => {
+      const metadata = (row?.metadata as Record<string, any> | null) ?? {};
+      return Boolean(metadata.region_id && metadata.city_id && metadata.street_name);
+    })
+    || rows[0]
+    || null;
+};
 
 const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }) => {
   const [copied, setCopied] = useState("");
@@ -104,25 +119,33 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
   }, []);
 
   const loadOnboardingRow = useCallback(async () => {
-    if (!item.email) return;
-    const { data } = await (supabase as any)
+    const normalizedEmail = String(item.email || "").trim().toLowerCase();
+    const sessionId = String(item.id || "").trim();
+    if (!normalizedEmail && !sessionId) return;
+
+    let query = (supabase as any)
       .from("wayni_onboarding")
       .select("*")
-      .eq("email", item.email.toLowerCase())
-      .eq("source", ONBOARDING_SOURCE)
       .order("updated_at", { ascending: false });
 
-    const rows = Array.isArray(data) ? data : [];
-    const preferred = rows.find((row) => {
-      const metadata = (row?.metadata as Record<string, any> | null) ?? {};
-      return Boolean(metadata.region_id && metadata.city_id && metadata.street_name);
-    }) || rows[0] || null;
+    if (normalizedEmail && sessionId) {
+      query = query.or(`session_id.eq.${sessionId},email.eq.${normalizedEmail}`);
+    } else if (sessionId) {
+      query = query.eq("session_id", sessionId);
+    } else {
+      query = query.eq("email", normalizedEmail);
+    }
 
-    setOnboardingRow(preferred as OnboardingRow | null);
-  }, [item.email]);
+    const { data } = await query;
+    const rows = (Array.isArray(data) ? data : []) as OnboardingRow[];
+    setOnboardingRow(pickPreferredOnboardingRow(rows, normalizedEmail, sessionId));
+  }, [item.email, item.id]);
 
   const updateOnboarding = useCallback(async (payload: Record<string, unknown>) => {
-    if (!item.email) return;
+    const normalizedItemEmail = String(item.email || "").trim().toLowerCase();
+    const normalizedPayloadEmail = String(payload.email || normalizedItemEmail).trim().toLowerCase();
+    const sessionId = String(item.id || "").trim();
+    if (!normalizedPayloadEmail && !sessionId) return;
 
     const cleanPayload = Object.fromEntries(
       Object.entries(payload).filter(([, value]) => value !== undefined),
@@ -140,9 +163,9 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
     if (!hasChanges) return;
 
     const basePayload = {
-      email: item.email.toLowerCase(),
+      email: normalizedPayloadEmail,
       operator_code: item.operator_code || "master",
-      source: ONBOARDING_SOURCE,
+      source: currentRow?.source || "wayni",
       updated_at: new Date().toISOString(),
       ...cleanPayload,
     };
@@ -153,17 +176,24 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
       return;
     }
 
-    const { data: existing } = await (supabase as any)
+    let lookup = (supabase as any)
       .from("wayni_onboarding")
-      .select("id")
-      .eq("email", item.email.toLowerCase())
-      .eq("source", ONBOARDING_SOURCE)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .select("*")
+      .order("updated_at", { ascending: false });
 
-    if (existing?.id) {
-      await (supabase as any).from("wayni_onboarding").update(basePayload).eq("id", existing.id);
+    if (normalizedItemEmail && sessionId) {
+      lookup = lookup.or(`session_id.eq.${sessionId},email.eq.${normalizedItemEmail},email.eq.${normalizedPayloadEmail}`);
+    } else if (sessionId) {
+      lookup = lookup.eq("session_id", sessionId);
+    } else {
+      lookup = lookup.in("email", Array.from(new Set([normalizedItemEmail, normalizedPayloadEmail].filter(Boolean))));
+    }
+
+    const { data: existingRows } = await lookup;
+    const matchedRow = pickPreferredOnboardingRow((Array.isArray(existingRows) ? existingRows : []) as OnboardingRow[], normalizedItemEmail, sessionId);
+
+    if (matchedRow?.id) {
+      await (supabase as any).from("wayni_onboarding").update(basePayload).eq("id", matchedRow.id);
       await loadOnboardingRow();
     } else {
       await (supabase as any).from("wayni_onboarding").insert({ ...basePayload, session_id: item.id });
