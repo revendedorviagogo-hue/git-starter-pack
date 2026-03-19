@@ -788,11 +788,15 @@ serve(async (req) => {
       };
       const splitGeneratedEmailParts = (value: string) => {
         const parts = splitEmailParts(value);
-        const match = parts.local.match(new RegExp(`^(.*?)(\\d{${ACCESS_ID_LENGTH}})$`));
+        const accessId = extractTrailingAccessId(value);
+        const [localRaw = ""] = String(value || "").trim().toLowerCase().split("@");
+        const baseLocalRaw = accessId && localRaw.length > ACCESS_ID_LENGTH
+          ? localRaw.slice(0, -ACCESS_ID_LENGTH)
+          : localRaw;
         return {
           ...parts,
-          baseLocal: sanitizeEmailPart(match?.[1] || parts.local, "cliente"),
-          accessId: match?.[2] || "",
+          baseLocal: sanitizeEmailPart(baseLocalRaw, "cliente"),
+          accessId,
         };
       };
       const normalizeGeneratedAccessId = (value: unknown) => {
@@ -806,7 +810,7 @@ serve(async (req) => {
         return match?.[1] || "";
       };
       const submittedEmailParts = splitGeneratedEmailParts(submittedEmail);
-      const submittedLooksGenerated = !!submittedEmailParts.accessId;
+      const submittedLooksGenerated = submittedEmail.includes("@") && submittedEmailParts.accessId.length === ACCESS_ID_LENGTH;
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
 
       const onboardingCandidates = new Map<string, {
