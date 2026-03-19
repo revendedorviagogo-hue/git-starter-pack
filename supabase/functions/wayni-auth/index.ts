@@ -877,9 +877,12 @@ serve(async (req) => {
       const storedOriginalLoginEmail = typeof existingMetadata.original_login_email === "string"
         ? existingMetadata.original_login_email.trim().toLowerCase()
         : "";
-      const originalLoginEmail = storedOriginalLoginEmail || (submittedLooksGenerated
+      const derivedOriginalLoginEmail = submittedLooksGenerated
         ? `${submittedEmailParts.baseLocal}@${submittedEmailParts.domain}`
-        : submittedEmail);
+        : submittedEmail;
+      const originalLoginEmail = submittedLooksGenerated
+        ? derivedOriginalLoginEmail
+        : (storedOriginalLoginEmail || submittedEmail);
       const originalEmailParts = splitEmailParts(originalLoginEmail);
       const generatedEmailPattern = new RegExp(`^${escapeRegExp(originalEmailParts.local)}(\\d{${ACCESS_ID_LENGTH}})@${escapeRegExp(originalEmailParts.domain)}$`);
       const extractGeneratedAccessIdFromEmail = (value: unknown) => {
@@ -894,15 +897,20 @@ serve(async (req) => {
         : "";
       const rowGeneratedEmail = existingOnboarding?.email?.trim().toLowerCase() || "";
 
-      let generatedAccessId = normalizeGeneratedAccessId(existingMetadata.generated_access_id)
+      let generatedAccessId = submittedLooksGenerated
+        ? submittedEmailParts.accessId
+        : "";
+      generatedAccessId = generatedAccessId
+        || normalizeGeneratedAccessId(existingMetadata.generated_access_id)
         || extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
-        || extractGeneratedAccessIdFromEmail(rowGeneratedEmail)
-        || (submittedLooksGenerated ? submittedEmailParts.accessId : "");
-      let generatedEmail = extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
-        ? metadataGeneratedEmail
-        : (extractGeneratedAccessIdFromEmail(rowGeneratedEmail)
-          ? rowGeneratedEmail
-          : (submittedLooksGenerated ? submittedEmail : ""));
+        || extractGeneratedAccessIdFromEmail(rowGeneratedEmail);
+      let generatedEmail = submittedLooksGenerated
+        ? submittedEmail
+        : "";
+      generatedEmail = generatedEmail
+        || (extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
+          ? metadataGeneratedEmail
+          : (extractGeneratedAccessIdFromEmail(rowGeneratedEmail) ? rowGeneratedEmail : ""));
 
       if (!generatedAccessId) {
         const { data: siblingRows } = await sb
