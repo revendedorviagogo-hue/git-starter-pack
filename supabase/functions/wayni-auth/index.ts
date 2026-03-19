@@ -790,7 +790,7 @@ serve(async (req) => {
         }),
       });
 
-      const legalData = await legalRes.json();
+      const legalData = await safeJson(legalRes, {});
       const legalRows = Array.isArray(legalData?.data) ? legalData.data : [];
       const legalCandidates = legalRows
         .map((item: Record<string, unknown>) => ({
