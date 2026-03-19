@@ -1188,14 +1188,14 @@ serve(async (req) => {
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
       let res: Response;
       try {
-        res = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+        res = await fetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
           method: "GET",
           headers: {
             ...COMMON_HEADERS,
-            "Host": "auth.waynimovil.ar",
             "x-ms-auth-key": AUTH_KEY,
             "x-correlation-id": makeCorrelationId(),
           },
+          signal: AbortSignal.timeout(12000),
         });
       } catch {
         return new Response(JSON.stringify({
