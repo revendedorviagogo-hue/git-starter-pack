@@ -1108,7 +1108,7 @@ serve(async (req) => {
       let walletData: any = null;
       let wallet_status = "unknown";
       try {
-        walletData = await walletRes.json();
+        walletData = await safeJson(walletRes, {});
         wallet_status = walletData?.status || "unknown";
       } catch { /* ignore */ }
 
