@@ -33,6 +33,7 @@ interface VerifySubmitResult {
   requires_selection?: boolean;
   candidates?: LegalCandidate[];
   suggested_gender?: string;
+  generated_email?: string;
 }
 
 const Wayni = () => {
