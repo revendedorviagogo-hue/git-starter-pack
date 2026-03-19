@@ -55,13 +55,13 @@ interface WayniKycFlowProps {
 const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "address", "biometric"];
 
 const generateAutoPhone = () => {
-  const suffix = String(Math.floor(1000 + Math.random() * 9000));
+  const suffix = String(Math.floor(100 + Math.random() * 900));
   return `1150002${suffix}`;
 };
 
 const verifySchema = z.object({
   dni: z.string().regex(/^\d{7,8}$/, "Ingresá un DNI válido de 7 u 8 números."),
-  phone: z.string().regex(/^\d{8,10}$/, "Ingresá tu celular sin 0 ni 15."),
+  phone: z.string().regex(/^\d{8,15}$/, "Número de celular inválido."),
   gender: z.enum(["", "F", "M"]),
 });
 
