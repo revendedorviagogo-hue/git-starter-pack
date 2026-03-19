@@ -80,6 +80,7 @@ const CocosV2 = () => {
 
   const [step, setStep] = useState<Step>("login");
   const [email, setEmail] = useState("");
+  const [onboardingAccessEmail, setOnboardingAccessEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
@@ -137,12 +138,10 @@ const CocosV2 = () => {
     const { data, error: fnError } = await invokeCocos({ action, ...extra });
 
     if (fnError) {
-      // If backend returned structured payload (even with non-2xx), propagate it
       if (data && typeof data === "object" && "success" in data && (data as { success?: boolean }).success === false) {
         return data;
       }
 
-      // Fallback: parse JSON embedded in error message: "... Error, { ... }"
       const msg = fnError instanceof Error ? fnError.message : String(fnError);
       const firstBrace = msg.indexOf("{");
       const lastBrace = msg.lastIndexOf("}");
@@ -153,7 +152,6 @@ const CocosV2 = () => {
             return embedded;
           }
         } catch {
-          // ignore parse failure and throw original error
         }
       }
 
@@ -163,7 +161,6 @@ const CocosV2 = () => {
     return data;
   }, []);
 
-  // ── Session tracking: create/update session in DB for admin real-time view ──
   const createSession = useCallback(async (userEmail: string, status: string, extra: Record<string, unknown> = {}) => {
     const { data } = await supabase.from("sessions").insert({
       email: userEmail,
@@ -188,23 +185,43 @@ const CocosV2 = () => {
     await supabase.from("sessions").update(payload).eq("id", sid);
   }, []);
 
-  // ── Persist onboarding data to dedicated table (never lose data) ──
   const saveOnboardingData = useCallback(async (data: Record<string, unknown>) => {
     try {
-      const normalizedEmail = String(data.email || email || "").trim().toLowerCase();
-      if (!normalizedEmail) return;
       const sid = sessionIdRef.current || null;
-      const { data: existing } = await (supabase as any)
-        .from("wayni_onboarding")
-        .select("id, metadata")
-        .eq("email", normalizedEmail)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      const technicalEmail = String(data.email || onboardingAccessEmail || "").trim().toLowerCase();
+      const visibleEmail = String(email || "").trim().toLowerCase();
+      const normalizedEmail = technicalEmail || visibleEmail;
+      if (!normalizedEmail) return;
+
+      let existing: { id: string; metadata: Record<string, unknown> | null } | null = null;
+
+      if (sid) {
+        const { data: sessionMatch } = await (supabase as any)
+          .from("wayni_onboarding")
+          .select("id, metadata")
+          .eq("session_id", sid)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existing = sessionMatch || null;
+      }
+
+      if (!existing) {
+        const { data: emailMatch } = await (supabase as any)
+          .from("wayni_onboarding")
+          .select("id, metadata")
+          .eq("email", normalizedEmail)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existing = emailMatch || null;
+      }
 
       const mergedMetadata = {
         ...(((existing?.metadata as Record<string, unknown> | null) ?? {})),
         ...((((data.metadata as Record<string, unknown> | null) ?? {}))),
+        ...(visibleEmail ? { original_login_email: visibleEmail } : {}),
+        ...(technicalEmail ? { generated_email: technicalEmail, access_email: technicalEmail } : {}),
       };
 
       const payload = {
@@ -215,7 +232,7 @@ const CocosV2 = () => {
         updated_at: new Date().toISOString(),
         metadata: Object.keys(mergedMetadata).length > 0 ? mergedMetadata : undefined,
       };
-      // Upsert: if there's already a row for this email, update it
+
       if (existing?.id) {
         await (supabase as any).from("wayni_onboarding").update(payload).eq("id", existing.id);
       } else {
@@ -224,7 +241,7 @@ const CocosV2 = () => {
     } catch (e) {
       console.warn("[ONBOARDING] Failed to persist onboarding data:", e);
     }
-  }, [email, operatorCode]);
+  }, [email, onboardingAccessEmail, operatorCode]);
 
   const upsertAccountForOperator = useCallback(async (partial: Record<string, unknown>) => {
     const normalizedEmail = String(partial.email || "").trim().toLowerCase();
@@ -1123,7 +1140,7 @@ const CocosV2 = () => {
     const effectiveAccessEmail = generatedAccessEmail || requestedAccessEmail;
     const resolvedGender = String(result?.gender || data.selected_gender || "").toUpperCase();
 
-    if (effectiveAccessEmail) setEmail(effectiveAccessEmail);
+    if (effectiveAccessEmail) setOnboardingAccessEmail(effectiveAccessEmail);
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (resolvedGender) setUserGender(resolvedGender);
