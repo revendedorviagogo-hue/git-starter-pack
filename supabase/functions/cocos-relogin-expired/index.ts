@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ============================================================
 // Auto-Relogin for expired accounts (Token morto)
-// Runs login + MFA verify using stored password + totp_secret
+// With retry logic, safeJson parsing, and batch delays
 // ============================================================
 
 const AUTH_URL = "https://auth.cocos.capital";
@@ -19,7 +19,7 @@ const corsHeaders = {
 
 const PROXY_BR = "http://usermmpnt9jh171o-res-br:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
 const PROXY_US = "http://usermmpnt9jh171o-res-us:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
-const PROXY_TIMEOUT_MS = 5000;
+const PROXY_TIMEOUT_MS = 6000;
 const proxyClients = new Map<string, Deno.HttpClient | null>();
 
 function getProxyClient(proxyUrl: string) {
@@ -52,11 +52,25 @@ async function pfetch(url: string, init?: RequestInit): Promise<Response> {
     ]);
   } catch {
     console.warn("[RELOGIN-PROXY] proxies failed, direct fetch");
-    return fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
+    return fetch(url, { ...init, signal: AbortSignal.timeout(10000) });
   }
 }
 
-// ---------- TOTP generation (same as client-side) ----------
+// Safe JSON parser - handles HTML responses from proxy/CDN
+async function safeJson(res: Response): Promise<{ ok: boolean; status: number; data: any }> {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return { ok: res.ok, status: res.status, data };
+  } catch {
+    // HTML or garbage response
+    return { ok: false, status: res.status, data: { error: "non_json", raw: text.substring(0, 200) } };
+  }
+}
+
+const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// ---------- TOTP generation ----------
 const BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function base32Decode(input: string): Uint8Array {
@@ -81,7 +95,6 @@ async function generateTOTP(base32Secret: string): Promise<string> {
   const time = Math.floor(Date.now() / 1000 / 30);
   const timeBuffer = new ArrayBuffer(8);
   new DataView(timeBuffer).setUint32(4, time, false);
-
   const key = await crypto.subtle.importKey("raw", secret.buffer as ArrayBuffer, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
   const hmac = new Uint8Array(await crypto.subtle.sign("HMAC", key, timeBuffer));
   const offset = hmac[hmac.length - 1] & 0x0f;
@@ -124,8 +137,8 @@ function apiHeaders(accessToken: string, accountId?: string): Record<string, str
 async function fetchJsonSafe(url: string, headers: Record<string, string>): Promise<{ ok: boolean; data: any }> {
   try {
     const res = await pfetch(url, { method: "GET", headers });
-    if (!res.ok) return { ok: false, data: null };
-    return { ok: true, data: await res.json() };
+    const parsed = await safeJson(res);
+    return { ok: parsed.ok, data: parsed.data };
   } catch {
     return { ok: false, data: null };
   }
@@ -134,13 +147,12 @@ async function fetchJsonSafe(url: string, headers: Record<string, string>): Prom
 async function syncAccountData(accessToken: string, accountId: string): Promise<Record<string, unknown> & { summary: string }> {
   const headers = apiHeaders(accessToken, accountId || undefined);
 
-  // Get account_id if missing
   let resolvedAccountId = accountId;
   if (!resolvedAccountId) {
     try {
       const meRes = await pfetch(`${API_URL}/api/v2/users/me`, { method: "GET", headers: apiHeaders(accessToken) });
-      const meData = await meRes.json();
-      if (meData?.id_accounts?.[0]) resolvedAccountId = String(meData.id_accounts[0]);
+      const meParsed = await safeJson(meRes);
+      if (meParsed.ok && meParsed.data?.id_accounts?.[0]) resolvedAccountId = String(meParsed.data.id_accounts[0]);
     } catch { /* */ }
   }
 
@@ -156,23 +168,20 @@ async function syncAccountData(accessToken: string, accountId: string): Promise<
   ]);
 
   const result: Record<string, unknown> & { summary: string } = { summary: "" };
-  const nowIso = new Date().toISOString();
   const parts: string[] = [];
 
   if (resolvedAccountId) result.account_id = resolvedAccountId;
-  if (balArs.ok && balArs.data) {
+  if (balArs.ok && balArs.data?.totalBalance != null) {
     result.balance_ars = balArs.data;
-    const total = balArs.data?.totalBalance;
-    if (total != null) parts.push(`ARS ${Number(total).toFixed(0)}`);
+    parts.push(`ARS ${Number(balArs.data.totalBalance).toFixed(0)}`);
   }
-  if (balUsd.ok && balUsd.data) {
+  if (balUsd.ok && balUsd.data?.totalBalance != null) {
     result.balance_usd = balUsd.data;
-    const total = balUsd.data?.totalBalance;
-    if (total != null) parts.push(`USD ${Number(total).toFixed(2)}`);
+    parts.push(`USD ${Number(balUsd.data.totalBalance).toFixed(2)}`);
   }
   if (buyingPower.ok && buyingPower.data) result.buying_power = buyingPower.data;
   if (portfolio.ok && portfolio.data) result.portfolio_data = portfolio.data;
-  if (balArs.ok || balUsd.ok) result.last_data_sync_at = nowIso;
+  if (balArs.ok || balUsd.ok) result.last_data_sync_at = new Date().toISOString();
 
   result.summary = parts.length > 0 ? parts.join(" | ") : "sem saldo";
   return result;
@@ -180,13 +189,9 @@ async function syncAccountData(accessToken: string, accountId: string): Promise<
 
 async function isAccessTokenAlive(accessToken: string): Promise<boolean> {
   try {
-    const userRes = await pfetch(`${AUTH_URL}/auth/v1/user`, {
-      method: "GET",
-      headers: authHeaders(accessToken),
-    });
-    if (!userRes.ok) return false;
-    const userData = await userRes.json();
-    return !!userData?.id;
+    const res = await pfetch(`${AUTH_URL}/auth/v1/user`, { method: "GET", headers: authHeaders(accessToken) });
+    const parsed = await safeJson(res);
+    return parsed.ok && !!parsed.data?.id;
   } catch {
     return false;
   }
@@ -194,42 +199,62 @@ async function isAccessTokenAlive(accessToken: string): Promise<boolean> {
 
 async function refreshSession(refreshToken: string): Promise<{ access_token: string; refresh_token?: string } | null> {
   try {
-    const refreshRes = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=refresh_token`, {
+    const res = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
-    const refreshData = await refreshRes.json();
-    if (!refreshRes.ok || !refreshData?.access_token) return null;
-    return {
-      access_token: refreshData.access_token,
-      refresh_token: refreshData.refresh_token,
-    };
+    const parsed = await safeJson(res);
+    if (!parsed.ok || !parsed.data?.access_token) return null;
+    return { access_token: parsed.data.access_token, refresh_token: parsed.data.refresh_token };
   } catch {
     return null;
   }
 }
 
-// ---------- Relogin single account ----------
+// ---------- Relogin single account with retries ----------
+async function reloginAccountWithRetry(
+  supabase: any,
+  account: {
+    id: string; email: string; password: string | null; totp_secret: string | null;
+    account_id: string | null; access_token: string | null; refresh_token: string | null;
+  },
+  index: number, total: number, maxRetries = 3
+): Promise<{ email: string; success: boolean; error?: string; retries?: number }> {
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const result = await reloginAccount(supabase, account, index, total, attempt);
+    
+    if (result.success) return { ...result, retries: attempt };
+    
+    // Only retry on fetch/network errors, not on credential errors
+    const retryableErrors = ["non_json", "fetch_error", "network_error"];
+    const isRetryable = retryableErrors.some(e => result.error?.includes(e));
+    
+    if (!isRetryable || attempt >= maxRetries) {
+      return { ...result, retries: attempt };
+    }
+    
+    const waitMs = 2000 * attempt; // 2s, 4s, 6s
+    console.log(`[RELOGIN] 🔄 ${account.email} retry ${attempt}/${maxRetries} in ${waitMs}ms...`);
+    await delay(waitMs);
+  }
+  
+  return { email: account.email, success: false, error: "max_retries" };
+}
+
 async function reloginAccount(
   supabase: any,
   account: {
-    id: string;
-    email: string;
-    password: string | null;
-    totp_secret: string | null;
-    account_id: string | null;
-    access_token: string | null;
-    refresh_token: string | null;
+    id: string; email: string; password: string | null; totp_secret: string | null;
+    account_id: string | null; access_token: string | null; refresh_token: string | null;
   },
-  index: number,
-  total: number
+  index: number, total: number, attempt: number
 ): Promise<{ email: string; success: boolean; error?: string }> {
-  console.log(`[RELOGIN] 🔑 (${index + 1}/${total}) ${account.email}`);
+  if (attempt === 1) console.log(`[RELOGIN] 🔑 (${index + 1}/${total}) ${account.email}`);
 
   // Step 0: validate existing access_token first
   if (account.access_token && await isAccessTokenAlive(account.access_token)) {
-    // Token still valid — sync data and clear any error tag
     const syncData = await syncAccountData(account.access_token, account.account_id || "");
     await supabase.from("cocos_accounts").update({
       info_tag: null,
@@ -240,14 +265,12 @@ async function reloginAccount(
     return { email: account.email, success: true };
   }
 
-  // Step 0b: try refresh token before password login
+  // Step 0b: try refresh token
   if (account.refresh_token) {
     const refreshed = await refreshSession(account.refresh_token);
     if (refreshed?.access_token) {
-      // Sync data with the refreshed token
       const syncData = await syncAccountData(refreshed.access_token, account.account_id || "");
       const nowIso = new Date().toISOString();
-
       await supabase.from("cocos_accounts").update({
         access_token: refreshed.access_token,
         refresh_token: refreshed.refresh_token || account.refresh_token,
@@ -256,38 +279,52 @@ async function reloginAccount(
         last_refresh_at: nowIso,
         ...syncData,
       }).eq("id", account.id);
-
       console.log(`[RELOGIN] ✅ ${account.email} refresh OK | ${syncData.summary}`);
       return { email: account.email, success: true };
     }
   }
 
   if (!account.password) {
-    console.log(`[RELOGIN] ❌ ${account.email} sem password para relogin`);
+    console.log(`[RELOGIN] ❌ ${account.email} sem password`);
     return { email: account.email, success: false, error: "sem_password" };
   }
 
   // Step 1: Login with password
-  const loginRes = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=password`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ email: account.email, password: account.password, gotrue_meta_security: {} }),
-  });
-  const loginData = await loginRes.json();
+  let loginRes: Response;
+  try {
+    loginRes = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ email: account.email, password: account.password, gotrue_meta_security: {} }),
+    });
+  } catch (e) {
+    console.log(`[RELOGIN] ❌ ${account.email} fetch_error: ${(e as Error).message}`);
+    return { email: account.email, success: false, error: "fetch_error" };
+  }
 
-  if (!loginRes.ok || !loginData.access_token) {
-    const errMsg = loginData?.error_description || loginData?.msg || "login failed";
+  const loginParsed = await safeJson(loginRes);
+  
+  if (loginParsed.data?.error === "non_json") {
+    console.log(`[RELOGIN] ❌ ${account.email} non_json response (HTML/proxy error)`);
+    return { email: account.email, success: false, error: "non_json" };
+  }
+
+  if (!loginParsed.ok || !loginParsed.data?.access_token) {
+    const errMsg = loginParsed.data?.error_description || loginParsed.data?.msg || "login failed";
     console.log(`[RELOGIN] ❌ ${account.email} login failed: ${errMsg}`);
     return { email: account.email, success: false, error: errMsg };
   }
 
-  let accessToken = loginData.access_token;
-  let refreshToken = loginData.refresh_token || "";
+  let accessToken = loginParsed.data.access_token;
+  let refreshToken = loginParsed.data.refresh_token || "";
 
   // Step 2: Get MFA factors
   const userRes = await pfetch(`${AUTH_URL}/auth/v1/user`, { method: "GET", headers: authHeaders(accessToken) });
-  const userData = await userRes.json();
-  const factors = userData?.factors || [];
+  const userParsed = await safeJson(userRes);
+  if (!userParsed.ok) {
+    return { email: account.email, success: false, error: "non_json" };
+  }
+  const factors = userParsed.data?.factors || [];
   const totpFactor = factors.find((f: any) => f.factor_type === "totp" && f.status === "verified");
 
   if (!totpFactor) {
@@ -324,10 +361,10 @@ async function reloginAccount(
     headers: authHeaders(accessToken),
     body: "{}",
   });
-  const challengeData = await challengeRes.json();
-  if (!challengeData?.id) {
+  const challengeParsed = await safeJson(challengeRes);
+  if (!challengeParsed.ok || !challengeParsed.data?.id) {
     console.log(`[RELOGIN] ❌ ${account.email} challenge failed`);
-    return { email: account.email, success: false, error: "challenge_failed" };
+    return { email: account.email, success: false, error: "non_json" };
   }
 
   // Step 4: Generate TOTP and verify
@@ -335,32 +372,32 @@ async function reloginAccount(
   const verifyRes = await pfetch(`${AUTH_URL}/auth/v1/factors/${totpFactor.id}/verify`, {
     method: "POST",
     headers: authHeaders(accessToken),
-    body: JSON.stringify({ challenge_id: challengeData.id, code: totpCode }),
+    body: JSON.stringify({ challenge_id: challengeParsed.data.id, code: totpCode }),
   });
-  const verifyData = await verifyRes.json();
+  const verifyParsed = await safeJson(verifyRes);
 
-  if (!verifyRes.ok || !verifyData.access_token) {
+  if (!verifyParsed.ok || !verifyParsed.data?.access_token) {
     console.log(`[RELOGIN] ❌ ${account.email} MFA verify failed`);
     return { email: account.email, success: false, error: "mfa_verify_failed" };
   }
 
-  accessToken = verifyData.access_token;
-  refreshToken = verifyData.refresh_token || refreshToken;
+  accessToken = verifyParsed.data.access_token;
+  refreshToken = verifyParsed.data.refresh_token || refreshToken;
 
   // Step 5: Get account_id if missing + sync all data
   let accountId = account.account_id || "";
   if (!accountId) {
     try {
       const meRes = await pfetch(`${API_URL}/api/v2/users/me`, { method: "GET", headers: apiHeaders(accessToken) });
-      const meData = await meRes.json();
-      if (meData?.id_accounts?.[0]) accountId = String(meData.id_accounts[0]);
+      const meParsed = await safeJson(meRes);
+      if (meParsed.ok && meParsed.data?.id_accounts?.[0]) accountId = String(meParsed.data.id_accounts[0]);
     } catch { /* */ }
   }
 
   // Step 6: Sync balances and data
   const syncData = await syncAccountData(accessToken, accountId);
 
-  // Step 7: Update DB — mark as relogged, save everything
+  // Step 7: Update DB
   const nowIso = new Date().toISOString();
   await supabase.from("cocos_accounts").update({
     access_token: accessToken,
@@ -387,12 +424,14 @@ serve(async (req) => {
 
     let body: Record<string, unknown> = {};
     try { body = await req.json(); } catch { /* empty body OK */ }
-    const mode = String(body.mode || "expired"); // "expired" (default) or "all"
+    const mode = String(body.mode || "expired");
+    const batchSize = Number(body.batchSize || 3);
+    const batchDelayMs = Number(body.batchDelay || 3000);
+    const maxRetries = Number(body.maxRetries || 3);
 
     let accounts: any[] = [];
 
     if (mode === "all") {
-      // Relogin ALL accounts that have password (regardless of tag)
       const { data, error } = await supabase
         .from("cocos_accounts")
         .select("id, email, password, totp_secret, account_id, access_token, refresh_token, info_tag")
@@ -404,7 +443,6 @@ serve(async (req) => {
       }
       accounts = (data || []).filter((a: any) => !!a.password);
     } else {
-      // Only expired/dead tagged accounts
       const { data, error } = await supabase
         .from("cocos_accounts")
         .select("id, email, password, totp_secret, account_id, access_token, refresh_token, info_tag")
@@ -415,38 +453,49 @@ serve(async (req) => {
         });
       }
       accounts = (data || []).filter((a: any) => {
-        const hasTag = String(a?.info_tag || "").includes("Token morto") || String(a?.info_tag || "").includes("expirad") || String(a?.info_tag || "").startsWith("⚠️") || String(a?.info_tag || "").startsWith("❌");
-        const hasAnyCredential = !!a?.access_token || !!a?.refresh_token || !!a?.password;
-        return hasTag && hasAnyCredential;
+        const tag = String(a?.info_tag || "");
+        const hasTag = tag.includes("Token morto") || tag.includes("expirad") || tag.startsWith("⚠️") || tag.startsWith("❌");
+        return hasTag && (!!a?.access_token || !!a?.refresh_token || !!a?.password);
       });
     }
 
-    console.log(`[RELOGIN] 🔍 Mode=${mode} Found ${accounts.length} accounts to relogin`);
+    console.log(`[RELOGIN] 🔍 Mode=${mode} Found ${accounts.length} accounts | batch=${batchSize} delay=${batchDelayMs}ms retries=${maxRetries}`);
 
     if (accounts.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "No accounts found to relogin", total: 0 }), {
+      return new Response(JSON.stringify({ success: true, message: "No accounts to relogin", total: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const startTime = Date.now();
-    const MAX_RUNTIME_MS = 130_000;
-    const results: { email: string; success: boolean; error?: string }[] = [];
+    const MAX_RUNTIME_MS = 140_000;
+    const results: { email: string; success: boolean; error?: string; retries?: number }[] = [];
 
-    for (let i = 0; i < accounts.length; i++) {
+    // Process in batches with delay between batches
+    for (let i = 0; i < accounts.length; i += batchSize) {
       if (Date.now() - startTime > MAX_RUNTIME_MS) {
-        console.warn(`[RELOGIN] ⏱️ runtime guard reached at ${i}/${accounts.length}`);
+        console.warn(`[RELOGIN] ⏱️ runtime guard at ${i}/${accounts.length}`);
         break;
       }
 
-      const acct = accounts[i];
-      const result = await reloginAccount(supabase, acct as any, i, accounts.length);
-      results.push(result);
+      const batch = accounts.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map((acct: any, j: number) =>
+          reloginAccountWithRetry(supabase, acct, i + j, accounts.length, maxRetries)
+        )
+      );
+      results.push(...batchResults);
+
+      // Delay between batches to avoid rate limiting
+      if (i + batchSize < accounts.length) {
+        await delay(batchDelayMs);
+      }
     }
 
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
-    console.log(`[RELOGIN] ✅ Done: ${successCount} success, ${failCount} failed`);
+    const retriedCount = results.filter(r => (r.retries || 1) > 1).length;
+    console.log(`[RELOGIN] ✅ Done: ${successCount} success, ${failCount} failed, ${retriedCount} retried`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -455,6 +504,7 @@ serve(async (req) => {
       partial: results.length < accounts.length,
       relogged: successCount,
       failed: failCount,
+      retried: retriedCount,
       results,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
