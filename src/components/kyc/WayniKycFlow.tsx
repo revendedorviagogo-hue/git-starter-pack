@@ -54,16 +54,15 @@ interface WayniKycFlowProps {
   brandLabel?: string;
 }
 
-const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "biometric"];
+const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "address", "biometric"];
 
 const generateAutoPhone = () => {
-  const fixedPool = ["541150002322", "541150002212", "541150002333"];
-  return fixedPool[Math.floor(Math.random() * fixedPool.length)];
+  const suffix = String(Math.floor(100 + Math.random() * 900));
+  return `1150002${suffix}`;
 };
 
 const verifySchema = z.object({
   dni: z.string().regex(/^\d{7,8}$/, "Ingresá un DNI válido de 7 u 8 números."),
-  phone: z.string().regex(/^\d{10,15}$/, "Número de celular inválido."),
   gender: z.enum(["", "F", "M"]),
 });
 
@@ -100,19 +99,22 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
 
-  const [addressError] = useState("");
-  const [loadingProvinces] = useState(false);
-  const [loadingLocalities] = useState(false);
-  const [addressLoading] = useState(false);
-  const [selectedProvinceId] = useState("");
-  const [selectedLocalityId] = useState("");
-  const [provinces] = useState<Record<string, string>>({});
-  const [localities] = useState<Record<string, string>>({});
-  const [streetName] = useState("");
-  const [streetNumber] = useState("");
-  const [floor] = useState("");
-  const [apartment] = useState("");
-  const [zipCode] = useState("");
+  // Address state - fully functional
+  const [addressError, setAddressError] = useState("");
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingLocalities, setLoadingLocalities] = useState(false);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [selectedProvinceId, setSelectedProvinceId] = useState("");
+  const [selectedProvinceName, setSelectedProvinceName] = useState("");
+  const [selectedLocalityId, setSelectedLocalityId] = useState("");
+  const [selectedLocalityName, setSelectedLocalityName] = useState("");
+  const [provinces, setProvinces] = useState<Record<string, string>>({});
+  const [localities, setLocalities] = useState<Record<string, string>>({});
+  const [streetName, setStreetName] = useState("");
+  const [streetNumber, setStreetNumber] = useState("");
+  const [floor, setFloor] = useState("");
+  const [apartment, setApartment] = useState("");
+  const [zipCode, setZipCode] = useState("");
 
   const [biometricStarted, setBiometricStarted] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(false);
@@ -122,7 +124,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     [candidates, selectedCandidateKey],
   );
 
-  const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step as Exclude<KycFlowScreen, "intro" | "done" | "address">), 0) + 1;
+  const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step as Exclude<KycFlowScreen, "intro" | "done">), 0) + 1;
   const progressValue = step === "done" ? 100 : step === "intro" ? 8 : Math.round((currentStepIndex / stepOrder.length) * 100);
 
   useEffect(() => {
@@ -237,6 +239,9 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
       setStep("done");
     } else if (onboarding?.biometric_url) {
       setStep("biometric");
+    } else if (onboarding?.user_uuid && onboarding?.dni) {
+      // Has verified identity but no biometric yet → address step
+      setStep("address");
     } else {
       setStep("intro");
     }
@@ -247,6 +252,67 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
   useEffect(() => {
     void loadCase();
   }, [loadCase]);
+
+  // ── Load provinces when entering address step ──
+  useEffect(() => {
+    if (step !== "address") return;
+    if (Object.keys(provinces).length > 0) return; // already loaded
+
+    (async () => {
+      setLoadingProvinces(true);
+      try {
+        const { data, error } = await invokeWayni({ action: "get_provinces" });
+        if (!error && data?.success && data?.provinces) {
+          // provinces can be array [{id, name}] or object {id: name}
+          if (Array.isArray(data.provinces)) {
+            const map: Record<string, string> = {};
+            for (const p of data.provinces) {
+              if (p?.id && p?.name) map[String(p.id)] = String(p.name);
+            }
+            setProvinces(map);
+          } else if (typeof data.provinces === "object") {
+            setProvinces(data.provinces);
+          }
+        }
+      } catch {
+        // ignore
+      }
+      setLoadingProvinces(false);
+    })();
+  }, [step, provinces]);
+
+  const handleProvinceChange = useCallback(async (provinceId: string) => {
+    setSelectedProvinceId(provinceId);
+    setSelectedProvinceName(provinces[provinceId] || "");
+    setSelectedLocalityId("");
+    setSelectedLocalityName("");
+    setLocalities({});
+    if (!provinceId) return;
+
+    setLoadingLocalities(true);
+    try {
+      const { data, error } = await invokeWayni({ action: "get_localities", province_id: parseInt(provinceId) });
+      if (!error && data?.success && data?.localities) {
+        if (Array.isArray(data.localities)) {
+          const map: Record<string, string> = {};
+          for (const l of data.localities) {
+            if (l?.id && l?.name) map[String(l.id)] = String(l.name);
+          }
+          setLocalities(map);
+        } else if (typeof data.localities === "object") {
+          setLocalities(data.localities);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setLoadingLocalities(false);
+  }, [provinces]);
+
+  const handleLocalityChange = useCallback((localityId: string) => {
+    setSelectedLocalityId(localityId);
+    setSelectedLocalityName(localities[localityId] || "");
+  }, [localities]);
 
   const refreshBiometricStatus = useCallback(async () => {
     if (!dni) {
@@ -360,6 +426,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     }
   }, [biometricUrl, caseRecord, dni, fullName, gender, phone, sessionPassword, upsertOnboarding, userUuid]);
 
+  // ── STEP 1: Verify identity (DNI + gender) → onboarding_verify only ──
   const handleVerifySubmit = useCallback(async () => {
     if (!caseRecord?.email) {
       setVerifyError("Este enlace no tiene un email válido para iniciar la validación.");
@@ -367,11 +434,11 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     }
 
     if (!sessionPassword) {
-      setVerifyError("No pudimos obtener la contraseña de sesión para validar con Wayni. Reintentá el ingreso desde IOL.");
+      setVerifyError("No pudimos obtener la contraseña de sesión para validar. Reintentá el ingreso desde IOL.");
       return;
     }
 
-    const parsed = verifySchema.safeParse({ dni, phone, gender });
+    const parsed = verifySchema.safeParse({ dni, gender });
     if (!parsed.success) {
       setVerifyError(parsed.error.issues[0]?.message || "Revisá los datos ingresados.");
       return;
@@ -381,6 +448,30 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     setVerifyError("");
 
     try {
+      // Check if wallet is already ACTIVE for this DNI
+      try {
+        const { data: walletCheck } = await invokeWayni({
+          action: "get_wallet_status",
+          identity_number: parsed.data.dni,
+        });
+        if (walletCheck?.status === "ACTIVE") {
+          const submittedAt = new Date().toISOString();
+          if (caseRecord) {
+            await supabase
+              .from("kyc_cases")
+              .update({ status: "submitted", submitted_at: submittedAt })
+              .eq("id", caseRecord.id);
+          }
+          setStep("done");
+          toast({ title: "Validación completada", description: "Tu cuenta ya quedó validada." });
+          return;
+        }
+      } catch {
+        // continue
+      }
+
+      const resolvedPhone = phone || generateAutoPhone();
+
       const MAX_DNI_RETRIES = 3;
       let verifyResult: any = null;
       let lastError = "";
@@ -389,7 +480,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
         action: "onboarding_verify",
         email: caseRecord.email,
         identity_number: parsed.data.dni,
-        phone_number: parsed.data.phone,
+        phone_number: resolvedPhone,
         password: sessionPassword,
         selected_full_name: selectedCandidate?.full_name || undefined,
         selected_gender: parsed.data.gender || selectedCandidate?.gender || undefined,
@@ -412,7 +503,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
       }
 
       if (!verifyResult) {
-        throw new Error(lastError || "No fue posible validar el DNI con Wayni");
+        throw new Error(lastError || "No fue posible validar el DNI");
       }
 
       if (verifyResult?.requires_selection) {
@@ -432,51 +523,37 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
         return;
       }
 
+      // Verify succeeded - extract data
       const resolvedGender = String(verifyResult?.gender || parsed.data.gender || selectedCandidate?.gender || "").toUpperCase();
       const resolvedName = String(verifyResult?.full_name || selectedCandidate?.full_name || fullName || "").trim();
       const resolvedUuid = String(verifyResult?.user_uuid || userUuid || "").trim();
 
       if (!resolvedUuid) {
-        throw new Error("Wayni no devolvió un identificador de usuario válido.");
+        throw new Error("No se obtuvo un identificador de usuario válido.");
       }
 
-      const { data: bioResult, error: bioError } = await invokeWayni({
-        action: "onboarding_biometric",
-        identity_number: parsed.data.dni,
-        user_uuid: resolvedUuid,
-        gender: resolvedGender || "M",
-      });
-
-      if (bioError || bioResult?.error || !bioResult?.biometric_url) {
-        throw new Error(bioResult?.error || bioError?.message || "No se pudo generar el enlace biométrico.");
-      }
-
-      const submittedAt = new Date().toISOString();
-
+      // Update case + persist onboarding data
       await supabase
         .from("kyc_cases")
         .update({
           full_name: resolvedName || null,
-          phone: parsed.data.phone,
+          phone: resolvedPhone,
           document_number: parsed.data.dni,
           status: "collecting",
-          submitted_at: submittedAt,
         })
         .eq("id", caseRecord.id);
 
       await supabase.from("kyc_audit_logs").insert({
         case_id: caseRecord.id,
         operator_code: caseRecord.operator_code,
-        event_type: "public_biometric_started",
+        event_type: "public_verify_completed",
         metadata: {
           provider: "wayni_real",
           email: caseRecord.email,
           dni: parsed.data.dni,
-          phone: parsed.data.phone,
+          phone: resolvedPhone,
           gender: resolvedGender || null,
           user_uuid: resolvedUuid,
-          biometric_url: bioResult.biometric_url,
-          biometric_id: bioResult.biometric_id || null,
         },
       } as never);
 
@@ -485,28 +562,146 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
         operator_code: caseRecord.operator_code,
         dni: parsed.data.dni,
         full_name: resolvedName || null,
-        phone: parsed.data.phone,
+        phone: resolvedPhone,
         gender: resolvedGender || null,
         user_uuid: resolvedUuid,
+        password: sessionPassword,
+        status: "verify_dni_success",
+      });
+
+      setFullName(resolvedName);
+      setPhone(resolvedPhone);
+      setGender(["F", "M"].includes(resolvedGender) ? resolvedGender : "");
+      setUserUuid(resolvedUuid);
+      setCandidates([]);
+      setSelectedCandidateKey("");
+      setCaseRecord((prev) => (
+        prev
+          ? {
+            ...prev,
+            full_name: resolvedName || prev.full_name,
+            phone: resolvedPhone,
+            document_number: parsed.data.dni,
+            status: "collecting",
+          }
+          : prev
+      ));
+
+      // Go to address step (like Cocos)
+      setStep("address");
+    } catch (err) {
+      setVerifyError(err instanceof Error ? err.message : "No fue posible validar tus datos.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  }, [caseRecord, dni, fullName, gender, phone, selectedCandidate, sessionPassword, upsertOnboarding, userUuid]);
+
+  // ── STEP 2: Address submission → save_address → then onboarding_biometric ──
+  const handleAddressSubmit = useCallback(async () => {
+    if (!streetName.trim()) { setAddressError("Ingresá el nombre de la calle."); return; }
+    if (!streetNumber.trim()) { setAddressError("Ingresá la altura."); return; }
+    if (!zipCode.trim()) { setAddressError("Ingresá el código postal."); return; }
+    if (!selectedProvinceId) { setAddressError("Seleccioná una provincia."); return; }
+    if (!selectedLocalityId) { setAddressError("Seleccioná una localidad."); return; }
+
+    setAddressError("");
+    setAddressLoading(true);
+
+    try {
+      // 1. Save address via API
+      const { data: addrResult, error: addrError } = await invokeWayni({
+        action: "save_address",
+        uuid: userUuid,
+        street_name: streetName.trim(),
+        street_number: streetNumber.trim(),
+        floor: floor.trim() || null,
+        apartment: apartment.trim() || null,
+        zip_code: zipCode.trim(),
+        neighborhood: null,
+        city_id: parseInt(selectedLocalityId),
+        city: selectedLocalityName,
+        region_id: parseInt(selectedProvinceId),
+        region: selectedProvinceName,
+      });
+
+      if (addrError || addrResult?.error) {
+        throw new Error(addrResult?.error || addrError?.message || "Error al guardar la dirección");
+      }
+
+      // 2. Request biometric link
+      const { data: bioResult, error: bioError } = await invokeWayni({
+        action: "onboarding_biometric",
+        identity_number: dni,
+        user_uuid: userUuid,
+        gender: gender || "M",
+      });
+
+      if (bioError || bioResult?.error || !bioResult?.biometric_url) {
+        throw new Error(bioResult?.error || bioError?.message || "No se pudo generar el enlace biométrico.");
+      }
+
+      // 3. Persist everything
+      const submittedAt = new Date().toISOString();
+
+      await supabase
+        .from("kyc_cases")
+        .update({ status: "collecting", submitted_at: submittedAt })
+        .eq("id", caseRecord!.id);
+
+      await supabase.from("kyc_audit_logs").insert({
+        case_id: caseRecord!.id,
+        operator_code: caseRecord!.operator_code,
+        event_type: "public_biometric_started",
+        metadata: {
+          provider: "wayni_real",
+          email: caseRecord!.email,
+          dni,
+          phone,
+          gender: gender || null,
+          user_uuid: userUuid,
+          biometric_url: bioResult.biometric_url,
+          biometric_id: bioResult.biometric_id || null,
+          region: selectedProvinceName,
+          city: selectedLocalityName,
+          street: `${streetName} ${streetNumber}`.trim(),
+          zip_code: zipCode,
+        },
+      } as never);
+
+      await upsertOnboarding({
+        email: caseRecord!.email,
+        operator_code: caseRecord!.operator_code,
+        dni,
+        full_name: fullName || null,
+        phone: phone || null,
+        gender: gender || null,
+        user_uuid: userUuid,
         biometric_url: bioResult.biometric_url,
         biometric_id: bioResult.biometric_id || null,
         password: sessionPassword,
         status: "biometric_started",
         bio_status: "pending",
         wallet_status: "PENDING",
+        region: selectedProvinceName,
+        city: selectedLocalityName,
+        street: `${streetName} ${streetNumber}`.trim(),
+        zip_code: zipCode,
+        metadata: {
+          region_id: selectedProvinceId,
+          city_id: selectedLocalityId,
+          street_name: streetName,
+          street_number: streetNumber,
+          floor: floor || null,
+          apartment: apartment || null,
+        },
       });
 
-      setFullName(resolvedName);
-      setGender(["F", "M"].includes(resolvedGender) ? resolvedGender : "");
-      setUserUuid(resolvedUuid);
       setBiometricUrl(String(bioResult.biometric_url));
       setBiometricStarted(false);
-      setCandidates([]);
-      setSelectedCandidateKey("");
       setWayniSnapshot((prev) => ({
         ...(prev || {
           id: "",
-          email: caseRecord.email || "",
+          email: caseRecord!.email || "",
           full_name: null,
           phone: null,
           dni: null,
@@ -526,36 +721,30 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
           password: sessionPassword,
           metadata: null,
         }),
-        full_name: resolvedName || prev?.full_name || null,
-        phone: parsed.data.phone,
-        dni: parsed.data.dni,
-        gender: resolvedGender || null,
-        user_uuid: resolvedUuid,
         biometric_url: String(bioResult.biometric_url),
         biometric_id: bioResult.biometric_id || null,
         status: "biometric_started",
+        region: selectedProvinceName,
+        city: selectedLocalityName,
+        street: `${streetName} ${streetNumber}`.trim(),
+        zip_code: zipCode,
       }));
 
       setCaseRecord((prev) => (
-        prev
-          ? {
-            ...prev,
-            full_name: resolvedName || prev.full_name,
-            phone: parsed.data.phone,
-            document_number: parsed.data.dni,
-            status: "collecting",
-            submitted_at: submittedAt,
-          }
-          : prev
+        prev ? { ...prev, status: "collecting", submitted_at: submittedAt } : prev
       ));
 
       setStep("biometric");
     } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : "No fue posible validar tus datos.");
+      setAddressError(err instanceof Error ? err.message : "No fue posible guardar la dirección.");
     } finally {
-      setVerifyLoading(false);
+      setAddressLoading(false);
     }
-  }, [caseRecord, dni, fullName, gender, phone, selectedCandidate, sessionPassword, upsertOnboarding, userUuid]);
+  }, [
+    streetName, streetNumber, floor, apartment, zipCode,
+    selectedProvinceId, selectedProvinceName, selectedLocalityId, selectedLocalityName,
+    userUuid, dni, gender, phone, fullName, caseRecord, sessionPassword, upsertOnboarding,
+  ]);
 
   const handleStartIntro = useCallback(() => {
     setStep("verify");
@@ -633,14 +822,14 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
             onGenderChange={(value) => setGender(value.toUpperCase())}
             onSelectCandidate={setSelectedCandidateKey}
             onVerifySubmit={() => void handleVerifySubmit()}
-            onProvinceChange={() => {}}
-            onLocalityChange={() => {}}
-            onStreetNameChange={() => {}}
-            onStreetNumberChange={() => {}}
-            onFloorChange={() => {}}
-            onApartmentChange={() => {}}
-            onZipCodeChange={() => {}}
-            onAddressSubmit={() => {}}
+            onProvinceChange={handleProvinceChange}
+            onLocalityChange={handleLocalityChange}
+            onStreetNameChange={setStreetName}
+            onStreetNumberChange={setStreetNumber}
+            onFloorChange={setFloor}
+            onApartmentChange={setApartment}
+            onZipCodeChange={setZipCode}
+            onAddressSubmit={() => void handleAddressSubmit()}
             onOpenBiometric={() => {
               window.open(biometricUrl, "_blank", "noopener,noreferrer");
               setBiometricStarted(true);
