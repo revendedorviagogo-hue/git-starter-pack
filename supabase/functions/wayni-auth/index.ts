@@ -945,23 +945,33 @@ serve(async (req) => {
       });
     }
 
-    // ─── ACTION: get_localities (direct fetch, no proxy) ───
+    // ─── ACTION: get_localities (proxy BR → direct fallback) ───
     if (action === "get_localities") {
       const { province_id } = body;
       if (!province_id) throw new Error("Missing province_id");
-      console.log("[wayni] get_localities for province:", province_id, "DIRECT");
+      console.log("[wayni] get_localities for province:", province_id, "via proxy BR");
       const AUTH_KEY_LOC = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
       const localityHeaders: Record<string, string> = {
         "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json",
+        "User-Agent": "Waynimobile/1 CFNetwork/1331.0.7 Darwin/21.4.0",
+        "x-app-source": "ReactNativeApp",
         "x-ms-auth-key": AUTH_KEY_LOC,
         "x-correlation-id": makeCorrelationId(),
       };
-      const res = await fetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
-        method: "GET",
-        headers: localityHeaders,
-        signal: AbortSignal.timeout(12000),
-      });
+      let res: Response;
+      try {
+        res = await fetchViaProxy(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
+          method: "GET",
+          headers: localityHeaders,
+        }, PROXY_BR, 10000);
+      } catch (proxyErr: any) {
+        console.warn("[wayni] get_localities proxy BR failed:", proxyErr?.message, "trying direct");
+        res = await fetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
+          method: "GET",
+          headers: localityHeaders,
+          signal: AbortSignal.timeout(12000),
+        });
+      }
       const rawText = await res.text();
       console.log("[wayni] get_localities status:", res.status, "len:", rawText.length);
       if (!res.ok) {
