@@ -641,7 +641,7 @@ const WayniKycStageView = ({
       </header>
 
       <main className="min-h-0 flex-1 overflow-hidden px-3 py-3 sm:px-5 sm:py-4">
-        {step === "intro" && <IntroScreen onStart={onStart} email={email} />}
+        {/* intro screen removed — flow starts at verify */}
         {step === "verify" && (
           <VerifyScreen
             brandName={brandName}
