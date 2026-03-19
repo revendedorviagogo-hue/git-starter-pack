@@ -1018,8 +1018,15 @@ serve(async (req) => {
         },
       });
 
-      const data = await safeJson(res);
-      if (!res.ok) throw new Error(data?.message || "Error al consultar biometría");
+      const data = await safeJson(res, {});
+      if (!res.ok) {
+        console.warn("[wayni] get_biometric_info non-OK:", res.status, JSON.stringify(data).slice(0, 200));
+        return new Response(JSON.stringify({
+          success: false,
+          code: "UPSTREAM_UNAVAILABLE",
+          error: data?.message || `Biometría no disponible (${res.status})`,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       // Document validation status
       const has_selfie = !!data.selfie && typeof data.selfie === "string" && data.selfie.length > 100;
