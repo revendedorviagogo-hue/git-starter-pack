@@ -421,10 +421,9 @@ const AddressScreen = ({
     </div>
 
     <div className="mt-4 space-y-3">
-      <div className="grid gap-1 sm:grid-cols-3">
+      <div className="grid gap-1 sm:grid-cols-2">
         <InfoLine label="Titular" value={fullName || "—"} />
         <InfoLine label="DNI" value={dni || "—"} />
-        <InfoLine label="Celular" value={phonePreview} />
       </div>
       <Button className="h-10 w-full rounded-2xl" onClick={onAddressSubmit} disabled={addressLoading}>
         {addressLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
