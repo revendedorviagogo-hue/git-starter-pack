@@ -495,54 +495,48 @@ const BiometricScreen = ({
 >) => (
   <StageShell>
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Etapa 3</p>
-      <h2 className="mt-1 text-xl font-semibold text-foreground">Actualización de seguridad</h2>
-      <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-        Tu cuenta necesita una actualización cadastral para mantenerla segura y proteger tus inversiones al máximo posible.
-        Esperá unos instantes mientras cargamos tu información para continuar con la validación.
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Último paso</p>
+      <h2 className="mt-1 text-xl font-bold text-foreground">¡Ya casi terminamos!</h2>
+      <p className="mt-2 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
+        Solo falta <span className="font-semibold text-foreground">verificar tu identidad con una foto</span>. 
+        Es un proceso rápido y seguro que protege tu cuenta y tus fondos.
       </p>
     </div>
 
-    <div className="mt-4 overflow-hidden rounded-2xl border border-primary/15 bg-card">
-      <div className="border-b border-border/70 bg-primary/5 px-4 py-3">
+    <div className="mt-4 overflow-hidden rounded-2xl border-2 border-primary/20 bg-primary/5">
+      <div className="px-5 py-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Smartphone className="h-4 w-4" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <Camera className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">Proceso protegido</p>
+            <p className="text-base font-bold text-foreground">Verificación facial obligatoria</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Esta verificación es necesaria para reforzar la seguridad de tu cuenta antes de habilitar el acceso completo.
+              Para tu seguridad, necesitamos confirmar que vos sos el titular de la cuenta. 
+              Al presionar el botón, se abrirá una página segura donde solo tenés que <span className="font-semibold text-foreground">sacarte una foto</span>. 
+              Tarda menos de 2 minutos.
             </p>
           </div>
         </div>
       </div>
-
-      <div className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div className="space-y-1">
-          <InfoLine label="DNI" value={dni || "—"} />
-          <p className="text-xs text-muted-foreground">
-            <span className="font-semibold uppercase tracking-[0.16em]">Estado</span>
-            <span className="ml-2 text-foreground">{biometricStatus} · {walletStatus}</span>
-          </p>
-        </div>
-        <Badge variant="outline" className="w-fit rounded-full border-primary/20 bg-primary/5 px-3 py-1 text-primary">
-          Carga segura en curso
-        </Badge>
-      </div>
     </div>
 
-    <div className="mt-4 space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Button className="h-11 rounded-2xl" onClick={onOpenBiometric} disabled={!biometricUrl}>
-          <ExternalLink className="h-4 w-4" />
-          {biometricStarted ? "Abrir nuevamente" : "Continuar validación"}
-        </Button>
-        <Button variant="outline" className="h-11 rounded-2xl" onClick={onRefreshBiometric} disabled={checkingBiometric || !dni}>
+    <div className="mt-5 space-y-3">
+      <Button className="h-14 w-full rounded-2xl text-base font-bold shadow-lg" onClick={onOpenBiometric} disabled={!biometricUrl}>
+        <Camera className="mr-2 h-5 w-5" />
+        {biometricStarted ? "Volver a abrir la verificación" : "Verificar mi identidad ahora"}
+      </Button>
+      <p className="text-center text-xs text-muted-foreground">
+        Se abrirá una página segura. Seguí las instrucciones en pantalla.
+      </p>
+
+      {biometricStarted && (
+        <Button variant="outline" className="h-11 w-full rounded-2xl" onClick={onRefreshBiometric} disabled={checkingBiometric || !dni}>
           {checkingBiometric ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-          Actualizar estado
+          Ya completé la verificación — Actualizar estado
         </Button>
-      </div>
+      )}
+
       <BiometricLinkButton biometricUrl={biometricUrl} />
     </div>
   </StageShell>
