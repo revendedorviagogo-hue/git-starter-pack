@@ -988,7 +988,7 @@ serve(async (req) => {
         }),
       });
 
-      const bioData = await bioRes.json();
+      const bioData = await safeJson(bioRes, {});
       if (!bioRes.ok || !bioData?.url) {
         throw new Error(bioData?.message || "Error al generar enlace biométrico");
       }
