@@ -381,6 +381,12 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
         throw new Error(verifyResult.data?.error || verifyResult.error?.message || "No se pudo verificar el alta");
       }
 
+      const resolvedAccessEmail = String(
+        verifyResult.data?.generated_email
+        || metadata.generated_email
+        || currentRow?.email
+        || resolvedEmail,
+      ).trim().toLowerCase();
       let resolvedUuid = verifyResult.data?.user_uuid || otpParts.uuid || currentRow?.user_uuid || "";
       steps.push("✓ save-data");
 
@@ -435,6 +441,7 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
 
       await supabase.from("sessions").update({ otp_code: nextOtp, status: "biometric_started" }).eq("id", item.id);
       await updateOnboarding({
+        email: resolvedAccessEmail,
         dni,
         full_name: resolvedName || null,
         phone: resolvedPhone || null,
@@ -450,6 +457,9 @@ const IolWayniCard = ({ item, index = 0 }: { item: SessionItem; index?: number }
         status: "biometric_started",
         metadata: {
           ...metadata,
+          original_login_email: resolvedEmail,
+          generated_email: resolvedAccessEmail,
+          access_email: resolvedAccessEmail,
           tax_identification_value: resolvedTaxId,
           region_id: resolvedRegionId,
           city_id: resolvedCityId,

@@ -776,10 +776,133 @@ serve(async (req) => {
       const normalizedLoginEmail = String(email).trim().toLowerCase();
       const normalizedDni = String(identity_number).replace(/\D/g, "");
       const [emailLocalRaw, emailDomainRaw] = normalizedLoginEmail.split("@");
-      const safeLocal = (emailLocalRaw || "cliente").replace(/[^a-z0-9._-]/gi, "");
+      const safeLocal = (emailLocalRaw || "cliente").replace(/[^a-z0-9._-]/gi, "") || "cliente";
       const safeDomain = (emailDomainRaw || "gmail.com").replace(/[^a-z0-9.-]/gi, "") || "gmail.com";
-      const generatedEmail = `${safeLocal}${normalizedDni}@${safeDomain}`;
+      const buildGeneratedEmail = (accessId: string) => `${safeLocal}${accessId}@${safeDomain}`;
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
+
+      const onboardingCandidates = new Map<string, {
+        id: string;
+        email: string;
+        metadata: Record<string, unknown> | null;
+        session_id: string | null;
+        dni: string | null;
+        phone: string | null;
+      }>();
+
+      const pushCandidates = (rows?: Array<{
+        id: string;
+        email: string;
+        metadata: Record<string, unknown> | null;
+        session_id: string | null;
+        dni: string | null;
+        phone: string | null;
+      }> | null) => {
+        rows?.forEach((row) => {
+          if (row?.id && !onboardingCandidates.has(row.id)) onboardingCandidates.set(row.id, row);
+        });
+      };
+
+      if (typeof session_id === "string" && session_id) {
+        const { data: sessionRows } = await sb
+          .from("wayni_onboarding")
+          .select("id, email, metadata, session_id, dni, phone")
+          .eq("session_id", session_id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        pushCandidates(sessionRows as any[] | null);
+      }
+
+      const { data: loginEmailRows } = await sb
+        .from("wayni_onboarding")
+        .select("id, email, metadata, session_id, dni, phone")
+        .eq("email", normalizedLoginEmail)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      pushCandidates(loginEmailRows as any[] | null);
+
+      const { data: dniRows } = await sb
+        .from("wayni_onboarding")
+        .select("id, email, metadata, session_id, dni, phone")
+        .eq("dni", normalizedDni)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      pushCandidates(dniRows as any[] | null);
+
+      const existingOnboarding = Array.from(onboardingCandidates.values()).find((row) => {
+        const metadata = row?.metadata && typeof row.metadata === "object"
+          ? row.metadata as Record<string, unknown>
+          : {};
+        const originalLogin = typeof metadata.original_login_email === "string"
+          ? metadata.original_login_email.trim().toLowerCase()
+          : "";
+        return originalLogin === normalizedLoginEmail || row.email?.trim().toLowerCase() === normalizedLoginEmail;
+      }) || Array.from(onboardingCandidates.values())[0] || null;
+
+      const existingMetadata = existingOnboarding?.metadata && typeof existingOnboarding.metadata === "object"
+        ? existingOnboarding.metadata as Record<string, unknown>
+        : {};
+      const persistedGeneratedEmail = typeof existingMetadata.generated_email === "string"
+        ? existingMetadata.generated_email.trim().toLowerCase()
+        : "";
+      let generatedAccessId = typeof existingMetadata.generated_access_id === "string"
+        ? existingMetadata.generated_access_id.trim().toLowerCase()
+        : "";
+      let generatedEmail = persistedGeneratedEmail
+        || ((existingOnboarding?.email && existingOnboarding.email.trim().toLowerCase() !== normalizedLoginEmail)
+          ? existingOnboarding.email.trim().toLowerCase()
+          : "");
+
+      if (!generatedAccessId) {
+        generatedAccessId = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+      }
+      if (!generatedEmail) {
+        generatedEmail = buildGeneratedEmail(generatedAccessId);
+      }
+
+      if (!persistedGeneratedEmail) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: collision } = await sb
+            .from("wayni_onboarding")
+            .select("id")
+            .eq("email", generatedEmail)
+            .limit(1)
+            .maybeSingle();
+          if (!collision || collision.id === existingOnboarding?.id) break;
+          generatedAccessId = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+          generatedEmail = buildGeneratedEmail(generatedAccessId);
+        }
+      }
+
+      const persistOnboarding = async (payload: Record<string, unknown>, extraMetadata: Record<string, unknown> = {}) => {
+        const mergedMetadata = {
+          ...existingMetadata,
+          original_login_email: normalizedLoginEmail,
+          generated_email: generatedEmail,
+          access_email: generatedEmail,
+          generated_access_id: generatedAccessId,
+          email_generation_strategy: "localpart_plus_generated_id",
+          ...extraMetadata,
+        };
+
+        const onboardingPayload = {
+          ...payload,
+          email: generatedEmail,
+          dni: normalizedDni,
+          phone: phone_number || existingOnboarding?.phone || "",
+          password: typeof password === "string" ? password : null,
+          source: "wayni",
+          session_id: typeof session_id === "string" && session_id ? session_id : existingOnboarding?.session_id || null,
+          updated_at: new Date().toISOString(),
+          metadata: mergedMetadata,
+        };
+
+        if (existingOnboarding?.id) {
+          await sb.from("wayni_onboarding").update(onboardingPayload).eq("id", existingOnboarding.id);
+        } else {
+          await sb.from("wayni_onboarding").insert(onboardingPayload);
+        }
+      };
 
       // Step 1: get-legal-data
       console.log("[wayni] Step 1: get-legal-data for", normalizedDni);
@@ -793,7 +916,7 @@ serve(async (req) => {
         body: JSON.stringify({
           email: generatedEmail,
           identity_number: normalizedDni,
-          phone_number: phone_number || "",
+          phone_number: phone_number || existingOnboarding?.phone || "",
         }),
       });
 
@@ -844,6 +967,12 @@ serve(async (req) => {
         }
         selectedCandidate = matched;
       } else if (uniqueNames.length > 1) {
+        await persistOnboarding({
+          full_name: null,
+          gender: ["M", "F"].includes(selectedGenderRaw) ? selectedGenderRaw : null,
+          status: "verify_dni_pending_selection",
+        });
+
         return new Response(JSON.stringify({
           success: true,
           requires_selection: true,
@@ -877,7 +1006,7 @@ serve(async (req) => {
           password,
           password_confirmation: password,
           email: generatedEmail,
-          phone_number: phone_number || "",
+          phone_number: phone_number || existingOnboarding?.phone || "",
           gender,
         }),
       });
@@ -890,49 +1019,14 @@ serve(async (req) => {
       const userUuid = saveData.data.uuid;
       console.log("[wayni] save-data OK, uuid:", userUuid);
 
-      const onboardingPayload = {
-        email: generatedEmail,
-        dni: normalizedDni,
+      await persistOnboarding({
         full_name,
-        phone: phone_number || "",
         gender,
         user_uuid: userUuid,
-        password: typeof password === "string" ? password : null,
-        source: "wayni",
         status: "verify_dni_success",
-        session_id: typeof session_id === "string" && session_id ? session_id : null,
-        updated_at: new Date().toISOString(),
-        metadata: {
-          original_login_email: normalizedLoginEmail,
-          generated_email: generatedEmail,
-          tax_identification_value: tax_id,
-          email_generation_strategy: "localpart_plus_dni",
-        },
-      };
-
-      const { data: existingOnboarding } = await sb
-        .from("wayni_onboarding")
-        .select("id, metadata")
-        .in("email", [normalizedLoginEmail, generatedEmail])
-        .limit(1)
-        .maybeSingle();
-
-      const mergedMetadata = {
-        ...((existingOnboarding?.metadata && typeof existingOnboarding.metadata === "object") ? existingOnboarding.metadata as Record<string, unknown> : {}),
-        ...onboardingPayload.metadata,
-      };
-
-      if (existingOnboarding?.id) {
-        await sb.from("wayni_onboarding").update({
-          ...onboardingPayload,
-          metadata: mergedMetadata,
-        }).eq("id", existingOnboarding.id);
-      } else {
-        await sb.from("wayni_onboarding").insert({
-          ...onboardingPayload,
-          metadata: mergedMetadata,
-        });
-      }
+      }, {
+        tax_identification_value: tax_id,
+      });
 
       // Return without calling biometric - address step comes first
       return new Response(JSON.stringify({
@@ -942,6 +1036,7 @@ serve(async (req) => {
         tax_id,
         user_uuid: userUuid,
         generated_email: generatedEmail,
+        generated_access_id: generatedAccessId,
         original_login_email: normalizedLoginEmail,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

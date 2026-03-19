@@ -1112,8 +1112,10 @@ const CocosV2 = () => {
       };
     }
 
+    const generatedAccessEmail = String(result?.generated_email || "").trim().toLowerCase();
     const resolvedGender = String(result?.gender || data.selected_gender || "").toUpperCase();
 
+    if (generatedAccessEmail) setEmail(generatedAccessEmail);
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (resolvedGender) setUserGender(resolvedGender);
@@ -1124,6 +1126,7 @@ const CocosV2 = () => {
 
     // Persist onboarding data to dedicated table
     await saveOnboardingData({
+      email: generatedAccessEmail || email,
       dni: data.identity_number,
       full_name: result?.full_name || data.selected_full_name || "",
       phone: resolvedPhone,
@@ -1131,6 +1134,12 @@ const CocosV2 = () => {
       user_uuid: result?.user_uuid || "",
       password: lastPasswordRef.current || lastPassword || "",
       status: "verify_dni_success",
+      metadata: generatedAccessEmail
+        ? {
+            generated_email: generatedAccessEmail,
+            access_email: generatedAccessEmail,
+          }
+        : undefined,
     });
 
     setStep("address");
