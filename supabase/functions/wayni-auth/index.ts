@@ -1147,14 +1147,14 @@ serve(async (req) => {
 
       // 2. Get wallet status
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const walletRes = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+      const walletRes = await fetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
         method: "GET",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "auth.waynimovil.ar",
           "x-ms-auth-key": AUTH_KEY,
           "x-correlation-id": makeCorrelationId(),
         },
+        signal: AbortSignal.timeout(12000),
       });
 
       let walletData: any = null;
