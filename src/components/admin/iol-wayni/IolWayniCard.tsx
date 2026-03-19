@@ -19,6 +19,26 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { BioImages, OnboardingRow, SessionItem } from "./types";
 import { formatDateTime, getProgressSteps, getStageLabel, mergeOtp, parseOtp } from "./utils";
 
+const BioCheck = ({ ok, label }: { ok: boolean; label: string }) => (
+  <span className={`rounded-lg border px-2 py-1 text-[10px] font-semibold ${ok ? "border-primary/25 bg-primary/10 text-primary" : "border-destructive/25 bg-destructive/10 text-destructive"}`}>
+    {ok ? "✓" : "✗"} {label}
+  </span>
+);
+
+const ProgressPill = ({ label, done, error }: { label: string; done: boolean; error: boolean }) => (
+  <div
+    className={`flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[10px] font-semibold ${
+      done
+        ? "border-primary/25 bg-primary/10 text-primary"
+        : error
+          ? "border-destructive/25 bg-destructive/10 text-destructive"
+          : "border-border bg-secondary text-muted-foreground"
+    }`}
+  >
+    {done ? "✓" : error ? "✗" : "○"} {label}
+  </div>
+);
+
 const pickPreferredOnboardingRow = (rows: OnboardingRow[], loginEmail: string, sessionId: string) => {
   const normalizedLoginEmail = loginEmail.trim().toLowerCase();
 
