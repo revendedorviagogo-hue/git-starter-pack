@@ -987,11 +987,10 @@ serve(async (req) => {
         throw new Error("Missing required address fields");
       }
 
-      const res = await proxyFetch("https://auth.waynimovil.ar/api/v1/onboarding/save-address", {
+      const res = await fetch("https://auth.waynimovil.ar/api/v1/onboarding/save-address", {
         method: "POST",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "auth.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
         body: JSON.stringify({
@@ -1008,6 +1007,7 @@ serve(async (req) => {
           region: String(region),
           terms_and_conditions_identifier: `terms_${Date.now().toString(16)}`,
         }),
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await safeJson(res);
