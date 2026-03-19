@@ -216,7 +216,7 @@ const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ?
     setWayniSnapshot(null);
     setSessionPassword("");
     setFullName(record.full_name || "");
-    setPhone(stripArgentinaCode(record.phone || ""));
+    setPhone(generateAutoPhone());
     setDni(sanitizeDigits(record.document_number || "", 8));
     setGender("");
     setUserUuid("");
