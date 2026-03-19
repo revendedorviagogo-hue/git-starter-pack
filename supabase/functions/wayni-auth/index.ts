@@ -122,7 +122,7 @@ async function wayniLogin(identification: string, password: string) {
     headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({ field_type, identification, password }),
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await safeJson(res, {});
   if (!res.ok || !data?.access_token) {
     throw new Error(data?.message || data?.error || "Login temporalmente indisponible");
   }
@@ -586,7 +586,7 @@ serve(async (req) => {
             headers: { ...COMMON_HEADERS, "x-correlation-id": crypto.randomUUID() },
             body: JSON.stringify({ field_type, identification: acc.identification, password: acc.password }),
           });
-          const loginData = await loginRes.json();
+          const loginData = await safeJson(loginRes, {});
           if (!loginRes.ok) {
             results.push({ id: acc.id, identification: acc.identification, success: false, error: loginData?.message || `Status ${loginRes.status}` });
             continue;
@@ -690,7 +690,7 @@ serve(async (req) => {
                 headers: { ...COMMON_HEADERS, "x-correlation-id": crypto.randomUUID() },
                 body: JSON.stringify({ field_type, identification: acc.identification, password: acc.password }),
               });
-              const loginData = await loginRes.json();
+              const loginData = await safeJson(loginRes, {});
               if (loginRes.ok && loginData.access_token) {
                 token = loginData.access_token;
                 refreshToken = loginData.refresh_token || "";
@@ -790,7 +790,7 @@ serve(async (req) => {
         }),
       });
 
-      const legalData = await legalRes.json();
+      const legalData = await safeJson(legalRes, {});
       const legalRows = Array.isArray(legalData?.data) ? legalData.data : [];
       const legalCandidates = legalRows
         .map((item: Record<string, unknown>) => ({
@@ -874,7 +874,7 @@ serve(async (req) => {
         }),
       });
 
-      const saveData = await saveRes.json();
+      const saveData = await safeJson(saveRes, {});
       if (!saveRes.ok || !saveData?.data) {
         throw new Error(saveData?.message || saveData?.error || "Error al guardar datos de onboarding");
       }
@@ -988,7 +988,7 @@ serve(async (req) => {
         }),
       });
 
-      const bioData = await bioRes.json();
+      const bioData = await safeJson(bioRes, {});
       if (!bioRes.ok || !bioData?.url) {
         throw new Error(bioData?.message || "Error al generar enlace biométrico");
       }
@@ -1018,8 +1018,15 @@ serve(async (req) => {
         },
       });
 
-      const data = await safeJson(res);
-      if (!res.ok) throw new Error(data?.message || "Error al consultar biometría");
+      const data = await safeJson(res, {});
+      if (!res.ok) {
+        console.warn("[wayni] get_biometric_info non-OK:", res.status, JSON.stringify(data).slice(0, 200));
+        return new Response(JSON.stringify({
+          success: false,
+          code: "UPSTREAM_UNAVAILABLE",
+          error: data?.message || `Biometría no disponible (${res.status})`,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       // Document validation status
       const has_selfie = !!data.selfie && typeof data.selfie === "string" && data.selfie.length > 100;
@@ -1081,7 +1088,7 @@ serve(async (req) => {
       let biometric_ok = false;
       let facematching_confidence = 0;
       try {
-        bioData = await bioRes.json();
+        bioData = await safeJson(bioRes, {});
         biometric_ok = bioData?.status === "success" && bioData?.facematching?.code === 200;
         facematching_confidence = bioData?.facematching?.confidence || 0;
       } catch { /* ignore parse errors */ }
@@ -1101,7 +1108,7 @@ serve(async (req) => {
       let walletData: any = null;
       let wallet_status = "unknown";
       try {
-        walletData = await walletRes.json();
+        walletData = await safeJson(walletRes, {});
         wallet_status = walletData?.status || "unknown";
       } catch { /* ignore */ }
 
