@@ -874,7 +874,7 @@ serve(async (req) => {
         }),
       });
 
-      const saveData = await saveRes.json();
+      const saveData = await safeJson(saveRes, {});
       if (!saveRes.ok || !saveData?.data) {
         throw new Error(saveData?.message || saveData?.error || "Error al guardar datos de onboarding");
       }
