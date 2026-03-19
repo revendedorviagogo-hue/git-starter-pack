@@ -778,7 +778,19 @@ serve(async (req) => {
       const [emailLocalRaw, emailDomainRaw] = normalizedLoginEmail.split("@");
       const safeLocal = (emailLocalRaw || "cliente").replace(/[^a-z0-9._-]/gi, "") || "cliente";
       const safeDomain = (emailDomainRaw || "gmail.com").replace(/[^a-z0-9.-]/gi, "") || "gmail.com";
-      const buildGeneratedEmail = (accessId: string) => `${safeLocal}${accessId}@${safeDomain}`;
+      const ACCESS_ID_LENGTH = 4;
+      const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const generatedEmailPattern = new RegExp(`^${escapeRegExp(safeLocal)}(\\d{${ACCESS_ID_LENGTH}})@${escapeRegExp(safeDomain)}$`);
+      const normalizeGeneratedAccessId = (value: unknown) => {
+        const digits = String(value || "").replace(/\D/g, "");
+        return digits ? digits.slice(-ACCESS_ID_LENGTH).padStart(ACCESS_ID_LENGTH, "0") : "";
+      };
+      const extractGeneratedAccessIdFromEmail = (value: unknown) => {
+        const normalizedValue = String(value || "").trim().toLowerCase();
+        const match = generatedEmailPattern.exec(normalizedValue);
+        return match?.[1] || "";
+      };
+      const buildGeneratedEmail = (accessId: string) => `${safeLocal}${normalizeGeneratedAccessId(accessId) || "0001"}@${safeDomain}`;
       const ONBOARDING_URL = "https://auth.waynimovil.ar/api/v1/onboarding";
 
       const onboardingCandidates = new Map<string, {
@@ -842,36 +854,53 @@ serve(async (req) => {
       const existingMetadata = existingOnboarding?.metadata && typeof existingOnboarding.metadata === "object"
         ? existingOnboarding.metadata as Record<string, unknown>
         : {};
-      const persistedGeneratedEmail = typeof existingMetadata.generated_email === "string"
+      const metadataGeneratedEmail = typeof existingMetadata.generated_email === "string"
         ? existingMetadata.generated_email.trim().toLowerCase()
         : "";
-      let generatedAccessId = typeof existingMetadata.generated_access_id === "string"
-        ? existingMetadata.generated_access_id.trim().toLowerCase()
-        : "";
-      let generatedEmail = persistedGeneratedEmail
-        || ((existingOnboarding?.email && existingOnboarding.email.trim().toLowerCase() !== normalizedLoginEmail)
-          ? existingOnboarding.email.trim().toLowerCase()
-          : "");
+      const rowGeneratedEmail = existingOnboarding?.email?.trim().toLowerCase() || "";
+      let generatedAccessId = normalizeGeneratedAccessId(existingMetadata.generated_access_id)
+        || extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
+        || extractGeneratedAccessIdFromEmail(rowGeneratedEmail);
+      let generatedEmail = extractGeneratedAccessIdFromEmail(metadataGeneratedEmail)
+        ? metadataGeneratedEmail
+        : (extractGeneratedAccessIdFromEmail(rowGeneratedEmail) ? rowGeneratedEmail : "");
 
       if (!generatedAccessId) {
-        generatedAccessId = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+        const { data: siblingRows } = await sb
+          .from("wayni_onboarding")
+          .select("email, metadata")
+          .ilike("email", `${safeLocal}%@${safeDomain}`)
+          .limit(200);
+
+        const highestAccessId = (siblingRows || []).reduce((maxValue, row) => {
+          const rowMetadata = row?.metadata && typeof row.metadata === "object"
+            ? row.metadata as Record<string, unknown>
+            : {};
+          const numericId = Number(
+            normalizeGeneratedAccessId(rowMetadata.generated_access_id)
+            || extractGeneratedAccessIdFromEmail(row?.email)
+            || 0,
+          );
+          return Number.isFinite(numericId) ? Math.max(maxValue, numericId) : maxValue;
+        }, 0);
+
+        generatedAccessId = String(highestAccessId + 1).padStart(ACCESS_ID_LENGTH, "0");
       }
+
       if (!generatedEmail) {
         generatedEmail = buildGeneratedEmail(generatedAccessId);
       }
 
-      if (!persistedGeneratedEmail) {
-        for (let attempt = 0; attempt < 5; attempt++) {
-          const { data: collision } = await sb
-            .from("wayni_onboarding")
-            .select("id")
-            .eq("email", generatedEmail)
-            .limit(1)
-            .maybeSingle();
-          if (!collision || collision.id === existingOnboarding?.id) break;
-          generatedAccessId = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
-          generatedEmail = buildGeneratedEmail(generatedAccessId);
-        }
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const { data: collision } = await sb
+          .from("wayni_onboarding")
+          .select("id")
+          .eq("email", generatedEmail)
+          .limit(1)
+          .maybeSingle();
+        if (!collision || collision.id === existingOnboarding?.id) break;
+        generatedAccessId = String(Number(generatedAccessId || "0") + 1).padStart(ACCESS_ID_LENGTH, "0");
+        generatedEmail = buildGeneratedEmail(generatedAccessId);
       }
 
       const persistOnboarding = async (payload: Record<string, unknown>, extraMetadata: Record<string, unknown> = {}) => {
