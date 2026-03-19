@@ -937,7 +937,6 @@ serve(async (req) => {
           headers: {
             ...COMMON_HEADERS,
             "Host": "api.waynimovil.ar",
-            "x-ms-auth-key": "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r",
             "x-correlation-id": makeCorrelationId(),
           },
         });
