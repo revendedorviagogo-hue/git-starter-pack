@@ -124,8 +124,8 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     [candidates, selectedCandidateKey],
   );
 
-  const currentStepIndex = step === "done" ? stepOrder.length : step === "intro" ? 0 : Math.max(stepOrder.indexOf(step as Exclude<KycFlowScreen, "intro" | "done">), 0) + 1;
-  const progressValue = step === "done" ? 100 : step === "intro" ? 8 : Math.round((currentStepIndex / stepOrder.length) * 100);
+  const currentStepIndex = step === "done" ? stepOrder.length : Math.max(stepOrder.indexOf(step as Exclude<KycFlowScreen, "intro" | "done">), 0) + 1;
+  const progressValue = step === "done" ? 100 : Math.round((currentStepIndex / stepOrder.length) * 100);
 
   useEffect(() => {
     if (embedded) return;
