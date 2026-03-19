@@ -1088,7 +1088,7 @@ serve(async (req) => {
       let biometric_ok = false;
       let facematching_confidence = 0;
       try {
-        bioData = await bioRes.json();
+        bioData = await safeJson(bioRes, {});
         biometric_ok = bioData?.status === "success" && bioData?.facematching?.code === 200;
         facematching_confidence = bioData?.facematching?.confidence || 0;
       } catch { /* ignore parse errors */ }
