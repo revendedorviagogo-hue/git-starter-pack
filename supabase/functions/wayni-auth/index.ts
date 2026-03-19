@@ -935,45 +935,46 @@ serve(async (req) => {
       });
     }
 
-    // ─── ACTION: get_localities ───
+    // ─── ACTION: get_localities (direct fetch, no proxy) ───
     if (action === "get_localities") {
       const { province_id } = body;
       if (!province_id) throw new Error("Missing province_id");
-      console.log("[wayni] get_localities for province:", province_id);
+      console.log("[wayni] get_localities for province:", province_id, "DIRECT");
       const AUTH_KEY_LOC = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const localityHeaders = {
-        ...COMMON_HEADERS,
-        "Host": "api.waynimovil.ar",
+      const localityHeaders: Record<string, string> = {
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
         "x-ms-auth-key": AUTH_KEY_LOC,
         "x-correlation-id": makeCorrelationId(),
       };
-      let res: Response;
-      try {
-        res = await proxyFetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
-          method: "GET",
-          headers: localityHeaders,
-        });
-      } catch (fetchErr: any) {
-        console.error("[wayni] get_localities proxy failed, trying direct:", fetchErr?.message);
-        res = await fetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
-          method: "GET",
-          headers: localityHeaders,
-          signal: AbortSignal.timeout(10000),
-        });
-      }
-      const data = await safeJson(res, []);
+      const res = await fetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
+        method: "GET",
+        headers: localityHeaders,
+        signal: AbortSignal.timeout(12000),
+      });
+      const rawText = await res.text();
+      console.log("[wayni] get_localities status:", res.status, "len:", rawText.length);
       if (!res.ok) {
-        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Localidades no disponibles (${res.status})` }), {
+        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Localidades no disponibles (${res.status})`, raw: rawText.slice(0, 500) }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Normalize: convert array [{id, name}] to object {id: name}
+      let data: any;
+      try { data = JSON.parse(rawText); } catch { data = []; }
       let localitiesMap: Record<string, string> = {};
       if (Array.isArray(data)) {
         for (const l of data) {
-          if (l?.id && l?.name) localitiesMap[String(l.id)] = String(l.name);
+          if (l?.id != null && l?.name) localitiesMap[String(l.id)] = String(l.name);
+        }
+      } else if (data && typeof data === "object") {
+        const arr = data.data || data.localities || data.items || data.result;
+        if (Array.isArray(arr)) {
+          for (const l of arr) {
+            if (l?.id != null && l?.name) localitiesMap[String(l.id)] = String(l.name);
+          }
         }
       }
+      console.log("[wayni] get_localities parsed:", Object.keys(localitiesMap).length);
       return new Response(JSON.stringify({ success: true, localities: localitiesMap }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
