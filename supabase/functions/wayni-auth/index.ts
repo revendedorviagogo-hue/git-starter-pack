@@ -690,7 +690,7 @@ serve(async (req) => {
                 headers: { ...COMMON_HEADERS, "x-correlation-id": crypto.randomUUID() },
                 body: JSON.stringify({ field_type, identification: acc.identification, password: acc.password }),
               });
-              const loginData = await loginRes.json();
+              const loginData = await safeJson(loginRes, {});
               if (loginRes.ok && loginData.access_token) {
                 token = loginData.access_token;
                 refreshToken = loginData.refresh_token || "";
