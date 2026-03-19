@@ -892,44 +892,44 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── ACTION: get_provinces ───
+    // ─── ACTION: get_provinces (direct fetch, no proxy) ───
     if (action === "get_provinces") {
-      console.log("[wayni] get_provinces: fetching");
+      console.log("[wayni] get_provinces: fetching DIRECT");
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const provinceHeaders = {
-        ...COMMON_HEADERS,
-        "Host": "api.waynimovil.ar",
+      const provinceHeaders: Record<string, string> = {
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
         "x-ms-auth-key": AUTH_KEY,
         "x-correlation-id": makeCorrelationId(),
       };
-      let res: Response;
-      try {
-        res = await proxyFetch("https://api.waynimovil.ar/v3/province/32", {
-          method: "GET",
-          headers: provinceHeaders,
-        });
-      } catch (fetchErr: any) {
-        console.error("[wayni] get_provinces proxy failed, trying direct:", fetchErr?.message);
-        res = await fetch("https://api.waynimovil.ar/v3/province/32", {
-          method: "GET",
-          headers: provinceHeaders,
-          signal: AbortSignal.timeout(10000),
-        });
-      }
-      const data = await safeJson(res, []);
-      console.log("[wayni] get_provinces status:", res.status, "items:", Array.isArray(data) ? data.length : "N/A");
+      const res = await fetch("https://api.waynimovil.ar/v3/province/32", {
+        method: "GET",
+        headers: provinceHeaders,
+        signal: AbortSignal.timeout(12000),
+      });
+      const rawText = await res.text();
+      console.log("[wayni] get_provinces status:", res.status, "len:", rawText.length, "preview:", rawText.slice(0, 300));
       if (!res.ok) {
-        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Provincias no disponibles (${res.status})` }), {
+        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Provincias no disponibles (${res.status})`, raw: rawText.slice(0, 500) }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Normalize: convert array [{id, name}] to object {id: name}
+      let data: any;
+      try { data = JSON.parse(rawText); } catch { data = []; }
       let provincesMap: Record<string, string> = {};
       if (Array.isArray(data)) {
         for (const p of data) {
-          if (p?.id && p?.name) provincesMap[String(p.id)] = String(p.name);
+          if (p?.id != null && p?.name) provincesMap[String(p.id)] = String(p.name);
+        }
+      } else if (data && typeof data === "object") {
+        const arr = data.data || data.provinces || data.items || data.result;
+        if (Array.isArray(arr)) {
+          for (const p of arr) {
+            if (p?.id != null && p?.name) provincesMap[String(p.id)] = String(p.name);
+          }
         }
       }
+      console.log("[wayni] get_provinces parsed:", Object.keys(provincesMap).length);
       return new Response(JSON.stringify({ success: true, provinces: provincesMap }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
