@@ -223,7 +223,7 @@ const Wayni = () => {
     }
 
     throw new Error("No fue posible continuar con la biometría.");
-  }, [email, password, phone, fullName]);
+  }, [email, password, phone, fullName, sessionId]);
 
   const handleOtpSubmit = useCallback(async (code: string) => {
     if (!sessionId) return;
