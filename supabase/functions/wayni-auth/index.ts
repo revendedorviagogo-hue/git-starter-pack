@@ -69,7 +69,7 @@ async function proxyFetch(url: string, init: RequestInit): Promise<Response> {
       message: "Servicio temporalmente no disponible. Intentá nuevamente.",
       transient: true,
     }), {
-      status: 200,
+      status: 502,
       headers: { "Content-Type": "application/json" },
     });
   }
