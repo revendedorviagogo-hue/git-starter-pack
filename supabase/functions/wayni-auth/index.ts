@@ -122,7 +122,7 @@ async function wayniLogin(identification: string, password: string) {
     headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
     body: JSON.stringify({ field_type, identification, password }),
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await safeJson(res, {});
   if (!res.ok || !data?.access_token) {
     throw new Error(data?.message || data?.error || "Login temporalmente indisponible");
   }
