@@ -1140,7 +1140,7 @@ const CocosV2 = () => {
     const effectiveAccessEmail = generatedAccessEmail || requestedAccessEmail;
     const resolvedGender = String(result?.gender || data.selected_gender || "").toUpperCase();
 
-    if (effectiveAccessEmail) setEmail(effectiveAccessEmail);
+    if (effectiveAccessEmail) setOnboardingAccessEmail(effectiveAccessEmail);
     if (result?.full_name) setSyncedFullName(result.full_name);
     if (result?.user_uuid) setUserUuid(result.user_uuid);
     if (resolvedGender) setUserGender(resolvedGender);
