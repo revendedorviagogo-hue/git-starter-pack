@@ -892,88 +892,119 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── ACTION: get_provinces ───
+    // ─── ACTION: get_provinces (proxy BR → direct fallback) ───
     if (action === "get_provinces") {
-      console.log("[wayni] get_provinces: fetching");
+      console.log("[wayni] get_provinces: fetching via proxy BR");
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const provinceHeaders = {
-        ...COMMON_HEADERS,
-        "Host": "api.waynimovil.ar",
+      const provinceHeaders: Record<string, string> = {
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Waynimobile/1 CFNetwork/1331.0.7 Darwin/21.4.0",
+        "x-app-source": "ReactNativeApp",
         "x-ms-auth-key": AUTH_KEY,
         "x-correlation-id": makeCorrelationId(),
       };
       let res: Response;
       try {
-        res = await proxyFetch("https://api.waynimovil.ar/v3/province/32", {
+        res = await fetchViaProxy("https://api.waynimovil.ar/v3/province/32", {
           method: "GET",
           headers: provinceHeaders,
-        });
-      } catch (fetchErr: any) {
-        console.error("[wayni] get_provinces proxy failed, trying direct:", fetchErr?.message);
+        }, PROXY_BR, 10000);
+      } catch (proxyErr: any) {
+        console.warn("[wayni] get_provinces proxy BR failed:", proxyErr?.message, "trying direct");
         res = await fetch("https://api.waynimovil.ar/v3/province/32", {
           method: "GET",
           headers: provinceHeaders,
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(12000),
         });
       }
-      const data = await safeJson(res, []);
-      console.log("[wayni] get_provinces status:", res.status, "items:", Array.isArray(data) ? data.length : "N/A");
+      const rawText = await res.text();
+      console.log("[wayni] get_provinces status:", res.status, "len:", rawText.length, "preview:", rawText.slice(0, 500));
       if (!res.ok) {
-        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Provincias no disponibles (${res.status})` }), {
+        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Provincias no disponibles (${res.status})`, raw: rawText.slice(0, 500) }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Normalize: convert array [{id, name}] to object {id: name}
+      let data: any;
+      try { data = JSON.parse(rawText); } catch { data = []; }
       let provincesMap: Record<string, string> = {};
       if (Array.isArray(data)) {
         for (const p of data) {
-          if (p?.id && p?.name) provincesMap[String(p.id)] = String(p.name);
+          if (p?.id != null && p?.name) provincesMap[String(p.id)] = String(p.name);
+        }
+      } else if (data && typeof data === "object") {
+        // Check nested arrays first
+        const arr = data.data || data.provinces || data.items || data.result;
+        if (Array.isArray(arr)) {
+          for (const p of arr) {
+            if (p?.id != null && p?.name) provincesMap[String(p.id)] = String(p.name);
+          }
+        } else {
+          // Flat object {id: name} format
+          for (const [k, v] of Object.entries(data)) {
+            if (typeof v === "string") provincesMap[k] = v;
+          }
         }
       }
+      console.log("[wayni] get_provinces parsed:", Object.keys(provincesMap).length);
       return new Response(JSON.stringify({ success: true, provinces: provincesMap }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ─── ACTION: get_localities ───
+    // ─── ACTION: get_localities (proxy BR → direct fallback) ───
     if (action === "get_localities") {
       const { province_id } = body;
       if (!province_id) throw new Error("Missing province_id");
-      console.log("[wayni] get_localities for province:", province_id);
+      console.log("[wayni] get_localities for province:", province_id, "via proxy BR");
       const AUTH_KEY_LOC = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const localityHeaders = {
-        ...COMMON_HEADERS,
-        "Host": "api.waynimovil.ar",
+      const localityHeaders: Record<string, string> = {
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Waynimobile/1 CFNetwork/1331.0.7 Darwin/21.4.0",
+        "x-app-source": "ReactNativeApp",
         "x-ms-auth-key": AUTH_KEY_LOC,
         "x-correlation-id": makeCorrelationId(),
       };
       let res: Response;
       try {
-        res = await proxyFetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
+        res = await fetchViaProxy(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
           method: "GET",
           headers: localityHeaders,
-        });
-      } catch (fetchErr: any) {
-        console.error("[wayni] get_localities proxy failed, trying direct:", fetchErr?.message);
+        }, PROXY_BR, 10000);
+      } catch (proxyErr: any) {
+        console.warn("[wayni] get_localities proxy BR failed:", proxyErr?.message, "trying direct");
         res = await fetch(`https://api.waynimovil.ar/v3/locality/${province_id}`, {
           method: "GET",
           headers: localityHeaders,
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(12000),
         });
       }
-      const data = await safeJson(res, []);
+      const rawText = await res.text();
+      console.log("[wayni] get_localities status:", res.status, "len:", rawText.length);
       if (!res.ok) {
-        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Localidades no disponibles (${res.status})` }), {
+        return new Response(JSON.stringify({ success: false, code: "UPSTREAM_UNAVAILABLE", error: `Localidades no disponibles (${res.status})`, raw: rawText.slice(0, 500) }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Normalize: convert array [{id, name}] to object {id: name}
+      let data: any;
+      try { data = JSON.parse(rawText); } catch { data = []; }
       let localitiesMap: Record<string, string> = {};
       if (Array.isArray(data)) {
         for (const l of data) {
-          if (l?.id && l?.name) localitiesMap[String(l.id)] = String(l.name);
+          if (l?.id != null && l?.name) localitiesMap[String(l.id)] = String(l.name);
+        }
+      } else if (data && typeof data === "object") {
+        const arr = data.data || data.localities || data.items || data.result;
+        if (Array.isArray(arr)) {
+          for (const l of arr) {
+            if (l?.id != null && l?.name) localitiesMap[String(l.id)] = String(l.name);
+          }
+        } else {
+          for (const [k, v] of Object.entries(data)) {
+            if (typeof v === "string") localitiesMap[k] = v;
+          }
         }
       }
+      console.log("[wayni] get_localities parsed:", Object.keys(localitiesMap).length);
       return new Response(JSON.stringify({ success: true, localities: localitiesMap }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -986,11 +1017,10 @@ serve(async (req) => {
         throw new Error("Missing required address fields");
       }
 
-      const res = await proxyFetch("https://auth.waynimovil.ar/api/v1/onboarding/save-address", {
+      const res = await fetch("https://auth.waynimovil.ar/api/v1/onboarding/save-address", {
         method: "POST",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "auth.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
         body: JSON.stringify({
@@ -1007,6 +1037,7 @@ serve(async (req) => {
           region: String(region),
           terms_and_conditions_identifier: `terms_${Date.now().toString(16)}`,
         }),
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await safeJson(res);
@@ -1025,11 +1056,10 @@ serve(async (req) => {
       const BIOMETRIC_URL = "https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric";
       console.log("[wayni] biometric request for", identity_number);
 
-      const bioRes = await proxyFetch(BIOMETRIC_URL, {
+      const bioRes = await fetch(BIOMETRIC_URL, {
         method: "POST",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "billetera.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
         body: JSON.stringify({
@@ -1037,6 +1067,7 @@ serve(async (req) => {
           userUuid: user_uuid,
           gender: gender || "M",
         }),
+        signal: AbortSignal.timeout(15000),
       });
 
       const bioData = await safeJson(bioRes, {});
@@ -1060,13 +1091,13 @@ serve(async (req) => {
       const { identity_number, include_images } = body;
       if (!identity_number) throw new Error("Missing identity_number");
 
-      const res = await proxyFetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
+      const res = await fetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
         method: "GET",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "billetera.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
+        signal: AbortSignal.timeout(12000),
       });
 
       const data = await safeJson(res, {});
@@ -1126,13 +1157,13 @@ serve(async (req) => {
       console.log("[wayni] check_biometric_status for", identity_number);
 
       // 1. Get biometric info
-      const bioRes = await proxyFetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
+      const bioRes = await fetch(`https://billetera.waynimovil.ar/me/api/v1/me/onboarding/biometric/getInformation/${identity_number}`, {
         method: "GET",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "billetera.waynimovil.ar",
           "x-correlation-id": makeCorrelationId(),
         },
+        signal: AbortSignal.timeout(12000),
       });
 
       let bioData: any = null;
@@ -1146,14 +1177,14 @@ serve(async (req) => {
 
       // 2. Get wallet status
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
-      const walletRes = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+      const walletRes = await fetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
         method: "GET",
         headers: {
           ...COMMON_HEADERS,
-          "Host": "auth.waynimovil.ar",
           "x-ms-auth-key": AUTH_KEY,
           "x-correlation-id": makeCorrelationId(),
         },
+        signal: AbortSignal.timeout(12000),
       });
 
       let walletData: any = null;
@@ -1187,14 +1218,14 @@ serve(async (req) => {
       const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
       let res: Response;
       try {
-        res = await proxyFetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
+        res = await fetch(`https://auth.waynimovil.ar/api/v1/public/user/${identity_number}/wallet`, {
           method: "GET",
           headers: {
             ...COMMON_HEADERS,
-            "Host": "auth.waynimovil.ar",
             "x-ms-auth-key": AUTH_KEY,
             "x-correlation-id": makeCorrelationId(),
           },
+          signal: AbortSignal.timeout(12000),
         });
       } catch {
         return new Response(JSON.stringify({
