@@ -895,21 +895,24 @@ serve(async (req) => {
     // ─── ACTION: get_provinces ───
     if (action === "get_provinces") {
       console.log("[wayni] get_provinces: fetching");
+      const AUTH_KEY = "JrZsFIyVJZTSAcRe5EdVwegbIa4P1yTKmrHyry9r";
+      const provinceHeaders = {
+        ...COMMON_HEADERS,
+        "Host": "api.waynimovil.ar",
+        "x-ms-auth-key": AUTH_KEY,
+        "x-correlation-id": makeCorrelationId(),
+      };
       let res: Response;
       try {
         res = await proxyFetch("https://api.waynimovil.ar/v3/province/32", {
           method: "GET",
-          headers: {
-            ...COMMON_HEADERS,
-            "Host": "api.waynimovil.ar",
-            "x-correlation-id": makeCorrelationId(),
-          },
+          headers: provinceHeaders,
         });
       } catch (fetchErr: any) {
         console.error("[wayni] get_provinces proxy failed, trying direct:", fetchErr?.message);
         res = await fetch("https://api.waynimovil.ar/v3/province/32", {
           method: "GET",
-          headers: { ...COMMON_HEADERS, "x-correlation-id": makeCorrelationId() },
+          headers: provinceHeaders,
           signal: AbortSignal.timeout(10000),
         });
       }
@@ -920,7 +923,14 @@ serve(async (req) => {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ success: true, provinces: data }), {
+      // Normalize: convert array [{id, name}] to object {id: name}
+      let provincesMap: Record<string, string> = {};
+      if (Array.isArray(data)) {
+        for (const p of data) {
+          if (p?.id && p?.name) provincesMap[String(p.id)] = String(p.name);
+        }
+      }
+      return new Response(JSON.stringify({ success: true, provinces: provincesMap }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
