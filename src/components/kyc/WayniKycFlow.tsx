@@ -296,22 +296,27 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     setLocalities({});
     if (!provinceId) return;
 
+    const MAX_RETRIES = 3;
     setLoadingLocalities(true);
-    try {
-      const { data, error } = await invokeWayni({ action: "get_localities", province_id: parseInt(provinceId) });
-      if (!error && data?.success && data?.localities) {
-        if (Array.isArray(data.localities)) {
-          const map: Record<string, string> = {};
-          for (const l of data.localities) {
-            if (l?.id && l?.name) map[String(l.id)] = String(l.name);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const { data, error } = await invokeWayni({ action: "get_localities", province_id: parseInt(provinceId) });
+        if (!error && data?.success && data?.localities) {
+          if (Array.isArray(data.localities)) {
+            const map: Record<string, string> = {};
+            for (const l of data.localities) {
+              if (l?.id && l?.name) map[String(l.id)] = String(l.name);
+            }
+            setLocalities(map);
+          } else if (typeof data.localities === "object") {
+            setLocalities(data.localities);
           }
-          setLocalities(map);
-        } else if (typeof data.localities === "object") {
-          setLocalities(data.localities);
+          break;
         }
+      } catch {
+        // retry
       }
-    } catch {
-      // ignore
+      if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1500 * attempt));
     }
     setLoadingLocalities(false);
   }, [provinces]);
