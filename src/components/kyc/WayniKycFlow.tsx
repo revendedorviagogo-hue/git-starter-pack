@@ -264,8 +264,8 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     } else if (onboarding?.biometric_url) {
       setStep("biometric");
     } else if (onboarding?.user_uuid && onboarding?.dni) {
-      // Has verified identity but no biometric yet → address step
-      setStep("address");
+      // Has verified identity but no biometric yet → go to verify to re-trigger auto flow
+      setStep("verify");
     } else {
       setStep("verify");
     }
