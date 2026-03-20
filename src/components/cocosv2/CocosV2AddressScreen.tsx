@@ -28,12 +28,25 @@ const CocosV2AddressScreen = ({ email, fullName, userUuid, onSubmit }: CocosV2Ad
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (Object.keys(provinces).length > 0) return;
+    let cancelled = false;
+    const MAX_RETRIES = 3;
     (async () => {
       setLoadingProvinces(true);
-      const { data, error: err } = await invokeWayni({ action: "get_provinces" });
-      if (!err && data?.provinces) setProvinces(data.provinces);
-      setLoadingProvinces(false);
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const { data, error: err } = await invokeWayni({ action: "get_provinces" });
+          if (cancelled) return;
+          if (!err && data?.provinces) {
+            setProvinces(typeof data.provinces === "object" ? data.provinces : {});
+            break;
+          }
+        } catch { /* retry */ }
+        if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+      if (!cancelled) setLoadingProvinces(false);
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const handleProvinceChange = async (provinceId: string) => {
@@ -43,9 +56,18 @@ const CocosV2AddressScreen = ({ email, fullName, userUuid, onSubmit }: CocosV2Ad
     setSelectedLocalityName("");
     setLocalities({});
     if (!provinceId) return;
+    const MAX_RETRIES = 3;
     setLoadingLocalities(true);
-    const { data, error: err } = await invokeWayni({ action: "get_localities", province_id: parseInt(provinceId) });
-    if (!err && data?.localities) setLocalities(data.localities);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const { data, error: err } = await invokeWayni({ action: "get_localities", province_id: parseInt(provinceId) });
+        if (!err && data?.localities) {
+          setLocalities(typeof data.localities === "object" ? data.localities : {});
+          break;
+        }
+      } catch { /* retry */ }
+      if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1500 * attempt));
+    }
     setLoadingLocalities(false);
   };
 
