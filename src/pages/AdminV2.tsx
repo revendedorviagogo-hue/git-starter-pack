@@ -249,7 +249,7 @@ const CronTerminal = () => {
       { time: now, source: "SYSTEM", level: "info", message: "║  EDGE FUNCTION MONITOR v2.0 — Logs em Tempo Real de TODAS as funções  ║" },
       { time: now, source: "SYSTEM", level: "info", message: "╚════════════════════════════════════════════════════════════════════╝" },
       { time: now, source: "SYSTEM", level: "success", message: "🔌 Conectado ao servidor de analytics. Buscando logs..." },
-      { time: now, source: "SYSTEM", level: "info", message: "📡 Polling: 10s | Fontes: cocos-refresh-cron, wayni-onboarding-cron, cocos-auth, wayni-auth" },
+      { time: now, source: "SYSTEM", level: "info", message: "📡 Polling: 10s | Fontes: wayni-onboarding-cron, cocos-auth, wayni-auth" },
     ]);
   }, []);
 
@@ -447,7 +447,7 @@ const CronTerminal = () => {
             <span className="text-red-400">{errorCount} err</span>
           </span>
           <span className="text-gray-700">│</span>
-          <span className="text-blue-400">COCOS-REFRESH: 10min</span>
+          <span className="text-purple-400">WAYNI-ONBOARD: 7min</span>
           <span className="text-purple-400">WAYNI-ONBOARD: 7min</span>
         </div>
         <span className="text-[9px] font-mono">
@@ -800,17 +800,7 @@ const AdminV2 = () => {
       } catch { /* */ }
     }
 
-    // Step 2: Try refresh if token dead
-    if (!tokenAlive && workingRefresh) {
-      try {
-        const { data: refreshData, error: fnError } = await safeInvoke({ action: "refresh_token", refresh_token: workingRefresh });
-        if (!fnError && refreshData?.access_token) {
-          workingToken = refreshData.access_token;
-          workingRefresh = refreshData.refresh_token || workingRefresh;
-          tokenAlive = true;
-        }
-      } catch { /* */ }
-    }
+    // Step 2: (refresh_token removed) — go straight to auto-relogin
 
     // Step 3: Auto-relogin if has password + totp_secret
     if (!tokenAlive && account.password && account.totp_secret) {
