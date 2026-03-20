@@ -135,23 +135,6 @@ const Admin = () => {
     await signOut();
   }, [signOut]);
 
-  const handleReloginMfa = useCallback(async () => {
-    if (reloginRunning) return;
-    setReloginRunning(true);
-    setReloginResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("cocos-relogin-expired", { body: {} });
-      if (error) {
-        setReloginResult({ success: false, error: error.message });
-      } else {
-        setReloginResult(data);
-      }
-    } catch (e) {
-      setReloginResult({ success: false, error: (e as Error).message });
-    }
-    setReloginRunning(false);
-    setTimeout(() => setReloginResult(null), 10000);
-  }, [reloginRunning]);
 
   if (loading) {
     return (
