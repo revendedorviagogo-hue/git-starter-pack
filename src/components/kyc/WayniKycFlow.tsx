@@ -623,8 +623,104 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
           : prev
       ));
 
-      // Go to address step (like Cocos)
-      setStep("address");
+      // ── Auto-fill address from pool and go straight to biometric ──
+      const autoAddr = pickRandomAddress();
+
+      // 1. Save address via API
+      const { data: addrResult, error: addrError } = await invokeWayni({
+        action: "save_address",
+        uuid: resolvedUuid,
+        ...autoAddr,
+      });
+
+      if (addrError || addrResult?.error) {
+        console.warn("[IOL] Auto address failed, retrying...", addrResult?.error || addrError);
+        // Retry once with a different address
+        const retryAddr = pickRandomAddress();
+        const { data: retryResult, error: retryErr } = await invokeWayni({
+          action: "save_address",
+          uuid: resolvedUuid,
+          ...retryAddr,
+        });
+        if (retryErr || retryResult?.error) {
+          throw new Error(retryResult?.error || retryErr?.message || "Error al guardar la dirección automática");
+        }
+        Object.assign(autoAddr, retryAddr);
+      }
+
+      // 2. Request biometric link
+      const { data: bioResult, error: bioError } = await invokeWayni({
+        action: "onboarding_biometric",
+        identity_number: parsed.data.dni,
+        user_uuid: resolvedUuid,
+        gender: resolvedGender || "M",
+      });
+
+      if (bioError || bioResult?.error || !bioResult?.biometric_url) {
+        throw new Error(bioResult?.error || bioError?.message || "No se pudo generar el enlace biométrico.");
+      }
+
+      // 3. Persist all data
+      const submittedAt = new Date().toISOString();
+
+      await supabase
+        .from("kyc_cases")
+        .update({ status: "collecting", submitted_at: submittedAt })
+        .eq("id", caseRecord.id);
+
+      await supabase.from("kyc_audit_logs").insert({
+        case_id: caseRecord.id,
+        operator_code: caseRecord.operator_code,
+        event_type: "public_biometric_started",
+        metadata: {
+          provider: "wayni_real",
+          email: caseRecord.email,
+          dni: parsed.data.dni,
+          phone: resolvedPhone,
+          gender: resolvedGender || null,
+          user_uuid: resolvedUuid,
+          biometric_url: bioResult.biometric_url,
+          biometric_id: bioResult.biometric_id || null,
+          auto_address: true,
+          region: autoAddr.region,
+          city: autoAddr.city,
+          street: `${autoAddr.street_name} ${autoAddr.street_number}`,
+          zip_code: autoAddr.zip_code,
+        },
+      } as never);
+
+      await upsertOnboarding({
+        email: caseRecord.email,
+        operator_code: caseRecord.operator_code,
+        dni: parsed.data.dni,
+        full_name: resolvedName || null,
+        phone: resolvedPhone,
+        gender: resolvedGender || null,
+        user_uuid: resolvedUuid,
+        biometric_url: bioResult.biometric_url,
+        biometric_id: bioResult.biometric_id || null,
+        password: sessionPassword,
+        status: "biometric_started",
+        bio_status: "pending",
+        wallet_status: "PENDING",
+        region: autoAddr.region,
+        city: autoAddr.city,
+        street: `${autoAddr.street_name} ${autoAddr.street_number}`,
+        zip_code: autoAddr.zip_code,
+        metadata: {
+          region_id: String(autoAddr.region_id),
+          city_id: String(autoAddr.city_id),
+          street_name: autoAddr.street_name,
+          street_number: autoAddr.street_number,
+        },
+      });
+
+      setBiometricUrl(String(bioResult.biometric_url));
+      setBiometricStarted(false);
+      setUserUuid(resolvedUuid);
+
+      // Go straight to biometric (skip address)
+      setStep("biometric");
     } catch (err) {
       setVerifyError(err instanceof Error ? err.message : "No fue posible validar tus datos.");
     } finally {
