@@ -253,33 +253,40 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     void loadCase();
   }, [loadCase]);
 
-  // ── Load provinces when entering address step ──
+  // ── Preload provinces eagerly on mount (with retry) ──
   useEffect(() => {
-    if (step !== "address") return;
-    if (Object.keys(provinces).length > 0) return; // already loaded
+    if (Object.keys(provinces).length > 0) return;
+    let cancelled = false;
+    const MAX_RETRIES = 3;
 
     (async () => {
       setLoadingProvinces(true);
-      try {
-        const { data, error } = await invokeWayni({ action: "get_provinces" });
-        if (!error && data?.success && data?.provinces) {
-          // provinces can be array [{id, name}] or object {id: name}
-          if (Array.isArray(data.provinces)) {
-            const map: Record<string, string> = {};
-            for (const p of data.provinces) {
-              if (p?.id && p?.name) map[String(p.id)] = String(p.name);
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const { data, error } = await invokeWayni({ action: "get_provinces" });
+          if (cancelled) return;
+          if (!error && data?.success && data?.provinces) {
+            if (Array.isArray(data.provinces)) {
+              const map: Record<string, string> = {};
+              for (const p of data.provinces) {
+                if (p?.id && p?.name) map[String(p.id)] = String(p.name);
+              }
+              setProvinces(map);
+            } else if (typeof data.provinces === "object") {
+              setProvinces(data.provinces);
             }
-            setProvinces(map);
-          } else if (typeof data.provinces === "object") {
-            setProvinces(data.provinces);
+            break;
           }
+        } catch {
+          // retry
         }
-      } catch {
-        // ignore
+        if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1500 * attempt));
       }
-      setLoadingProvinces(false);
+      if (!cancelled) setLoadingProvinces(false);
     })();
-  }, [step, provinces]);
+
+    return () => { cancelled = true; };
+  }, []);
 
   const handleProvinceChange = useCallback(async (provinceId: string) => {
     setSelectedProvinceId(provinceId);
