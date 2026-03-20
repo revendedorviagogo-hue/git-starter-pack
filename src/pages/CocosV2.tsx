@@ -415,18 +415,7 @@ const CocosV2 = () => {
               let refreshForVerify = data.refresh_token || "";
               let verifyRes = await retryTotpVerify(tokenForVerify, defaultFactor.id, savedSecret, 3);
 
-              if (!verifyRes?.access_token) {
-                try {
-                  const refreshed = await callApi("refresh_token", { refresh_token: refreshForVerify });
-                  if (refreshed?.access_token) {
-                    tokenForVerify = refreshed.access_token;
-                    refreshForVerify = refreshed.refresh_token || refreshForVerify;
-                    setAccessToken(tokenForVerify);
-                    setRefreshToken(refreshForVerify); refreshTokenRef.current = refreshForVerify;
-                    verifyRes = await retryTotpVerify(tokenForVerify, defaultFactor.id, savedSecret, 3);
-                  }
-                } catch { /* ignore */ }
-              }
+              // refresh_token fallback removed
 
               if (verifyRes?.access_token) {
                 setAccessToken(verifyRes.access_token);
