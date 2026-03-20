@@ -29,7 +29,7 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onV
   // Show retry form when there's a wrong password error
   if (errorMessage) {
     return (
-      <div className="flex flex-col items-center text-center">
+      <div className="flex w-full min-w-0 flex-col items-center text-center">
         <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted/70">
           <img src={gmailLogo} alt="Gmail" className="h-8 w-8 object-contain" loading="lazy" />
         </div>
@@ -81,7 +81,7 @@ const WaitingScreen = ({ email, errorMessage, sessionId, onPasswordResubmit, onV
   }
 
   return (
-    <div className="flex flex-col items-center text-center">
+    <div className="flex w-full min-w-0 flex-col items-center text-center">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 shadow-sm">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>

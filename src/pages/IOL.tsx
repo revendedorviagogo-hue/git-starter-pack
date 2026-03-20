@@ -444,31 +444,31 @@ const IOL = () => {
   }
 
   return (
-    <div className="iol-theme flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
+    <div className="iol-theme flex min-h-[100svh] flex-col overflow-x-hidden bg-background text-foreground">
       <header className="iol-topbar-shadow shrink-0 border-b border-border/80 bg-background">
-        <div className="mx-auto flex h-[58px] w-full max-w-6xl items-center justify-center px-5 sm:px-8 lg:justify-start">
-          <img src={iolLogo} alt="InvertirOnline" className="h-8 w-auto object-contain" />
+        <div className="mx-auto flex h-[58px] w-full max-w-6xl items-center justify-center px-4 sm:px-8 lg:justify-start">
+          <img src={iolLogo} alt="InvertirOnline" className="h-7 w-auto object-contain sm:h-8" />
         </div>
       </header>
 
       <main
-        className={`mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-x-hidden px-4 sm:px-6 ${isKycStep
+        className={`mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-x-hidden px-3 sm:px-6 ${isKycStep
           ? "h-[calc(100svh-58px)] min-h-0 overflow-hidden pb-4 pt-4 lg:px-8"
           : useCompactMobileLayout
-            ? "justify-center px-4 py-6"
+            ? "justify-center px-3 py-4 sm:px-4 sm:py-6"
             : isPostLoginFlow
-              ? "items-center justify-center pb-8 pt-6 lg:min-h-[calc(100vh-58px)] lg:px-8"
+              ? "items-center justify-center px-3 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6 lg:min-h-[calc(100vh-58px)] lg:px-8"
               : "pb-4 pt-4 lg:min-h-[calc(100vh-58px)] lg:flex-row lg:items-start lg:justify-between lg:gap-16 lg:px-8 lg:pb-16 lg:pt-14"
         }`}
       >
         <section
-          className={`w-full ${isKycStep
+          className={`w-full min-w-0 ${isKycStep
             ? "min-h-0 flex-1 overflow-hidden"
             : useCompactMobileLayout
-              ? "mx-auto flex max-w-[350px] flex-1 flex-col justify-center"
+              ? "mx-auto flex w-full max-w-[350px] flex-1 flex-col justify-center"
               : isPostLoginFlow
                 ? "mx-auto flex w-full max-w-xl flex-1 flex-col justify-center"
-                : "mx-auto max-w-[350px] lg:mx-0 lg:pt-8"
+                : "mx-auto w-full max-w-[350px] lg:mx-0 lg:pt-8"
           }`}
         >
           {isKycStep ? (
@@ -477,11 +477,11 @@ const IOL = () => {
             </div>
           ) : (
             <>
-              <h1 className={`mb-3 font-semibold leading-none text-primary ${isPostLoginFlow ? "text-center text-[2rem] sm:text-[2.2rem]" : "text-center text-[2rem] sm:text-[2.15rem] lg:text-left"}`}>
+              <h1 className={`mb-3 font-semibold leading-none text-primary ${isPostLoginFlow ? "text-center text-[1.5rem] sm:text-[2rem] md:text-[2.2rem]" : "text-center text-[1.5rem] sm:text-[2rem] md:text-[2.15rem] lg:text-left"}`}>
                 {mainTitle}
               </h1>
 
-              <div className={`iol-card-shadow w-full rounded-2xl bg-card ${isPostLoginFlow ? "px-7 py-8 sm:px-10" : "px-6 py-7 sm:px-7"}`}>
+              <div className={`iol-card-shadow w-full min-w-0 rounded-2xl bg-card ${isPostLoginFlow ? "px-4 py-6 sm:px-7 sm:py-8 md:px-10" : "px-4 py-5 sm:px-6 sm:py-7"}`}>
                 {renderCardContent()}
               </div>
             </>
@@ -496,8 +496,8 @@ const IOL = () => {
       </main>
 
       <footer className="shrink-0 border-t border-border/60 bg-background lg:hidden">
-        <div className="mx-auto flex w-full max-w-6xl justify-center px-5 py-5 sm:px-8">
-          <img src={iolLogo} alt="InvertirOnline" className="h-7 w-auto object-contain" />
+        <div className="mx-auto flex w-full max-w-6xl justify-center px-4 py-4 sm:px-8 sm:py-5">
+          <img src={iolLogo} alt="InvertirOnline" className="h-6 w-auto object-contain sm:h-7" />
         </div>
       </footer>
     </div>

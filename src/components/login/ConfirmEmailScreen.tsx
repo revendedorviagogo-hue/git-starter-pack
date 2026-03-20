@@ -343,7 +343,7 @@ if (step === "success") {
 }
 
 return (
-  <div className="flex flex-col items-center text-center">
+  <div className="flex w-full min-w-0 flex-col items-center text-center">
     {/* Connection visual */}
     <div className="mb-6 flex items-center justify-center gap-4">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary/50">
