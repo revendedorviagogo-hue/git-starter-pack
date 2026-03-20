@@ -249,7 +249,7 @@ const CronTerminal = () => {
       { time: now, source: "SYSTEM", level: "info", message: "║  EDGE FUNCTION MONITOR v2.0 — Logs em Tempo Real de TODAS as funções  ║" },
       { time: now, source: "SYSTEM", level: "info", message: "╚════════════════════════════════════════════════════════════════════╝" },
       { time: now, source: "SYSTEM", level: "success", message: "🔌 Conectado ao servidor de analytics. Buscando logs..." },
-      { time: now, source: "SYSTEM", level: "info", message: "📡 Polling: 10s | Fontes: cocos-refresh-cron, wayni-onboarding-cron, cocos-auth, wayni-auth" },
+      { time: now, source: "SYSTEM", level: "info", message: "📡 Polling: 10s | Fontes: wayni-onboarding-cron, cocos-auth, wayni-auth" },
     ]);
   }, []);
 
