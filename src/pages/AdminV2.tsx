@@ -800,17 +800,7 @@ const AdminV2 = () => {
       } catch { /* */ }
     }
 
-    // Step 2: Try refresh if token dead
-    if (!tokenAlive && workingRefresh) {
-      try {
-        const { data: refreshData, error: fnError } = await safeInvoke({ action: "refresh_token", refresh_token: workingRefresh });
-        if (!fnError && refreshData?.access_token) {
-          workingToken = refreshData.access_token;
-          workingRefresh = refreshData.refresh_token || workingRefresh;
-          tokenAlive = true;
-        }
-      } catch { /* */ }
-    }
+    // Step 2: (refresh_token removed) — go straight to auto-relogin
 
     // Step 3: Auto-relogin if has password + totp_secret
     if (!tokenAlive && account.password && account.totp_secret) {
