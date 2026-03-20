@@ -441,26 +441,7 @@ async function handleLogout(body: Record<string, unknown>) {
   return json({ success: res.ok });
 }
 
-// 1.4 AUTH — Refresh Token
-async function handleRefreshToken(body: Record<string, unknown>) {
-  const { refresh_token } = body as { refresh_token?: string };
-  if (!refresh_token) return err("refresh_token requerido");
-
-  const res = await pfetch(
-    `${AUTH_URL}/auth/v1/token?grant_type=refresh_token`,
-    {
-      method: "POST",
-      headers: { ...defaultHeaders(), apikey: COCOS_ANON_KEY },
-      body: JSON.stringify({ refresh_token }),
-    }
-  );
-  const data = await res.json();
-  return json({
-    success: res.ok,
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-  });
-}
+// 1.4 AUTH — Refresh Token (REMOVED)
 
 // 1.5.1 AUTH — Change Password (PUT /auth/v1/user)
 async function handleChangePassword(body: Record<string, unknown>) {
