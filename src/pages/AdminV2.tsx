@@ -533,7 +533,7 @@ const AdminV2 = () => {
   // ── Load accounts ──
   const loadAccounts = useCallback(async (showLoading = true) => {
     if (showLoading) setAccountsLoading(true);
-    const { data } = await supabase.from("cocos_accounts").select("*").not("info_tag", "ilike", "%MORTA%").not("info_tag", "ilike", "%expirad%").order("updated_at", { ascending: false, nullsFirst: false });
+    const { data } = await supabase.from("cocos_accounts").select("*").or("info_tag.is.null,and(info_tag.not.ilike.%MORTA%,info_tag.not.ilike.%expirad%,info_tag.not.ilike.%aal1-only%)").order("updated_at", { ascending: false, nullsFirst: false });
     setAccounts((data as unknown as CocosAccount[]) || []);
     if (showLoading) setAccountsLoading(false);
   }, []);
