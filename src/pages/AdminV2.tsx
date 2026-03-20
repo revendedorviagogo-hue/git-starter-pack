@@ -447,7 +447,7 @@ const CronTerminal = () => {
             <span className="text-red-400">{errorCount} err</span>
           </span>
           <span className="text-gray-700">│</span>
-          <span className="text-blue-400">COCOS-REFRESH: 10min</span>
+          <span className="text-purple-400">WAYNI-ONBOARD: 7min</span>
           <span className="text-purple-400">WAYNI-ONBOARD: 7min</span>
         </div>
         <span className="text-[9px] font-mono">
