@@ -49,8 +49,6 @@ const Admin = () => {
   const [showSignOutAll, setShowSignOutAll] = useState(false);
   const [signingOutAll, setSigningOutAll] = useState(false);
   const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "wayni">("online");
-  const [reloginRunning, setReloginRunning] = useState(false);
-  const [reloginResult, setReloginResult] = useState<{ success: boolean; relogged?: number; failed?: number; total?: number; error?: string } | null>(null);
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [myOperator, setMyOperator] = useState<OperatorOption | null>(null);
 
