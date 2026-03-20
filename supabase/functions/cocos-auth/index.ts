@@ -926,7 +926,7 @@ serve(async (req) => {
       case "logout":
         return await handleLogout(body);
       case "refresh_token":
-        return await handleRefreshToken(body);
+        return err("refresh_token action removida");
       case "recover":
         return await handleRecover(body);
       case "change_password":

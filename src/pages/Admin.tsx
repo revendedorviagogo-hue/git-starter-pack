@@ -208,30 +208,6 @@ const Admin = () => {
                 <span className="hidden sm:inline">Anti-DDoS</span>
               </button>
               <button
-                onClick={handleReloginMfa}
-                disabled={reloginRunning}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-                  reloginRunning
-                    ? "border-blue-500/30 text-blue-400 opacity-70"
-                    : reloginResult?.success
-                      ? "border-green-500/30 text-green-400"
-                      : reloginResult && !reloginResult.success
-                        ? "border-destructive/30 text-destructive"
-                        : "border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
-                }`}
-              >
-                <RefreshCw size={13} className={reloginRunning ? "animate-spin" : ""} />
-                <span className="hidden sm:inline">
-                  {reloginRunning
-                    ? "Relogando..."
-                    : reloginResult?.success
-                      ? `✅ ${reloginResult.relogged}/${reloginResult.total}`
-                      : reloginResult && !reloginResult.success
-                        ? "❌ Erro"
-                        : "Relogin MFA"}
-                </span>
-              </button>
-              <button
                 onClick={() => setShowClearAccounts(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs text-amber-400 hover:bg-amber-500/10 transition-colors"
               >
