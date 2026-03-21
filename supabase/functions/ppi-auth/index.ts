@@ -55,9 +55,24 @@ Deno.serve(async (req) => {
       const { username, password } = body;
       const oneSignalID = `ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M`;
 
+      // Use exact same headers as working curl
+      const exactHeaders: Record<string, string> = {
+        "Host": "api.portfoliopersonal.com",
+        "content-type": "application/json",
+        "pp-appversion": "1.18.37",
+        "accept": "application/json",
+        "authorizedclient": "Prod-App-Mobile",
+        "authorization": "false",
+        "appversion": "1.18.37",
+        "accept-language": "pt-BR,pt;q=0.9",
+        "user-agent": "ios",
+        "clientkey": "pp123456",
+        "accept-encoding": "gzip, deflate, br",
+      };
+
       const res = await fetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
-        headers: loginHeaders,
+        headers: exactHeaders,
         body: JSON.stringify({ usuario: username, clave: password, oneSignalID }),
       });
 
