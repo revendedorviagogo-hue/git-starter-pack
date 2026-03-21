@@ -16,6 +16,57 @@ import ppiBgPattern from "@/assets/ppi-bg-pattern.svg";
 
 const ppiLogo = <img src={ppiLogoSvg} alt="PPI" className="h-12 w-auto" />;
 
+// ── Inline 2FA OTP Screen ──
+const Ppi2faScreen = ({ email, loading, error, onSubmit }: {
+  email: string;
+  loading: boolean;
+  error?: string;
+  onSubmit: (code: string) => void;
+}) => {
+  const [code, setCode] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim() || loading) return;
+    onSubmit(code.trim());
+  };
+
+  return (
+    <div className="relative z-10 w-full max-w-none sm:max-w-[420px] bg-white px-6 py-6 sm:px-10 sm:py-8">
+      <h2 className="mb-2 text-center text-[20px] font-bold text-[#1e2a3a]">Verificación en dos pasos</h2>
+      <p className="mb-6 text-center text-[13px] text-[#8c939a]">
+        Ingresá el código de verificación que recibiste en tu email o aplicación de autenticación.
+      </p>
+      {error && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>
+      )}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="Código de verificación"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          className="w-full border border-[#ccd0d5] bg-white px-3 py-3 text-center text-[22px] font-semibold tracking-[0.3em] text-[#333] outline-none transition-colors placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal placeholder:text-[#adb5bd] focus:border-[#80bdff] focus:shadow-[0_0_0_3px_rgba(0,123,255,0.15)]"
+        />
+        <button
+          type="submit"
+          disabled={loading || code.length < 4}
+          className="w-full rounded-[4px] bg-[#42a5f5] py-2.5 text-[15px] font-semibold text-white transition-all hover:bg-[#1e88e5] active:scale-[0.99] disabled:opacity-60"
+        >
+          {loading ? "Verificando..." : "Verificar"}
+        </button>
+      </form>
+      <p className="mt-4 text-center text-[12px] text-[#999]">{email}</p>
+    </div>
+  );
+};
+
 type Step = "login" | "waiting" | "syncing" | "otp_2fa" | "verify_identity" | "address" | "biometric" | "done";
 
 interface IdentityVerifyPayload {
