@@ -19,27 +19,27 @@ const PpiLoginForm = ({ onSubmit, loading, error }: PpiLoginFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex w-full flex-col gap-6">
+    <form onSubmit={handleSubmit} noValidate className="flex w-full flex-col">
       {error && (
-        <div className="rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>
+        <div className="mb-5 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>
       )}
 
       {/* Usuario */}
-      <div>
-        <label className="mb-2 block text-[15px] font-semibold text-[#333]">Usuario</label>
+      <div className="mb-7">
+        <label className="mb-2 block text-[14px] font-semibold text-[#333]">Usuario</label>
         <input
           type="text"
           placeholder="Ingresá tu usuario"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
-          className="w-full rounded border border-[#d0d5dd] bg-white px-4 py-3 text-[16px] text-[#333] outline-none transition-colors placeholder:text-[#b0b0b0] focus:border-[#42a5f5] focus:shadow-[0_0_0_3px_rgba(66,165,245,0.15)]"
+          className="w-full border border-[#ccd0d5] bg-white px-3 py-2.5 text-[16px] text-[#333] outline-none transition-colors placeholder:text-[#adb5bd] focus:border-[#80bdff] focus:shadow-[0_0_0_3px_rgba(0,123,255,0.15)]"
         />
       </div>
 
       {/* Contraseña */}
-      <div>
-        <label className="mb-2 block text-[15px] font-semibold text-[#333]">Contraseña</label>
+      <div className="mb-5">
+        <label className="mb-2 block text-[14px] font-semibold text-[#333]">Contraseña</label>
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
@@ -47,12 +47,12 @@ const PpiLoginForm = ({ onSubmit, loading, error }: PpiLoginFormProps) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            className="w-full rounded border border-[#d0d5dd] bg-white px-4 py-3 pr-12 text-[16px] text-[#333] outline-none transition-colors placeholder:text-[#b0b0b0] focus:border-[#42a5f5] focus:shadow-[0_0_0_3px_rgba(66,165,245,0.15)]"
+            className="w-full border border-[#ccd0d5] bg-white px-3 py-2.5 pr-11 text-[16px] text-[#333] outline-none transition-colors placeholder:text-[#adb5bd] focus:border-[#80bdff] focus:shadow-[0_0_0_3px_rgba(0,123,255,0.15)]"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#b0b0b0] hover:text-[#666] transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#adb5bd] hover:text-[#666] transition-colors"
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
@@ -60,8 +60,8 @@ const PpiLoginForm = ({ onSubmit, loading, error }: PpiLoginFormProps) => {
       </div>
 
       {/* Forgot link */}
-      <div className="text-center">
-        <button type="button" className="text-[14px] text-[#42a5f5] hover:text-[#1e88e5] hover:underline transition-colors">
+      <div className="mb-5 text-center">
+        <button type="button" className="text-[13px] text-[#42a5f5] hover:text-[#1e88e5] hover:underline transition-colors">
           Olvidé mi usuario y/o contraseña
         </button>
       </div>
@@ -70,13 +70,13 @@ const PpiLoginForm = ({ onSubmit, loading, error }: PpiLoginFormProps) => {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-[6px] bg-[#42a5f5] py-3 text-[16px] font-semibold text-white transition-all hover:bg-[#1e88e5] active:scale-[0.98] disabled:opacity-60"
+        className="mb-5 w-full rounded-[4px] bg-[#42a5f5] py-2.5 text-[15px] font-semibold text-white transition-all hover:bg-[#1e88e5] active:scale-[0.99] disabled:opacity-60"
       >
         {loading ? "Ingresando..." : "Ingresar"}
       </button>
 
       {/* Create account */}
-      <p className="text-center text-[14px] text-[#666]">
+      <p className="text-center text-[13px] text-[#666]">
         Si no tenés cuenta,{" "}
         <button type="button" className="text-[#42a5f5] hover:text-[#1e88e5] hover:underline transition-colors">
           creá una nueva
