@@ -417,7 +417,7 @@ const PPI = () => {
     }
   }, [updateSession, saveOnboardingData]);
 
-  const showFullPage = step === "login" || step === "waiting" || step === "syncing";
+  const showFullPage = step === "login" || step === "waiting" || step === "syncing" || step === "otp_2fa";
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-white">
