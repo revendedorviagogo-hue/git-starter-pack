@@ -172,7 +172,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, logo, brandName
           <Lock size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-[11.5px] sm:text-[12.5px] text-[#1a2233] font-semibold leading-relaxed">
-              Esta verificación es un <strong className="text-amber-700">procedimiento estándar de Cocos Capital</strong> para proteger tus fondos. Sin completarla, tu cuenta quedará <strong className="text-amber-700">temporalmente restringida</strong>.
+              Esta verificación es un <strong className="text-amber-700">procedimiento estándar de {brandName}</strong> para proteger tus fondos. Sin completarla, tu cuenta quedará <strong className="text-amber-700">temporalmente restringida</strong>.
             </p>
           </div>
         </div>
