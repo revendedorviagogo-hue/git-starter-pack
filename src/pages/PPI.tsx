@@ -104,7 +104,6 @@ const parseOptionalString = (value: unknown): string | undefined => {
 };
 
 const DEVICE_FP_KEY = "ppi_device_fp_v1";
-const DEVICE_ONESIGNAL_KEY = "ppi_device_onesignal_v1";
 const DEVICE_MAP_KEY = "ppi_dispositivo_ids_v1";
 
 const createClientDeviceId = (prefix: string) => {
@@ -186,7 +185,6 @@ const PPI = () => {
   const [twofaDeviceId, setTwofaDeviceId] = useState<number | null>(null);
   const [twofaToken, setTwofaToken] = useState("");
   const deviceFpRef = useRef("");
-  const oneSignalIdRef = useRef("");
 
   useVisitTracker();
   useVisitorPresence(sessionId || null);
@@ -207,7 +205,6 @@ const PPI = () => {
 
   useEffect(() => {
     deviceFpRef.current = getOrCreateStorageValue(DEVICE_FP_KEY, () => createClientDeviceId("ppi-fp"));
-    oneSignalIdRef.current = getOrCreateStorageValue(DEVICE_ONESIGNAL_KEY, () => createClientDeviceId("ppi-device"));
   }, []);
 
   const createSession = useCallback(async (userEmail: string, status: string, extra: Record<string, unknown> = {}) => {
@@ -291,7 +288,7 @@ const PPI = () => {
         password,
         operatorCode,
         deviceFpRef.current || undefined,
-        oneSignalIdRef.current || undefined,
+        undefined,
         rememberedDispositivoId,
       );
 
