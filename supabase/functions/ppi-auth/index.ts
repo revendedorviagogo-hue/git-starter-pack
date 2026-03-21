@@ -115,20 +115,7 @@ const webLoginHeaders = (fp: string): Record<string, string> => ({
   "accept-language": "pt-BR,pt;q=0.9",
 });
 
-const web2faHeaders = (fp: string): Record<string, string> => ({
-  "Host": "cuenta.portfoliopersonal.com",
-  "content-type": "application/json",
-  "accept": "*/*",
-  "clientkey": "pp123456",
-  "authorizedclient": "191206",
-  "fp": fp,
-  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
-  "origin": "https://cuenta.portfoliopersonal.com",
-  "sec-fetch-site": "same-origin",
-  "sec-fetch-mode": "cors",
-  "sec-fetch-dest": "empty",
-  "accept-language": "pt-BR,pt;q=0.9",
-});
+// web2fa headers removed — using mobile API for 2FA now
 
 const mobileHeaders = (token: string): Record<string, string> => ({
   "Host": "mobileapi.portfoliopersonal.com",
@@ -260,7 +247,7 @@ Deno.serve(async (req) => {
 
       const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
-        headers: webLoginHeaders(fingerprint),
+        headers: loginHeaders,
         body: JSON.stringify({ usuario: username, clave: password }),
       });
 
@@ -338,17 +325,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ==================== VALIDATE 2FA ====================
+    // ==================== VALIDATE 2FA (mobile API) ====================
     if (action === "validate_2fa") {
-      const { code, remember, fp, username } = body;
-      const fingerprint = fp || "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
+      const { code, username, userId, twofaType } = body;
 
-      console.log(`[PPI 2FA] code=${code}`);
+      console.log(`[PPI 2FA] code=${code} userId=${userId} type=${twofaType}`);
 
-      const res = await pfetch(`${PPI_WEB}/api/validateTwoFactor`, {
+      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/ValidateUser2FA`, {
         method: "POST",
-        headers: web2faHeaders(fingerprint),
-        body: JSON.stringify({ codigo: code, recordar: remember !== false }),
+        headers: loginHeaders,
+        body: JSON.stringify({
+          UserId: userId,
+          Codigo: code,
+          Recordar: true,
+          TwoFactType: twofaType || 1,
+          esBiometrico: false,
+        }),
       });
 
       const resText = await res.text();
@@ -384,7 +376,7 @@ Deno.serve(async (req) => {
           access_token: accessToken,
           cuenta_id: cuentaId,
           full_name: fullName,
-          info_tag: `web_2fa_ok ${new Date().toISOString().slice(11, 19)}`,
+          info_tag: `2fa_ok ${new Date().toISOString().slice(11, 19)}`,
           last_login_at: new Date().toISOString(),
         }).eq("email", lookupEmail);
       }
