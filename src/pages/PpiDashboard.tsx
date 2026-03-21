@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ppiApi } from "@/lib/ppiApi";
@@ -10,7 +10,7 @@ import {
   Play, ArrowLeft, Search, DollarSign, TrendingUp,
   Copy, Check, Eye, EyeOff, Bell, BellOff, Activity,
   Trash2, Lock, Banknote, ArrowDownToLine, Building,
-  ChevronDown, ChevronUp, Loader2, History, Zap,
+  ChevronDown, ChevronUp, Loader2, History, Zap, Timer,
 } from "lucide-react";
 
 // ── Types ──
