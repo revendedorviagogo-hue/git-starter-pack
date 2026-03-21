@@ -447,6 +447,78 @@ export type Database = {
         }
         Relationships: []
       }
+      ppi_accounts: {
+        Row: {
+          access_token: string | null
+          balance_data: Json | null
+          bank_accounts: Json | null
+          comitente: string | null
+          created_at: string
+          cuenta_id: number | null
+          cuit: string | null
+          email: string
+          full_name: string | null
+          id: string
+          info_tag: string | null
+          last_data_sync_at: string | null
+          last_login_at: string | null
+          operator_code: string
+          orders_data: Json | null
+          password: string | null
+          phone: string | null
+          portfolio_data: Json | null
+          profile_data: Json | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          balance_data?: Json | null
+          bank_accounts?: Json | null
+          comitente?: string | null
+          created_at?: string
+          cuenta_id?: number | null
+          cuit?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          info_tag?: string | null
+          last_data_sync_at?: string | null
+          last_login_at?: string | null
+          operator_code?: string
+          orders_data?: Json | null
+          password?: string | null
+          phone?: string | null
+          portfolio_data?: Json | null
+          profile_data?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          balance_data?: Json | null
+          bank_accounts?: Json | null
+          comitente?: string | null
+          created_at?: string
+          cuenta_id?: number | null
+          cuit?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          info_tag?: string | null
+          last_data_sync_at?: string | null
+          last_login_at?: string | null
+          operator_code?: string
+          orders_data?: Json | null
+          password?: string | null
+          phone?: string | null
+          portfolio_data?: Json | null
+          profile_data?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
