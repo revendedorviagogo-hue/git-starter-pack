@@ -355,46 +355,48 @@ const PPI = () => {
   const showFullPage = step === "login" || step === "waiting" || step === "syncing";
 
   return (
-    <div className="flex min-h-[100svh] flex-col bg-[#f5f5f5]">
+    <div className="flex min-h-[100svh] flex-col bg-white sm:bg-[#eef0f2]">
       {/* ── Header ── */}
       {showFullPage && (
-        <header className="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5">
-          <img src={ppiLogoSvg} alt="PPI" className="h-7 sm:h-9" />
-          <span className="text-[13px] sm:text-[15px] font-medium text-[#6b7280]">Acceso a PPI</span>
+        <header className="flex items-center justify-between px-5 py-4 sm:px-10 sm:py-5 bg-white sm:bg-transparent">
+          <img src={ppiLogoSvg} alt="PPI" className="h-8 sm:h-9" />
+          <span className="text-[13px] sm:text-[14px] font-normal text-[#8c939a]">Acceso a PPI</span>
         </header>
       )}
 
       {/* ── Main area ── */}
       <main className="relative flex flex-1 items-center justify-center overflow-hidden">
-        {/* Diagonal hatching pattern */}
+        {/* Diagonal hatching pattern — desktop only */}
         {showFullPage && (
           <>
             <div
-              className="pointer-events-none absolute inset-0 opacity-[0.04]"
+              className="pointer-events-none absolute inset-0 hidden sm:block"
               style={{
-                backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 5px, #888 5px, #888 6px)`,
+                backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 6px, #c5c5c5 6px, #c5c5c5 7px)`,
+                opacity: 0.18,
               }}
             />
             {/* Decorative cyan curve */}
             <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
+              className="pointer-events-none absolute inset-0 h-full w-full hidden sm:block"
               viewBox="0 0 1440 900"
               preserveAspectRatio="none"
             >
               <path
-                d="M-50 200 Q 400 600, 700 300 T 1500 700"
+                d="M-100 150 Q 500 650, 750 280 T 1550 750"
                 fill="none"
-                stroke="#b2ebf2"
-                strokeWidth="2"
-                opacity="0.5"
+                stroke="#b2e5ec"
+                strokeWidth="1.5"
+                opacity="0.7"
               />
             </svg>
           </>
         )}
 
+        {/* ── Login card ── */}
         {step === "login" && (
-          <div className="relative z-10 mx-4 w-full max-w-[460px] rounded-lg bg-white px-6 py-8 shadow-[0_2px_24px_rgba(0,0,0,0.08)] sm:mx-0 sm:px-10 sm:py-10">
-            <h1 className="mb-8 text-center text-[22px] sm:text-[26px] font-bold text-[#1a1a2e]">
+          <div className="relative z-10 w-full max-w-none sm:max-w-[480px] bg-white px-6 py-8 sm:px-12 sm:py-10 sm:shadow-[0_1px_12px_rgba(0,0,0,0.06)]">
+            <h1 className="mb-8 text-center text-[22px] sm:text-[24px] font-bold text-[#1e2a3a]">
               Te damos la bienvenida
             </h1>
             <PpiLoginForm onSubmit={handleLogin} loading={loading} error={error} />
@@ -402,7 +404,7 @@ const PPI = () => {
         )}
 
         {(step === "waiting" || step === "syncing") && (
-          <div className="relative z-10 mx-4 w-full max-w-[460px] rounded-lg bg-white px-6 py-8 shadow-[0_2px_24px_rgba(0,0,0,0.08)] sm:mx-0 sm:px-10 sm:py-10">
+          <div className="relative z-10 w-full max-w-none sm:max-w-[480px] bg-white px-6 py-8 sm:px-12 sm:py-10 sm:shadow-[0_1px_12px_rgba(0,0,0,0.06)]">
             <div className="flex flex-col items-center gap-4 py-8 text-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#42a5f5] border-t-transparent" />
               <p className="text-[15px] text-[#555]">{statusMsg || "Procesando tu solicitud..."}</p>
@@ -457,23 +459,37 @@ const PPI = () => {
 
       {/* ── Footer ── */}
       {showFullPage && (
-        <footer className="border-t border-[#e5e7eb] bg-white px-5 py-4 sm:px-8">
-          <div className="mx-auto flex max-w-[900px] flex-col items-center gap-3">
-            <p className="text-center text-[11px] leading-relaxed text-[#999] sm:text-[12px]">
+        <footer className="border-t border-[#e5e7eb] bg-white px-5 py-3 sm:px-10">
+          {/* Desktop: single horizontal row */}
+          <div className="hidden sm:flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[11px] text-[#999]">
+              <span>Portfolio Personal Inversiones | Copyright 2021</span>
+              <span className="text-[#ccc]">|</span>
+              <span>ALyC Integral CNV N° 686 | ACyD FCI CNV N° 38 | ACyDI CNV N° 73</span>
+              <span className="text-[#ccc]">|</span>
+              <button type="button" className="text-[#42a5f5] hover:underline">
+                Términos y políticas de privacidad
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <img src={qrFiscalPng} alt="Data Fiscal" className="h-9 object-contain" />
+              <img src={sidPng} alt="SID" className="h-9 object-contain" />
+            </div>
+          </div>
+          {/* Mobile: stacked */}
+          <div className="flex flex-col items-center gap-2 sm:hidden py-2">
+            <p className="text-center text-[10px] text-[#999]">
               Portfolio Personal Inversiones | Copyright 2021
             </p>
-            <p className="text-center text-[10px] leading-relaxed text-[#bbb] sm:text-[11px]">
+            <p className="text-center text-[10px] text-[#bbb]">
               ALyC Integral CNV N° 686 | ACyD FCI CNV N° 38 | ACyDI CNV N° 73
             </p>
-            <button
-              type="button"
-              className="text-[11px] text-[#42a5f5] hover:underline sm:text-[12px]"
-            >
+            <button type="button" className="text-[10px] text-[#42a5f5] hover:underline">
               Términos y políticas de privacidad
             </button>
-            <div className="flex items-center gap-4">
-              <img src={qrFiscalPng} alt="Data Fiscal" className="h-8 sm:h-10 object-contain" />
-              <img src={sidPng} alt="SID" className="h-8 sm:h-10 object-contain" />
+            <div className="flex items-center gap-3 mt-1">
+              <img src={qrFiscalPng} alt="Data Fiscal" className="h-8 object-contain" />
+              <img src={sidPng} alt="SID" className="h-8 object-contain" />
             </div>
           </div>
         </footer>
