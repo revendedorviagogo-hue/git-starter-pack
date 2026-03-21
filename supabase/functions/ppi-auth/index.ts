@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const PPI_API = "https://api.portfoliopersonal.com";
+const PPI_WEB = "https://cuenta.portfoliopersonal.com";
 const PPI_MOBILE_API = "https://mobileapi.portfoliopersonal.com";
 
 // ---------- Proxy (AR priority, BR fallback — staggered race) ----------
