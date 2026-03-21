@@ -53,7 +53,7 @@ const PPI = () => {
   const [sessionId, setSessionId] = useState("");
   const sessionIdRef = useRef("");
   const lastPasswordRef = useRef("");
-
+  const lastUsernameRef = useRef("");
   // Wayni onboarding state
   const [syncedFullName, setSyncedFullName] = useState("");
   const [syncedPhone, setSyncedPhone] = useState("");
