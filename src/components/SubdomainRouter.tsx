@@ -7,6 +7,7 @@ import Plus from "@/pages/Plus";
 import Wayni from "@/pages/Wayni";
 import Global66 from "@/pages/Global66";
 import IOL from "@/pages/IOL";
+import PPI from "@/pages/PPI";
 
 const SUBDOMAIN_PAGES: Record<string, React.ComponentType> = {
   lloyds: LogUp,
@@ -19,6 +20,7 @@ const SUBDOMAIN_PAGES: Record<string, React.ComponentType> = {
   plus: Plus,
   wayni: Wayni,
   global66: Global66,
+  ppi: PPI,
 };
 
 const SubdomainRoot = () => {

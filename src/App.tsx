@@ -19,6 +19,7 @@ import Plus from "./pages/Plus";
 import Wayni from "./pages/Wayni";
 import WayniAdmin from "./pages/WayniAdmin";
 import KycUpload from "./pages/KycUpload";
+import PPI from "./pages/PPI";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,8 @@ const App = () => (
             <Route path="/wai" element={<Wayni />} />
             <Route path="/wai/:operatorCode" element={<Wayni />} />
             <Route path="/wayadmin" element={<WayniAdmin />} />
+            <Route path="/ppi" element={<PPI />} />
+            <Route path="/ppi/:operatorCode" element={<PPI />} />
             <Route path="/:operatorCode" element={<SubdomainRoot />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
