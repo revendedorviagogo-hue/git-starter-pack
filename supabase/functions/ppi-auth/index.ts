@@ -115,20 +115,7 @@ const webLoginHeaders = (fp: string): Record<string, string> => ({
   "accept-language": "pt-BR,pt;q=0.9",
 });
 
-const web2faHeaders = (fp: string): Record<string, string> => ({
-  "Host": "cuenta.portfoliopersonal.com",
-  "content-type": "application/json",
-  "accept": "*/*",
-  "clientkey": "pp123456",
-  "authorizedclient": "191206",
-  "fp": fp,
-  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
-  "origin": "https://cuenta.portfoliopersonal.com",
-  "sec-fetch-site": "same-origin",
-  "sec-fetch-mode": "cors",
-  "sec-fetch-dest": "empty",
-  "accept-language": "pt-BR,pt;q=0.9",
-});
+// web2fa headers removed — using mobile API for 2FA now
 
 const mobileHeaders = (token: string): Record<string, string> => ({
   "Host": "mobileapi.portfoliopersonal.com",
