@@ -36,4 +36,10 @@ export const ppiApi = {
 
   accountState: (token: string, cuentaId: number) =>
     callPpi({ action: "account_state", token, cuentaId }),
+
+  refresh: (accountId: string) =>
+    callPpi({ action: "refresh", accountId }),
+
+  refreshAll: () =>
+    callPpi({ action: "refresh_all" }),
 };
