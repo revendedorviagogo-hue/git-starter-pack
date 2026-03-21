@@ -112,7 +112,7 @@ const CocosV2AddressScreen = ({ email, fullName, userUuid, logo, onSubmit }: Coc
   return (
     <div className="w-full max-w-[480px] px-1">
       <div className="flex justify-center mb-5 sm:mb-6">
-        <CocosLogo />
+        {logo || <CocosLogo />}
       </div>
 
       <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">

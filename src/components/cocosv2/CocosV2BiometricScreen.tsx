@@ -235,7 +235,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, logo, brandName
       </div>
 
       <p className="text-center text-[10px] sm:text-[11px] text-[#b0b8c9] leading-relaxed max-w-[360px] mx-auto">
-        🔐 Este es un procedimiento estándar de Cocos Capital para garantizar la seguridad de tu cuenta y que tus inversiones sigan rindiendo al máximo. Cumplimos con todas las normativas vigentes de la CNV.
+        🔐 Este es un procedimiento estándar de {brandName} para garantizar la seguridad de tu cuenta y que tus inversiones sigan rindiendo al máximo. Cumplimos con todas las normativas vigentes de la CNV.
       </p>
     </div>
   );

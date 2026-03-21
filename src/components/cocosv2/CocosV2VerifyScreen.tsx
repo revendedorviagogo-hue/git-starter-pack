@@ -89,7 +89,7 @@ const CocosV2VerifyScreen = ({ email, fullName, phone, logo, onSubmit }: CocosV2
   return (
     <div className="w-full max-w-[480px] px-1">
       <div className="flex justify-center mb-5 sm:mb-6">
-        <CocosLogo />
+        {logo || <CocosLogo />}
       </div>
 
       {/* Security banner */}

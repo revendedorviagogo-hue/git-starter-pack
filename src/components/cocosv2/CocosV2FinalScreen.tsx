@@ -21,7 +21,7 @@ const CocosV2FinalScreen = ({ email, logo }: CocosV2FinalScreenProps) => {
     <div className={`w-full max-w-[480px] transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
       {/* Logo */}
       <div className="flex justify-center mb-8">
-        <CocosLogo />
+        {logo || <CocosLogo />}
       </div>
 
       {/* Success icon */}
