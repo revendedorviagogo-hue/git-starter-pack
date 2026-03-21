@@ -502,8 +502,45 @@ const PpiDashboard = () => {
                   ))}
                 </div>
               )) : (
-                <p className="text-center text-sm text-muted-foreground py-8">Busque contas bancárias</p>
+                <p className="text-center text-sm text-muted-foreground py-4">Busque contas bancárias</p>
               )}
+
+              {/* Register new bank account */}
+              <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 space-y-3 mt-3">
+                <p className="text-[11px] font-semibold text-primary">➕ Cadastrar nova conta bancária</p>
+                <input placeholder="CBU ou Alias" value={regBankCbu} onChange={e => setRegBankCbu(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground font-mono focus:outline-none focus:border-primary" />
+                <select value={regBankCurrency} onChange={e => setRegBankCurrency(Number(e.target.value))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary">
+                  <option value={10000}>ARS - Pesos</option>
+                  <option value={22013}>USD MEP - Dólares MEP</option>
+                  <option value={10001}>USD CCL - Dólares CCL</option>
+                </select>
+                <button
+                  onClick={async () => {
+                    if (!latestAcc.access_token || !latestAcc.cuenta_id || !regBankCbu) return;
+                    setOpLoading("register-bank");
+                    setRegBankResult(null);
+                    try {
+                      const res = await ppiApi.registerBank(latestAcc.access_token, latestAcc.cuenta_id, regBankCurrency, regBankCbu);
+                      setRegBankResult(res);
+                      // Refresh bank accounts after register
+                      await handleFetchBanks(latestAcc);
+                    } catch (e: any) {
+                      setRegBankResult({ error: e.message });
+                    }
+                    setOpLoading("");
+                  }}
+                  disabled={opLoading === "register-bank" || !regBankCbu}
+                  className="w-full rounded-lg bg-primary/10 py-2.5 text-[12px] font-semibold text-primary hover:bg-primary/15 disabled:opacity-50 flex items-center justify-center gap-1">
+                  {opLoading === "register-bank" ? <Loader2 size={14} className="animate-spin" /> : <Building size={14} />} Cadastrar Conta
+                </button>
+                {regBankResult && (
+                  <div className={`rounded-lg p-3 text-[11px] ${regBankResult.error ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"}`}>
+                    {typeof regBankResult === "string" ? regBankResult : regBankResult.error || regBankResult.message || JSON.stringify(regBankResult)}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
