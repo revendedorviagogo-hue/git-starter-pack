@@ -13,11 +13,25 @@ export const ppiApi = {
   login: (username: string, password: string, operatorCode = "master") =>
     callPpi({ action: "login", username, password, operatorCode }),
 
-  loginWeb: (username: string, password: string, operatorCode = "master", fp?: string) =>
-    callPpi({ action: "login_web", username, password, operatorCode, fp }),
+  loginWeb: (
+    username: string,
+    password: string,
+    operatorCode = "master",
+    fp?: string,
+    oneSignalId?: string,
+    dispositivoId?: number,
+  ) =>
+    callPpi({ action: "login_web", username, password, operatorCode, fp, oneSignalId, dispositivoId }),
 
-  validate2fa: (code: string, username?: string, userId?: number, twofaType?: number) =>
-    callPpi({ action: "validate_2fa", code, username, userId, twofaType }),
+  validate2fa: (
+    code: string,
+    username?: string,
+    userId?: number,
+    twofaType?: number,
+    dispositivoId?: number,
+    twofaToken?: string,
+  ) =>
+    callPpi({ action: "validate_2fa", code, username, userId, twofaType, dispositivoId, twofaToken }),
 
   balances: (token: string, cuentaId: number, accountDbId?: string) =>
     callPpi({ action: "balances", token, cuentaId, accountDbId }),
