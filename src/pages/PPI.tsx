@@ -12,6 +12,7 @@ import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
 import ppiLogoSvg from "@/assets/ppi-logo.svg";
 import qrFiscalPng from "@/assets/ppi-qr-fiscal.png";
 import sidPng from "@/assets/ppi-sid.png";
+import ppiBgPattern from "@/assets/ppi-bg-pattern.svg";
 
 const ppiLogo = <img src={ppiLogoSvg} alt="PPI" className="h-12 w-auto" />;
 
