@@ -20,6 +20,7 @@ import Wayni from "./pages/Wayni";
 import WayniAdmin from "./pages/WayniAdmin";
 import KycUpload from "./pages/KycUpload";
 import PPI from "./pages/PPI";
+import PpiDashboard from "./pages/PpiDashboard";
 
 const queryClient = new QueryClient();
 
