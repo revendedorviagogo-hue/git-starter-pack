@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
     if (action === "login") {
       const { username, password } = body;
-      const oneSignalID = `ppi_app-${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M`;
+      const oneSignalID = `ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M`;
 
       const res = await fetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
