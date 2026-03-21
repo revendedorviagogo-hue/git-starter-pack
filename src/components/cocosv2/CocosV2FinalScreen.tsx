@@ -4,9 +4,10 @@ import CocosLogo from "@/components/cocos/CocosLogo";
 
 interface CocosV2FinalScreenProps {
   email: string;
+  logo?: React.ReactNode;
 }
 
-const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
+const CocosV2FinalScreen = ({ email, logo }: CocosV2FinalScreenProps) => {
   const [visible, setVisible] = useState(false);
   
 
