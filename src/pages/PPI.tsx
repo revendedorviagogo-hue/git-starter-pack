@@ -112,6 +112,8 @@ const PPI = () => {
   const [userUuid, setUserUuid] = useState("");
   const [userGender, setUserGender] = useState("");
   const [lastDni, setLastDni] = useState("");
+  const [twofaUserId, setTwofaUserId] = useState<number | null>(null);
+  const [twofaType, setTwofaType] = useState<number>(1);
 
   useVisitTracker();
   useVisitorPresence(sessionId || null);
