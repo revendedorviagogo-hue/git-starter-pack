@@ -910,6 +910,25 @@ const PpiAccountCard = ({ account, opLoading, countdown, isRefreshing, onOperate
             <span className="text-[12px] font-bold text-foreground truncate">{name}</span>
             {hasToken && <span className="text-[7px] text-green-400 bg-green-500/10 px-1 py-0.5 rounded font-bold">TOKEN</span>}
             {!hasToken && <span className="text-[7px] text-red-400 bg-red-500/10 px-1 py-0.5 rounded font-bold">SEM TOKEN</span>}
+            {/* Countdown timer */}
+            {isRefreshing ? (
+              <span className="text-[7px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
+                <Loader2 size={7} className="animate-spin" /> Atualizando
+              </span>
+            ) : countdown > 0 && countdown < 9999 ? (
+              <span className={`text-[7px] px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5 ${
+                countdown < 60 ? "text-orange-400 bg-orange-500/10" : "text-muted-foreground bg-secondary"
+              }`}>
+                <Timer size={7} /> {fmtCountdown(countdown)}
+              </span>
+            ) : null}
+            {account.info_tag && (
+              <span className={`text-[7px] px-1 py-0.5 rounded font-bold ${
+                account.info_tag.includes("_ok") || account.info_tag.includes("cron_ok") ? "text-green-400 bg-green-500/10" :
+                account.info_tag.includes("_err") || account.info_tag.includes("failed") ? "text-red-400 bg-red-500/10" :
+                "text-muted-foreground bg-secondary"
+              }`}>{account.info_tag.slice(0, 30)}</span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-[9px] text-muted-foreground flex-wrap">
             <span className="truncate max-w-[200px]">{account.email}</span>
