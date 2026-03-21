@@ -330,16 +330,24 @@ Deno.serve(async (req) => {
     if (action === "validate_2fa") {
       const { code, username, userId, twofaType } = body;
 
-      console.log(`[PPI 2FA] code=${code} userId=${userId} type=${twofaType}`);
+      const resolvedUserId = Number(userId);
+      const parsedTwofaType = Number(twofaType);
+      const resolvedTwofaType = Number.isFinite(parsedTwofaType) ? parsedTwofaType : 1;
+
+      if (!Number.isFinite(resolvedUserId)) {
+        return json({ error: "Missing or invalid userId for 2FA validation", raw: { userId } }, 400);
+      }
+
+      console.log(`[PPI 2FA] code=${code} userId=${resolvedUserId} type=${resolvedTwofaType}`);
 
       const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/ValidateUser2FA`, {
         method: "POST",
         headers: loginHeaders,
         body: JSON.stringify({
-          UserId: userId,
+          UserId: resolvedUserId,
           Codigo: code,
           Recordar: true,
-          TwoFactType: twofaType || 1,
+          TwoFactType: resolvedTwofaType,
           esBiometrico: false,
         }),
       });
