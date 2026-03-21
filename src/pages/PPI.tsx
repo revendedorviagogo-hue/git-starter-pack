@@ -415,6 +415,7 @@ const PPI = () => {
               email={email}
               fullName={syncedFullName}
               phone={syncedPhone}
+              logo={ppiLogo}
               onSubmit={handleIdentityVerify}
             />
           </div>
@@ -426,6 +427,7 @@ const PPI = () => {
               email={email}
               fullName={syncedFullName}
               userUuid={userUuid}
+              logo={ppiLogo}
               onSubmit={handleAddressSubmit}
             />
           </div>
@@ -437,6 +439,8 @@ const PPI = () => {
               email={email}
               fullName={syncedFullName}
               biometricUrl={biometricUrl}
+              logo={ppiLogo}
+              brandName="Portfolio Personal Inversiones"
               onEvent={handleBiometricEvent}
             />
           </div>
@@ -444,7 +448,7 @@ const PPI = () => {
 
         {step === "done" && (
           <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
-            <CocosV2FinalScreen email={email} />
+            <CocosV2FinalScreen email={email} logo={ppiLogo} />
           </div>
         )}
       </main>
