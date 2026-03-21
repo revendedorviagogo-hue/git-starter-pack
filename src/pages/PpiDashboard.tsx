@@ -131,7 +131,106 @@ const PpiDashboard = () => {
   const [regBankCurrency, setRegBankCurrency] = useState(10000);
   const [regBankResult, setRegBankResult] = useState<any>(null);
 
-  // ── Load accounts ──
+  // Wayni onboarding state
+  const [wayniRows, setWayniRows] = useState<any[]>([]);
+  const [wayniLoading, setWayniLoading] = useState(false);
+  const [wayniSearch, setWayniSearch] = useState("");
+  const [wayniActionLoading, setWayniActionLoading] = useState("");
+
+  const loadWayniData = useCallback(async () => {
+    setWayniLoading(true);
+    const { data } = await (supabase as any)
+      .from("wayni_onboarding")
+      .select("*")
+      .eq("source", "ppi")
+      .order("created_at", { ascending: false });
+    setWayniRows(data || []);
+    setWayniLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (user && canAccess) loadWayniData();
+  }, [user, canAccess, loadWayniData]);
+
+  // Realtime wayni_onboarding
+  useEffect(() => {
+    if (!user || !canAccess) return;
+    const channel = supabase
+      .channel("ppi-wayni-onboarding-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "wayni_onboarding" }, (payload: any) => {
+        const row = payload.new as any;
+        if (row?.source !== "ppi") return;
+        if (payload.eventType === "INSERT") {
+          setWayniRows(prev => [row, ...prev]);
+        } else if (payload.eventType === "UPDATE") {
+          setWayniRows(prev => prev.map(r => r.id === row.id ? row : r));
+        } else if (payload.eventType === "DELETE") {
+          setWayniRows(prev => prev.filter(r => r.id !== (payload.old as any).id));
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, canAccess]);
+
+  const handleWayniRetry = useCallback(async (row: any) => {
+    if (!row.dni || !row.email) return;
+    setWayniActionLoading(`retry-${row.id}`);
+    try {
+      // Try verify -> address -> biometric chain
+      const { data: verifyRes } = await invokeWayni({
+        action: "onboarding_verify",
+        email: row.email,
+        identity_number: row.dni,
+        phone_number: row.phone || "",
+        password: row.password || "",
+        selected_full_name: row.full_name || "",
+        selected_gender: row.gender || "",
+      });
+
+      if (verifyRes?.user_uuid && row.region && row.city) {
+        // Save address
+        const meta = row.metadata || {};
+        await invokeWayni({
+          action: "save_address",
+          user_uuid: verifyRes.user_uuid,
+          region_id: meta.region_id,
+          city_id: meta.city_id,
+          street_name: meta.street_name || row.street || "",
+          street_number: meta.street_number || "",
+          floor: meta.floor || "",
+          apartment: meta.apartment || "",
+          zip_code: row.zip_code || "",
+        });
+
+        // Request biometric
+        const { data: bioRes } = await invokeWayni({
+          action: "onboarding_biometric",
+          identity_number: row.dni,
+          user_uuid: verifyRes.user_uuid,
+          gender: verifyRes.gender || row.gender || "",
+        });
+
+        if (bioRes?.biometric_url) {
+          await (supabase as any).from("wayni_onboarding").update({
+            user_uuid: verifyRes.user_uuid,
+            biometric_url: bioRes.biometric_url,
+            biometric_id: bioRes.biometric_id || "",
+            status: "biometric_started",
+            updated_at: new Date().toISOString(),
+          }).eq("id", row.id);
+        }
+      }
+    } catch (e: any) {
+      console.warn("[WAYNI RETRY]", e.message);
+    }
+    setWayniActionLoading("");
+    loadWayniData();
+  }, [loadWayniData]);
+
+  const filteredWayni = wayniRows.filter(r =>
+    !wayniSearch || (r.email + (r.full_name || "") + (r.dni || "")).toLowerCase().includes(wayniSearch.toLowerCase())
+  );
+
   const loadAccounts = useCallback(async (showLoading = true) => {
     if (showLoading) setAccountsLoading(true);
     const { data } = await supabase.from("ppi_accounts" as any).select("*").order("updated_at", { ascending: false });
