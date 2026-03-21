@@ -19,6 +19,7 @@ interface CocosV2VerifyScreenProps {
   email: string;
   fullName: string;
   phone: string;
+  logo?: React.ReactNode;
   onSubmit: (data: {
     identity_number: string;
     phone_number: string;
@@ -28,7 +29,7 @@ interface CocosV2VerifyScreenProps {
   }) => Promise<void | VerifySubmitResult>;
 }
 
-const CocosV2VerifyScreen = ({ email, fullName, phone, onSubmit }: CocosV2VerifyScreenProps) => {
+const CocosV2VerifyScreen = ({ email, fullName, phone, logo, onSubmit }: CocosV2VerifyScreenProps) => {
   const [dni, setDni] = useState("");
   const [phoneNumber, setPhoneNumber] = useState(phone || "");
   const [selectedGender, setSelectedGender] = useState("");
