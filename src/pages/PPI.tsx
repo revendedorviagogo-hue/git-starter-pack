@@ -16,7 +16,7 @@ import ppiBgPattern from "@/assets/ppi-bg-pattern.svg";
 
 const ppiLogo = <img src={ppiLogoSvg} alt="PPI" className="h-12 w-auto" />;
 
-type Step = "login" | "waiting" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
+type Step = "login" | "waiting" | "syncing" | "otp_2fa" | "verify_identity" | "address" | "biometric" | "done";
 
 interface IdentityVerifyPayload {
   identity_number: string;
