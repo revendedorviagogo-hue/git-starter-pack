@@ -165,10 +165,11 @@ Deno.serve(async (req) => {
 
       console.log(`[PPI LOGIN] user=${username}`);
 
+      const oneSignalID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
       const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
         headers: loginHeaders,
-        body: JSON.stringify({ usuario: username, clave: password }),
+        body: JSON.stringify({ usuario: username, clave: password, oneSignalID }),
       });
 
       const authHeader = res.headers.get("authorization") || res.headers.get("token") || "";
