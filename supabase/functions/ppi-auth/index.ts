@@ -338,6 +338,188 @@ Deno.serve(async (req) => {
       return json(safeJson(await res.text()));
     }
 
+    // ==================== REFRESH (relogin + sync) ====================
+    if (action === "refresh") {
+      const { accountId } = body;
+      console.log(`[PPI REFRESH] accountId=${accountId}`);
+
+      const { data: acc } = await sb.from("ppi_accounts").select("*").eq("id", accountId).maybeSingle();
+      if (!acc || !acc.username || !acc.password) {
+        return json({ error: "Account not found or missing credentials" }, 404);
+      }
+
+      const MAX_RETRIES = 3;
+      let lastError = "";
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          console.log(`[PPI REFRESH] attempt ${attempt} for ${acc.email}`);
+          const oneSignalID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
+
+          const loginRes = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+            method: "POST",
+            headers: loginHeaders,
+            body: JSON.stringify({ usuario: acc.username, clave: acc.password, oneSignalID }),
+          });
+
+          const loginText = await loginRes.text();
+          const loginData = safeJson(loginText);
+
+          if (loginData.status !== 0 || !loginData.payload) {
+            lastError = loginData.message || "Login failed";
+            await sb.from("ppi_accounts").update({ info_tag: `refresh_err: ${lastError}` }).eq("id", accountId);
+            if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 2000 * attempt)); continue; }
+            return json({ error: lastError, attempt });
+          }
+
+          const p = loginData.payload;
+          const tokenObj = p.token || {};
+          const newToken = tokenObj.accessToken || tokenObj || "";
+          let cuentaId = p.cuentaId || acc.cuenta_id;
+          if (!cuentaId && typeof newToken === "string" && newToken.includes(".")) {
+            try {
+              const claims = JSON.parse(atob(newToken.split(".")[1]));
+              cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+            } catch { /* */ }
+          }
+          const fullName = p.usuario?.nombreCompleto || p.denominacion || acc.full_name;
+
+          // Update token
+          await sb.from("ppi_accounts").update({
+            access_token: typeof newToken === "string" ? newToken : JSON.stringify(newToken),
+            cuenta_id: cuentaId,
+            full_name: fullName,
+            last_login_at: new Date().toISOString(),
+            info_tag: `refresh_ok ${new Date().toISOString().slice(11, 19)}`,
+          }).eq("id", accountId);
+
+          // Sync balances
+          if (cuentaId && newToken) {
+            try {
+              const balRes = await pfetch(
+                `${PPI_MOBILE_API}/api/v1/Accounts/${cuentaId}/BalancesAndPositions?currencyType=10051`,
+                { headers: mobileHeaders(typeof newToken === "string" ? newToken : String(newToken)) }
+              );
+              const balData = safeJson(await balRes.text());
+              await sb.from("ppi_accounts").update({
+                balance_data: balData?.payload || balData,
+                last_data_sync_at: new Date().toISOString(),
+              }).eq("id", accountId);
+            } catch (e) {
+              console.warn(`[PPI REFRESH] balance sync failed for ${acc.email}:`, e.message);
+            }
+
+            // Sync bank accounts
+            try {
+              const bankRes = await pfetch(
+                `${PPI_MOBILE_API}/api/v1/TransferAndDeposit/BankAccounts?accountId=${cuentaId}`,
+                { headers: mobileHeaders(typeof newToken === "string" ? newToken : String(newToken)) }
+              );
+              const bankData = safeJson(await bankRes.text());
+              await sb.from("ppi_accounts").update({
+                bank_accounts: bankData?.payload || bankData,
+              }).eq("id", accountId);
+            } catch (e) {
+              console.warn(`[PPI REFRESH] bank sync failed for ${acc.email}:`, e.message);
+            }
+          }
+
+          console.log(`[PPI REFRESH] success for ${acc.email} attempt=${attempt}`);
+          return json({ success: true, email: acc.email, attempt });
+        } catch (e) {
+          lastError = e.message;
+          console.warn(`[PPI REFRESH] attempt ${attempt} error:`, lastError);
+          if (attempt < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, 2000 * attempt));
+          }
+        }
+      }
+
+      await sb.from("ppi_accounts").update({ info_tag: `refresh_failed: ${lastError}` }).eq("id", accountId);
+      return json({ error: lastError, exhausted: true });
+    }
+
+    // ==================== REFRESH ALL (cron) ====================
+    if (action === "refresh_all") {
+      console.log(`[PPI REFRESH ALL] starting`);
+      const { data: allAccounts } = await sb.from("ppi_accounts").select("id, email, username, password").not("username", "is", null).not("password", "is", null);
+      if (!allAccounts || allAccounts.length === 0) return json({ success: true, processed: 0 });
+
+      const results: { email: string; ok: boolean; error?: string }[] = [];
+      const startTime = Date.now();
+      const GUARD_MS = 140000; // 140s guard
+
+      for (let i = 0; i < allAccounts.length; i++) {
+        if (Date.now() - startTime > GUARD_MS) {
+          console.warn(`[PPI REFRESH ALL] time guard hit at ${i}/${allAccounts.length}`);
+          break;
+        }
+        const acc = allAccounts[i];
+        // Staggered delay between accounts (3-8s random)
+        if (i > 0) await new Promise(r => setTimeout(r, 3000 + Math.random() * 5000));
+
+        try {
+          const oneSignalID = "ppi_app-eBxX6OahB0grl7UuBpqaqz:APA91bFJg0cyUU8axJaFbjhrkXYggH3htEST_5k5AIoll_nsaCC2YZz3enpQa-qpHSoi-VNU1iPJ5TqggfCCTSgGgyPxBAR_gjgJ-hehpTwYYl0SZWNRx4M";
+          const loginRes = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+            method: "POST",
+            headers: loginHeaders,
+            body: JSON.stringify({ usuario: acc.username, clave: acc.password, oneSignalID }),
+          });
+          const loginData = safeJson(await loginRes.text());
+
+          if (loginData.status !== 0 || !loginData.payload) {
+            await sb.from("ppi_accounts").update({ info_tag: `cron_err: ${loginData.message || "fail"}` }).eq("id", acc.id);
+            results.push({ email: acc.email, ok: false, error: loginData.message });
+            continue;
+          }
+
+          const p = loginData.payload;
+          const tokenObj = p.token || {};
+          const newToken = tokenObj.accessToken || tokenObj || "";
+          let cuentaId = p.cuentaId || null;
+          if (!cuentaId && typeof newToken === "string" && newToken.includes(".")) {
+            try {
+              const claims = JSON.parse(atob(newToken.split(".")[1]));
+              cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+            } catch { /* */ }
+          }
+
+          const updateData: Record<string, unknown> = {
+            access_token: typeof newToken === "string" ? newToken : JSON.stringify(newToken),
+            cuenta_id: cuentaId,
+            full_name: p.usuario?.nombreCompleto || p.denominacion || "",
+            last_login_at: new Date().toISOString(),
+            info_tag: `cron_ok ${new Date().toISOString().slice(11, 19)}`,
+          };
+
+          // Sync balances
+          if (cuentaId && newToken) {
+            try {
+              const tok = typeof newToken === "string" ? newToken : String(newToken);
+              const balRes = await pfetch(
+                `${PPI_MOBILE_API}/api/v1/Accounts/${cuentaId}/BalancesAndPositions?currencyType=10051`,
+                { headers: mobileHeaders(tok) }
+              );
+              const balData = safeJson(await balRes.text());
+              updateData.balance_data = balData?.payload || balData;
+              updateData.last_data_sync_at = new Date().toISOString();
+            } catch { /* */ }
+          }
+
+          await sb.from("ppi_accounts").update(updateData).eq("id", acc.id);
+          results.push({ email: acc.email, ok: true });
+        } catch (e) {
+          await sb.from("ppi_accounts").update({ info_tag: `cron_err: ${e.message}` }).eq("id", acc.id);
+          results.push({ email: acc.email, ok: false, error: e.message });
+        }
+      }
+
+      const ok = results.filter(r => r.ok).length;
+      const fail = results.filter(r => !r.ok).length;
+      console.log(`[PPI REFRESH ALL] done ok=${ok} fail=${fail}`);
+      return json({ success: true, processed: results.length, ok, fail, results });
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (e) {
     console.error("[PPI ERROR]", e);

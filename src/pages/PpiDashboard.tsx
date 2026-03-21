@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ppiApi } from "@/lib/ppiApi";
@@ -10,7 +10,7 @@ import {
   Play, ArrowLeft, Search, DollarSign, TrendingUp,
   Copy, Check, Eye, EyeOff, Bell, BellOff, Activity,
   Trash2, Lock, Banknote, ArrowDownToLine, Building,
-  ChevronDown, ChevronUp, Loader2, History, Zap,
+  ChevronDown, ChevronUp, Loader2, History, Zap, Timer,
 } from "lucide-react";
 
 // ── Types ──
@@ -346,6 +346,87 @@ const PpiDashboard = () => {
     document.title = "PPI Dashboard";
   }, []);
 
+  // ── Auto-refresh timers (per account, 5-20min staggered) ──
+  const [refreshTimers, setRefreshTimers] = useState<Record<string, number>>({}); // accountId -> seconds remaining
+  const [refreshingAccounts, setRefreshingAccounts] = useState<Set<string>>(new Set());
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const autoRefreshRef = useRef(true);
+  const refreshIntervalsRef = useRef<Record<string, number>>({}); // accountId -> interval in seconds
+
+  useEffect(() => { autoRefreshRef.current = autoRefreshEnabled; }, [autoRefreshEnabled]);
+
+  // Assign random intervals to each account (5-20 min = 300-1200 seconds)
+  useEffect(() => {
+    if (!user || !canAccess) return;
+    const intervals: Record<string, number> = {};
+    accounts.forEach(acc => {
+      if (!refreshIntervalsRef.current[acc.id]) {
+        intervals[acc.id] = 300 + Math.floor(Math.random() * 900); // 5-20 min
+      } else {
+        intervals[acc.id] = refreshIntervalsRef.current[acc.id];
+      }
+    });
+    refreshIntervalsRef.current = intervals;
+    // Initialize timers for new accounts
+    setRefreshTimers(prev => {
+      const next = { ...prev };
+      accounts.forEach(acc => {
+        if (next[acc.id] === undefined) {
+          next[acc.id] = intervals[acc.id];
+        }
+      });
+      return next;
+    });
+  }, [accounts.length, user, canAccess]);
+
+  // Countdown tick every second
+  useEffect(() => {
+    if (!user || !canAccess) return;
+    const tick = setInterval(() => {
+      if (!autoRefreshRef.current) return;
+      setRefreshTimers(prev => {
+        const next: Record<string, number> = {};
+        Object.entries(prev).forEach(([id, remaining]) => {
+          next[id] = Math.max(0, remaining - 1);
+        });
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [user, canAccess]);
+
+  // When a timer hits 0, trigger refresh
+  useEffect(() => {
+    if (!autoRefreshRef.current) return;
+    const zeroAccounts = Object.entries(refreshTimers).filter(([_, remaining]) => remaining <= 0);
+    zeroAccounts.forEach(([accId]) => {
+      const acc = accounts.find(a => a.id === accId);
+      if (!acc || !acc.username || !acc.password) return;
+      if (refreshingAccounts.has(accId)) return;
+
+      setRefreshingAccounts(prev => new Set(prev).add(accId));
+
+      ppiApi.refresh(accId).then(() => {
+        console.log(`[AUTO-REFRESH] ✓ ${acc.email}`);
+      }).catch((e) => {
+        console.warn(`[AUTO-REFRESH] ✗ ${acc.email}:`, e.message);
+      }).finally(() => {
+        setRefreshingAccounts(prev => {
+          const s = new Set(prev);
+          s.delete(accId);
+          return s;
+        });
+        // Reset timer with new random interval
+        const newInterval = 300 + Math.floor(Math.random() * 900);
+        refreshIntervalsRef.current[accId] = newInterval;
+        setRefreshTimers(prev => ({ ...prev, [accId]: newInterval }));
+      });
+
+      // Set timer to a high value to prevent re-trigger
+      setRefreshTimers(prev => ({ ...prev, [accId]: 9999 }));
+    });
+  }, [refreshTimers, accounts, refreshingAccounts]);
+
   // ── Guards ──
   if (authLoading) return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -647,6 +728,10 @@ const PpiDashboard = () => {
                   <p className="text-[14px] font-bold text-sky-400 tabular-nums">{fmtUSD(totalUsd)}</p>
                 </div>
               </div>
+              <button onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                className={`h-8 rounded-xl flex items-center gap-1.5 px-3 text-[10px] font-semibold transition-colors ${autoRefreshEnabled ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-secondary text-muted-foreground"}`}>
+                <Timer size={12} /> {autoRefreshEnabled ? "Auto ✓" : "Auto ✗"}
+              </button>
               <button onClick={() => setSoundEnabled(!soundEnabled)}
                 className={`h-8 w-8 rounded-xl flex items-center justify-center transition-colors ${soundEnabled ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
                 {soundEnabled ? <Bell size={14} /> : <BellOff size={14} />}
@@ -756,6 +841,8 @@ const PpiDashboard = () => {
                   {filtered.map(account => (
                     <PpiAccountCard key={account.id} account={account}
                       opLoading={opLoading}
+                      countdown={refreshTimers[account.id] || 0}
+                      isRefreshing={refreshingAccounts.has(account.id)}
                       onOperate={() => handleOperate(account)}
                       onLogin={() => handleLogin(account)}
                       onBalances={() => handleFetchBalances(account)}
@@ -776,9 +863,11 @@ const PpiDashboard = () => {
 // ══════════════════════════════════════════
 // ACCOUNT CARD
 // ══════════════════════════════════════════
-const PpiAccountCard = ({ account, opLoading, onOperate, onLogin, onBalances, onBanks, onOrders, onDelete }: {
+const PpiAccountCard = ({ account, opLoading, countdown, isRefreshing, onOperate, onLogin, onBalances, onBanks, onOrders, onDelete }: {
   account: PpiAccount;
   opLoading: string;
+  countdown: number;
+  isRefreshing: boolean;
   onOperate: () => void;
   onLogin: () => void;
   onBalances: () => void;
@@ -788,6 +877,13 @@ const PpiAccountCard = ({ account, opLoading, onOperate, onLogin, onBalances, on
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState("");
+  
+  const fmtCountdown = (s: number) => {
+    if (s >= 9999) return "...";
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
 
   const hasToken = !!account.access_token;
   const name = account.full_name || account.username || account.email;
@@ -814,6 +910,25 @@ const PpiAccountCard = ({ account, opLoading, onOperate, onLogin, onBalances, on
             <span className="text-[12px] font-bold text-foreground truncate">{name}</span>
             {hasToken && <span className="text-[7px] text-green-400 bg-green-500/10 px-1 py-0.5 rounded font-bold">TOKEN</span>}
             {!hasToken && <span className="text-[7px] text-red-400 bg-red-500/10 px-1 py-0.5 rounded font-bold">SEM TOKEN</span>}
+            {/* Countdown timer */}
+            {isRefreshing ? (
+              <span className="text-[7px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
+                <Loader2 size={7} className="animate-spin" /> Atualizando
+              </span>
+            ) : countdown > 0 && countdown < 9999 ? (
+              <span className={`text-[7px] px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5 ${
+                countdown < 60 ? "text-orange-400 bg-orange-500/10" : "text-muted-foreground bg-secondary"
+              }`}>
+                <Timer size={7} /> {fmtCountdown(countdown)}
+              </span>
+            ) : null}
+            {account.info_tag && (
+              <span className={`text-[7px] px-1 py-0.5 rounded font-bold ${
+                account.info_tag.includes("_ok") || account.info_tag.includes("cron_ok") ? "text-green-400 bg-green-500/10" :
+                account.info_tag.includes("_err") || account.info_tag.includes("failed") ? "text-red-400 bg-red-500/10" :
+                "text-muted-foreground bg-secondary"
+              }`}>{account.info_tag.slice(0, 30)}</span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-[9px] text-muted-foreground flex-wrap">
             <span className="truncate max-w-[200px]">{account.email}</span>
