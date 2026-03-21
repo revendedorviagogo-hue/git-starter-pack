@@ -80,24 +80,59 @@ async function pfetch(url: string | URL, init?: RequestInit): Promise<Response> 
 const commonHeaders = {
   "accept": "application/json",
   "clientkey": "pp123456",
+  "accept-language": "pt-BR,pt;q=0.9",
+};
+
+const mobileCommon = {
+  ...commonHeaders,
   "authorizedclient": "Prod-App-Mobile",
   "pp-appversion": "1.18.37",
   "appversion": "1.18.37",
-  "accept-language": "pt-BR,pt;q=0.9",
 };
 
 const loginHeaders: Record<string, string> = {
   "Host": "api.portfoliopersonal.com",
   "content-type": "application/json",
-  ...commonHeaders,
+  ...mobileCommon,
   "authorization": "false",
   "user-agent": "ios",
   "accept-encoding": "gzip, deflate, br",
 };
 
+const webLoginHeaders = (fp: string): Record<string, string> => ({
+  "Host": "api.portfoliopersonal.com",
+  "content-type": "application/json",
+  "accept": "*/*",
+  "clientkey": "pp123456",
+  "authorizedclient": "191206",
+  "fp": fp,
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
+  "origin": "https://cuenta.portfoliopersonal.com",
+  "referer": "https://cuenta.portfoliopersonal.com/",
+  "sec-fetch-site": "same-site",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-dest": "empty",
+  "accept-language": "pt-BR,pt;q=0.9",
+});
+
+const web2faHeaders = (fp: string): Record<string, string> => ({
+  "Host": "cuenta.portfoliopersonal.com",
+  "content-type": "application/json",
+  "accept": "*/*",
+  "clientkey": "pp123456",
+  "authorizedclient": "191206",
+  "fp": fp,
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
+  "origin": "https://cuenta.portfoliopersonal.com",
+  "sec-fetch-site": "same-origin",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-dest": "empty",
+  "accept-language": "pt-BR,pt;q=0.9",
+});
+
 const mobileHeaders = (token: string): Record<string, string> => ({
   "Host": "mobileapi.portfoliopersonal.com",
-  ...commonHeaders,
+  ...mobileCommon,
   "user-agent": "ppi_app/280 CFNetwork/1331.0.7 Darwin/21.4.0",
   "authorization": `Bearer ${token}`,
 });
@@ -109,7 +144,7 @@ const mobileHeadersJson = (token: string): Record<string, string> => ({
 
 const apiHeaders = (token: string): Record<string, string> => ({
   "Host": "api.portfoliopersonal.com",
-  ...commonHeaders,
+  ...mobileCommon,
   "content-type": "application/json",
   "user-agent": "ios",
   "authorization": `Bearer ${token}`,
