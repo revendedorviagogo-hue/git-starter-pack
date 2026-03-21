@@ -850,6 +850,7 @@ const PpiDashboard = () => {
             {([
               { key: "sessions" as const, label: "Sessões", icon: Activity, count: liveSessions.length },
               { key: "accounts" as const, label: "Contas", icon: Users, count: accounts.length },
+              { key: "wayni" as const, label: "Wayni", icon: Fingerprint, count: wayniRows.length },
             ]).map(({ key, label, icon: Icon, count }) => (
               <button key={key} onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all border ${
