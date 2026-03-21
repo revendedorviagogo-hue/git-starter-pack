@@ -22,6 +22,7 @@ const loginHeaders = {
   "content-type": "application/json",
   "user-agent": "ios",
   "authorization": "false",
+  "accept-encoding": "gzip, deflate, br",
 };
 
 const mobileHeaders = (token: string) => ({
