@@ -325,17 +325,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ==================== VALIDATE 2FA ====================
+    // ==================== VALIDATE 2FA (mobile API) ====================
     if (action === "validate_2fa") {
-      const { code, remember, fp, username } = body;
-      const fingerprint = fp || "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
+      const { code, username, userId, twofaType } = body;
 
-      console.log(`[PPI 2FA] code=${code}`);
+      console.log(`[PPI 2FA] code=${code} userId=${userId} type=${twofaType}`);
 
-      const res = await pfetch(`${PPI_WEB}/api/validateTwoFactor`, {
+      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/ValidateUser2FA`, {
         method: "POST",
-        headers: web2faHeaders(fingerprint),
-        body: JSON.stringify({ codigo: code, recordar: remember !== false }),
+        headers: loginHeaders,
+        body: JSON.stringify({
+          UserId: userId,
+          Codigo: code,
+          Recordar: true,
+          TwoFactType: twofaType || 1,
+          esBiometrico: false,
+        }),
       });
 
       const resText = await res.text();
