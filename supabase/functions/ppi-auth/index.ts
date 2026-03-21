@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
           access_token: accessToken,
           cuenta_id: cuentaId,
           full_name: fullName,
-          info_tag: `web_2fa_ok ${new Date().toISOString().slice(11, 19)}`,
+          info_tag: `2fa_ok ${new Date().toISOString().slice(11, 19)}`,
           last_login_at: new Date().toISOString(),
         }).eq("email", lookupEmail);
       }
