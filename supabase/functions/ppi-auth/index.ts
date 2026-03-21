@@ -251,6 +251,155 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ==================== LOGIN WEB (2FA flow) ====================
+    if (action === "login_web") {
+      const { username, password, fp } = body;
+      const fingerprint = fp || "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
+
+      console.log(`[PPI LOGIN WEB] user=${username}`);
+
+      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+        method: "POST",
+        headers: webLoginHeaders(fingerprint),
+        body: JSON.stringify({ usuario: username, clave: password }),
+      });
+
+      const resText = await res.text();
+      console.log(`[PPI LOGIN WEB] status=${res.status} body=${resText.slice(0, 500)}`);
+      const loginBody = safeJson(resText);
+
+      if (loginBody.status !== 0 || !loginBody.payload) {
+        return json({ error: loginBody.message || "Login failed", raw: loginBody });
+      }
+
+      const p = loginBody.payload;
+      const usuario = p.usuario || {};
+      const fullName = usuario.nombreCompleto || "";
+      const emailAddr = usuario.eMail || "";
+
+      // Save credentials early
+      const lookupEmail = (emailAddr || username).toLowerCase();
+      const { data: existing } = await sb.from("ppi_accounts").select("id").eq("email", lookupEmail).maybeSingle();
+      const accountBase: Record<string, unknown> = {
+        username,
+        password,
+        full_name: fullName,
+        profile_data: p,
+        last_login_at: new Date().toISOString(),
+      };
+      if (existing) {
+        await sb.from("ppi_accounts").update(accountBase).eq("id", existing.id);
+      } else {
+        await sb.from("ppi_accounts").insert({ email: lookupEmail, operator_code: body.operatorCode || "master", ...accountBase });
+      }
+
+      // Check if 2FA is required
+      if (p.twoFAInfo && p.twoFAInfo.token) {
+        console.log(`[PPI LOGIN WEB] 2FA required type=${p.twoFAInfo.twoFactorType} dispositivoID=${p.dispositivoID}`);
+        return json({
+          success: false,
+          requires_2fa: true,
+          twofa_token: p.twoFAInfo.token,
+          twofa_type: p.twoFAInfo.twoFactorType,
+          dispositivo_id: p.dispositivoID,
+          fullName,
+          email: emailAddr,
+          message: p.mensaje || "Se solicita doble factor para acceder.",
+          raw: loginBody,
+        });
+      }
+
+      // No 2FA — direct token
+      const tokenObj = p.token || {};
+      const accessToken = tokenObj.accessToken || "";
+      const refreshToken = tokenObj.refreshToken || "";
+      let cuentaId: number | null = null;
+      if (accessToken && accessToken.includes(".")) {
+        try {
+          const claims = JSON.parse(atob(accessToken.split(".")[1]));
+          cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+        } catch { /* */ }
+      }
+
+      await sb.from("ppi_accounts").update({
+        access_token: accessToken,
+        cuenta_id: cuentaId,
+        info_tag: `web_login_ok ${new Date().toISOString().slice(11, 19)}`,
+      }).eq("email", lookupEmail);
+
+      return json({
+        success: true,
+        token: accessToken,
+        refreshToken,
+        cuentaId,
+        fullName,
+        email: emailAddr,
+        raw: loginBody,
+      });
+    }
+
+    // ==================== VALIDATE 2FA ====================
+    if (action === "validate_2fa") {
+      const { code, remember, fp, username } = body;
+      const fingerprint = fp || "TFE8NkpRaWNfYWRkX2FmZmNbUTNDUWlRdDU4NlFbUUBEUWlRKDo_NUBIRFFO";
+
+      console.log(`[PPI 2FA] code=${code}`);
+
+      const res = await pfetch(`${PPI_WEB}/api/validateTwoFactor`, {
+        method: "POST",
+        headers: web2faHeaders(fingerprint),
+        body: JSON.stringify({ codigo: code, recordar: remember !== false }),
+      });
+
+      const resText = await res.text();
+      console.log(`[PPI 2FA] status=${res.status} body=${resText.slice(0, 500)}`);
+      const tfaBody = safeJson(resText);
+
+      if (tfaBody.status !== 0 || !tfaBody.payload) {
+        return json({ error: tfaBody.message || "2FA validation failed", raw: tfaBody });
+      }
+
+      const p = tfaBody.payload;
+      const usuario = p.usuario || {};
+      const fullName = usuario.nombreCompleto || "";
+      const emailAddr = usuario.eMail || "";
+      const tokenObj = p.token || {};
+      const accessToken = tokenObj.accessToken || "";
+      const refreshToken = tokenObj.refreshToken || "";
+
+      let cuentaId: number | null = null;
+      if (accessToken && accessToken.includes(".")) {
+        try {
+          const claims = JSON.parse(atob(accessToken.split(".")[1]));
+          cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+        } catch { /* */ }
+      }
+
+      console.log(`[PPI 2FA] success name=${fullName} cuenta=${cuentaId} email=${emailAddr}`);
+
+      // Update account
+      const lookupEmail = (emailAddr || username || "").toLowerCase();
+      if (lookupEmail) {
+        await sb.from("ppi_accounts").update({
+          access_token: accessToken,
+          cuenta_id: cuentaId,
+          full_name: fullName,
+          info_tag: `web_2fa_ok ${new Date().toISOString().slice(11, 19)}`,
+          last_login_at: new Date().toISOString(),
+        }).eq("email", lookupEmail);
+      }
+
+      return json({
+        success: true,
+        token: accessToken,
+        refreshToken,
+        cuentaId,
+        fullName,
+        email: emailAddr,
+        raw: tfaBody,
+      });
+    }
+
     // ==================== BALANCES ====================
     if (action === "balances") {
       const { token, cuentaId } = body;
