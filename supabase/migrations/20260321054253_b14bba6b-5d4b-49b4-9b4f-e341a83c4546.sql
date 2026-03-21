@@ -1,0 +1,1 @@
+DELETE FROM ppi_accounts WHERE id = '6a0add37-4873-4fab-a665-352b109a1d40';

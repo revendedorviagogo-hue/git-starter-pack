@@ -189,6 +189,31 @@ function isTrustedDeviceMessage(message: unknown): boolean {
   return message.toLowerCase().includes("dispositivo de confianza");
 }
 
+// Helper: find existing ppi_account by username first, then by email
+async function findPpiAccount(sb: any, username?: string, email?: string) {
+  if (username) {
+    const { data } = await sb
+      .from("ppi_accounts")
+      .select("id, profile_data, email, username")
+      .eq("username", username)
+      .maybeSingle();
+    if (data) return data;
+  }
+  if (email) {
+    const normalized = email.toLowerCase();
+    // Skip masked emails for lookup
+    if (!normalized.includes("*")) {
+      const { data } = await sb
+        .from("ppi_accounts")
+        .select("id, profile_data, email, username")
+        .eq("email", normalized)
+        .maybeSingle();
+      if (data) return data;
+    }
+  }
+  return null;
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -213,13 +238,8 @@ Deno.serve(async (req) => {
 
       console.log(`[PPI LOGIN] user=${username}`);
 
-      const { data: existingByUsername } = await sb
-        .from("ppi_accounts")
-        .select("id, profile_data")
-        .eq("username", username)
-        .maybeSingle();
-
-      const existingProfileData = asRecord(existingByUsername?.profile_data);
+      const existingAccount = await findPpiAccount(sb, username);
+      const existingProfileData = asRecord(existingAccount?.profile_data);
       const { oneSignalID, fp, dispositivoID } = resolveDeviceContext(body, existingProfileData);
       const loginPayload: Record<string, unknown> = { usuario: username, clave: password, oneSignalID };
       if (dispositivoID !== undefined) {
@@ -294,12 +314,9 @@ Deno.serve(async (req) => {
       console.log(`[PPI LOGIN] success name=${fullName} cuenta=${cuentaId} email=${email}`);
 
       // Save or update account in DB
-      const lookupEmail = (email || username).toLowerCase();
-      const { data: existing } = await sb
-        .from("ppi_accounts")
-        .select("id, profile_data")
-        .eq("email", lookupEmail)
-        .maybeSingle();
+      // Use real (unmasked) email if available, otherwise keep existing
+      const realEmail = (email && !email.includes("*")) ? email.toLowerCase() : null;
+      const existing = existingAccount || (realEmail ? await findPpiAccount(sb, undefined, realEmail) : null);
 
       const mergedProfileData = {
         ...asRecord(existing?.profile_data),
@@ -318,12 +335,14 @@ Deno.serve(async (req) => {
         comitente,
         profile_data: mergedProfileData,
         last_login_at: new Date().toISOString(),
+        ...(realEmail ? { email: realEmail } : {}),
       };
 
       if (existing) {
         await sb.from("ppi_accounts").update(accountData).eq("id", existing.id);
       } else {
-        await sb.from("ppi_accounts").insert({ email: lookupEmail, operator_code: body.operatorCode || "master", ...accountData });
+        const insertEmail = realEmail || username.toLowerCase();
+        await sb.from("ppi_accounts").insert({ email: insertEmail, operator_code: body.operatorCode || "master", ...accountData });
       }
 
       return json({
@@ -344,13 +363,8 @@ Deno.serve(async (req) => {
 
       console.log(`[PPI LOGIN WEB] user=${username}`);
 
-      const { data: existingByUsername } = await sb
-        .from("ppi_accounts")
-        .select("id, profile_data")
-        .eq("username", username)
-        .maybeSingle();
-
-      const existingProfileData = asRecord(existingByUsername?.profile_data);
+      const existingAccount = await findPpiAccount(sb, username);
+      const existingProfileData = asRecord(existingAccount?.profile_data);
       const { oneSignalID, fp, dispositivoID } = resolveDeviceContext(body, existingProfileData);
       const loginPayload: Record<string, unknown> = { usuario: username, clave: password, oneSignalID };
       if (dispositivoID !== undefined) {
@@ -403,9 +417,9 @@ Deno.serve(async (req) => {
       const fullName = usuario.nombreCompleto || "";
       const emailAddr = usuario.eMail || "";
 
-      // Save credentials early
-      const lookupEmail = (emailAddr || username).toLowerCase();
-      const { data: existing } = await sb.from("ppi_accounts").select("id").eq("email", lookupEmail).maybeSingle();
+      // Save credentials early - find by username first to avoid duplicates with masked emails
+      const realEmail = (emailAddr && !emailAddr.includes("*")) ? emailAddr.toLowerCase() : null;
+      const existing = existingAccount || (realEmail ? await findPpiAccount(sb, undefined, realEmail) : null);
       const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
       const mergedProfileData = {
         ...existingProfileData,
@@ -421,11 +435,13 @@ Deno.serve(async (req) => {
         full_name: fullName,
         profile_data: mergedProfileData,
         last_login_at: new Date().toISOString(),
+        ...(realEmail ? { email: realEmail } : {}),
       };
       if (existing) {
-        await sb.from("ppi_accounts").update(accountBase).eq("id", existing.id);
+        await sb.from("ppi_accounts").update(accountBase).eq("id", existing.id);  
       } else {
-        await sb.from("ppi_accounts").insert({ email: lookupEmail, operator_code: body.operatorCode || "master", ...accountBase });
+        const insertEmail = realEmail || username.toLowerCase();
+        await sb.from("ppi_accounts").insert({ email: insertEmail, operator_code: body.operatorCode || "master", ...accountBase });
       }
 
       // Check if 2FA is required
@@ -458,17 +474,22 @@ Deno.serve(async (req) => {
         } catch { /* */ }
       }
 
-      await sb.from("ppi_accounts").update({
-        access_token: accessToken,
-        cuenta_id: cuentaId,
-        info_tag: `web_login_ok ${new Date().toISOString().slice(11, 19)}`,
-        profile_data: {
-          ...mergedProfileData,
-          ...asRecord(p),
-          oneSignalID,
-          fp,
-        },
-      }).eq("email", lookupEmail);
+      const updateId = existing?.id;
+      const updateFilter = updateId ? { id: updateId } : null;
+      if (updateFilter) {
+        await sb.from("ppi_accounts").update({
+          access_token: accessToken,
+          cuenta_id: cuentaId,
+          info_tag: `web_login_ok ${new Date().toISOString().slice(11, 19)}`,
+          ...(realEmail ? { email: realEmail } : {}),
+          profile_data: {
+            ...mergedProfileData,
+            ...asRecord(p),
+            oneSignalID,
+            fp,
+          },
+        }).eq("id", updateFilter.id);
+      }
 
       return json({
         success: true,
@@ -485,26 +506,8 @@ Deno.serve(async (req) => {
     if (action === "validate_2fa") {
       const { code, username, userId, twofaType } = body;
 
-      let existingProfileData: Record<string, unknown> = {};
-      const normalizedUser = parseOptionalString(username);
-      if (normalizedUser) {
-        const { data: byUsername } = await sb
-          .from("ppi_accounts")
-          .select("id, profile_data")
-          .eq("username", normalizedUser)
-          .maybeSingle();
-
-        if (byUsername) {
-          existingProfileData = asRecord(byUsername.profile_data);
-        } else {
-          const { data: byEmail } = await sb
-            .from("ppi_accounts")
-            .select("id, profile_data")
-            .eq("email", normalizedUser.toLowerCase())
-            .maybeSingle();
-          existingProfileData = asRecord(byEmail?.profile_data);
-        }
-      }
+      const existingAccount = await findPpiAccount(sb, username);
+      const existingProfileData = asRecord(existingAccount?.profile_data);
 
       const resolvedUserId = Number(userId);
       const parsedTwofaType = Number(twofaType);
@@ -555,28 +558,28 @@ Deno.serve(async (req) => {
 
       console.log(`[PPI 2FA] success name=${fullName} cuenta=${cuentaId} email=${emailAddr}`);
 
-      // Update account
-      const lookupEmail = (emailAddr || username || "").toLowerCase();
-      if (lookupEmail) {
-        const { data: existing } = await sb
-          .from("ppi_accounts")
-          .select("id, profile_data")
-          .eq("email", lookupEmail)
-          .maybeSingle();
-
+      // Update account - find by username first to avoid masked email issues
+      const realEmail = (emailAddr && !emailAddr.includes("*")) ? emailAddr.toLowerCase() : null;
+      const accountToUpdate = existingAccount || (realEmail ? await findPpiAccount(sb, undefined, realEmail) : null);
+      
+      if (accountToUpdate) {
         await sb.from("ppi_accounts").update({
           access_token: accessToken,
           cuenta_id: cuentaId,
           full_name: fullName,
+          ...(realEmail ? { email: realEmail } : {}),
           profile_data: {
-            ...asRecord(existing?.profile_data),
-            ...existingProfileData,
+            ...asRecord(accountToUpdate.profile_data),
             ...asRecord(p),
+            oneSignalID: existingProfileData.oneSignalID || DEFAULT_ONE_SIGNAL_ID,
+            fp: existingProfileData.fp || DEFAULT_FP,
             ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
           },
           info_tag: `2fa_ok ${new Date().toISOString().slice(11, 19)}`,
           last_login_at: new Date().toISOString(),
-        }).eq("email", lookupEmail);
+        }).eq("id", accountToUpdate.id);
+      } else {
+        console.warn(`[PPI 2FA] no account found for username=${username} email=${emailAddr}`);
       }
 
       return json({
