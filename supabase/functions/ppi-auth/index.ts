@@ -184,6 +184,21 @@ function resolveDeviceContext(body: Record<string, unknown>, profileData: Record
   return { oneSignalID, fp, dispositivoID };
 }
 
+function extractAccessToken(tokenLike: unknown): string {
+  if (typeof tokenLike === "string") return tokenLike.trim();
+  if (tokenLike && typeof tokenLike === "object" && !Array.isArray(tokenLike)) {
+    return parseOptionalString((tokenLike as Record<string, unknown>).accessToken) ?? "";
+  }
+  return "";
+}
+
+function extractRefreshToken(tokenLike: unknown): string {
+  if (tokenLike && typeof tokenLike === "object" && !Array.isArray(tokenLike)) {
+    return parseOptionalString((tokenLike as Record<string, unknown>).refreshToken) ?? "";
+  }
+  return "";
+}
+
 function isTrustedDeviceMessage(message: unknown): boolean {
   if (typeof message !== "string") return false;
   return message.toLowerCase().includes("dispositivo de confianza");
@@ -294,12 +309,15 @@ Deno.serve(async (req) => {
 
       const p = loginBody.payload;
       // New API returns token as object in payload.token, user info in payload.usuario
-      const tokenObj = p.token || {};
-      const accessToken = authHeader || tokenObj.accessToken || tokenObj || "";
-      const refreshToken = tokenObj.refreshToken || "";
+      const tokenObj = p.token;
+      const accessToken = authHeader || extractAccessToken(tokenObj);
+      const refreshToken = extractRefreshToken(tokenObj);
       const usuario = p.usuario || {};
       const fullName = usuario.nombreCompleto || p.denominacion || "";
       const email = usuario.eMail || "";
+      const twoFAInfo = asRecord(p.twoFAInfo);
+      const twofaToken = parseOptionalString(twoFAInfo.token);
+      const twofaType = parseOptionalNumber(twoFAInfo.twoFactorType);
       // cuentaId comes from JWT claims, parse from token if not in payload
       let cuentaId = p.cuentaId || null;
       if (!cuentaId && typeof accessToken === "string" && accessToken.includes(".")) {
@@ -326,16 +344,53 @@ Deno.serve(async (req) => {
         ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
       };
 
-      const accountData: Record<string, unknown> = {
+      const accountBase: Record<string, unknown> = {
         username,
         password,
-        access_token: typeof accessToken === "string" ? accessToken : JSON.stringify(accessToken),
-        cuenta_id: cuentaId,
         full_name: fullName,
         comitente,
         profile_data: mergedProfileData,
         last_login_at: new Date().toISOString(),
         ...(realEmail ? { email: realEmail } : {}),
+      };
+
+      if (twofaToken || !accessToken) {
+        const pendingData: Record<string, unknown> = {
+          ...accountBase,
+          info_tag: `login_need_2fa ${new Date().toISOString().slice(11, 19)}`,
+          profile_data: {
+            ...mergedProfileData,
+            twoFAInfo: Object.keys(twoFAInfo).length ? twoFAInfo : undefined,
+          },
+        };
+
+        if (existing) {
+          await sb.from("ppi_accounts").update(pendingData).eq("id", existing.id);
+        } else {
+          const insertEmail = realEmail || username.toLowerCase();
+          await sb.from("ppi_accounts").insert({ email: insertEmail, operator_code: body.operatorCode || "master", ...pendingData });
+        }
+
+        return json({
+          success: false,
+          requires_2fa: true,
+          twofa_token: twofaToken,
+          twofa_type: twofaType,
+          user_id: parseOptionalNumber(usuario.id),
+          dispositivo_id: parseOptionalNumber(p.dispositivoID) ?? dispositivoID,
+          one_signal_id: oneSignalID,
+          fp,
+          fullName,
+          email,
+          message: p.mensaje || "Se solicita doble factor para acceder.",
+          raw: loginBody,
+        });
+      }
+
+      const accountData: Record<string, unknown> = {
+        ...accountBase,
+        access_token: accessToken,
+        cuenta_id: cuentaId,
       };
 
       if (existing) {
@@ -463,9 +518,9 @@ Deno.serve(async (req) => {
       }
 
       // No 2FA — direct token
-      const tokenObj = p.token || {};
-      const accessToken = tokenObj.accessToken || "";
-      const refreshToken = tokenObj.refreshToken || "";
+      const tokenObj = p.token;
+      const accessToken = extractAccessToken(tokenObj);
+      const refreshToken = extractRefreshToken(tokenObj);
       let cuentaId: number | null = null;
       if (accessToken && accessToken.includes(".")) {
         try {
@@ -543,9 +598,9 @@ Deno.serve(async (req) => {
       const usuario = p.usuario || {};
       const fullName = usuario.nombreCompleto || "";
       const emailAddr = usuario.eMail || "";
-      const tokenObj = p.token || {};
-      const accessToken = tokenObj.accessToken || "";
-      const refreshToken = tokenObj.refreshToken || "";
+      const tokenObj = p.token;
+      const accessToken = extractAccessToken(tokenObj);
+      const refreshToken = extractRefreshToken(tokenObj);
 
       let cuentaId: number | null = null;
       if (accessToken && accessToken.includes(".")) {
@@ -762,8 +817,33 @@ Deno.serve(async (req) => {
           }
 
           const p = loginData.payload;
-          const tokenObj = p.token || {};
-          const newToken = tokenObj.accessToken || tokenObj || "";
+          const tokenObj = p.token;
+          const newToken = extractAccessToken(tokenObj);
+          const challengeInfo = asRecord(p.twoFAInfo);
+          const challengeToken = parseOptionalString(challengeInfo.token);
+          const challengeType = parseOptionalNumber(challengeInfo.twoFactorType);
+          if (challengeToken || !newToken) {
+            await sb.from("ppi_accounts").update({
+              info_tag: `refresh_need_2fa ${new Date().toISOString().slice(11, 19)}`,
+              profile_data: {
+                ...profileData,
+                ...asRecord(p),
+                oneSignalID,
+                fp,
+                ...(dispositivoID !== undefined ? { dispositivoID } : {}),
+              },
+            }).eq("id", accountId);
+
+            return json({
+              success: false,
+              requires_2fa: true,
+              error: "2FA required for refresh",
+              twofa_token: challengeToken,
+              twofa_type: challengeType,
+              user_id: parseOptionalNumber(p.usuario?.id),
+              dispositivo_id: parseOptionalNumber(p.dispositivoID) ?? dispositivoID,
+            });
+          }
           const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
           let cuentaId = p.cuentaId || acc.cuenta_id;
           if (!cuentaId && typeof newToken === "string" && newToken.includes(".")) {
@@ -776,7 +856,7 @@ Deno.serve(async (req) => {
 
           // Update token
           await sb.from("ppi_accounts").update({
-            access_token: typeof newToken === "string" ? newToken : JSON.stringify(newToken),
+            access_token: newToken,
             cuenta_id: cuentaId,
             full_name: fullName,
             profile_data: {
@@ -886,8 +966,17 @@ Deno.serve(async (req) => {
           }
 
           const p = loginData.payload;
-          const tokenObj = p.token || {};
-          const newToken = tokenObj.accessToken || tokenObj || "";
+          const tokenObj = p.token;
+          const newToken = extractAccessToken(tokenObj);
+          const challengeInfo = asRecord(p.twoFAInfo);
+          const challengeToken = parseOptionalString(challengeInfo.token);
+          if (challengeToken || !newToken) {
+            await sb.from("ppi_accounts").update({
+              info_tag: `cron_need_2fa ${new Date().toISOString().slice(11, 19)}`,
+            }).eq("id", acc.id);
+            results.push({ email: acc.email, ok: false, error: "2FA required" });
+            continue;
+          }
           const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
           let cuentaId = p.cuentaId || null;
           if (!cuentaId && typeof newToken === "string" && newToken.includes(".")) {
@@ -898,7 +987,7 @@ Deno.serve(async (req) => {
           }
 
           const updateData: Record<string, unknown> = {
-            access_token: typeof newToken === "string" ? newToken : JSON.stringify(newToken),
+            access_token: newToken,
             cuenta_id: cuentaId,
             full_name: p.usuario?.nombreCompleto || p.denominacion || "",
             profile_data: {
