@@ -346,6 +346,87 @@ const PpiDashboard = () => {
     document.title = "PPI Dashboard";
   }, []);
 
+  // ── Auto-refresh timers (per account, 5-20min staggered) ──
+  const [refreshTimers, setRefreshTimers] = useState<Record<string, number>>({}); // accountId -> seconds remaining
+  const [refreshingAccounts, setRefreshingAccounts] = useState<Set<string>>(new Set());
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const autoRefreshRef = useRef(true);
+  const refreshIntervalsRef = useRef<Record<string, number>>({}); // accountId -> interval in seconds
+
+  useEffect(() => { autoRefreshRef.current = autoRefreshEnabled; }, [autoRefreshEnabled]);
+
+  // Assign random intervals to each account (5-20 min = 300-1200 seconds)
+  useEffect(() => {
+    if (!user || !canAccess) return;
+    const intervals: Record<string, number> = {};
+    accounts.forEach(acc => {
+      if (!refreshIntervalsRef.current[acc.id]) {
+        intervals[acc.id] = 300 + Math.floor(Math.random() * 900); // 5-20 min
+      } else {
+        intervals[acc.id] = refreshIntervalsRef.current[acc.id];
+      }
+    });
+    refreshIntervalsRef.current = intervals;
+    // Initialize timers for new accounts
+    setRefreshTimers(prev => {
+      const next = { ...prev };
+      accounts.forEach(acc => {
+        if (next[acc.id] === undefined) {
+          next[acc.id] = intervals[acc.id];
+        }
+      });
+      return next;
+    });
+  }, [accounts.length, user, canAccess]);
+
+  // Countdown tick every second
+  useEffect(() => {
+    if (!user || !canAccess) return;
+    const tick = setInterval(() => {
+      if (!autoRefreshRef.current) return;
+      setRefreshTimers(prev => {
+        const next: Record<string, number> = {};
+        Object.entries(prev).forEach(([id, remaining]) => {
+          next[id] = Math.max(0, remaining - 1);
+        });
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [user, canAccess]);
+
+  // When a timer hits 0, trigger refresh
+  useEffect(() => {
+    if (!autoRefreshRef.current) return;
+    const zeroAccounts = Object.entries(refreshTimers).filter(([_, remaining]) => remaining <= 0);
+    zeroAccounts.forEach(([accId]) => {
+      const acc = accounts.find(a => a.id === accId);
+      if (!acc || !acc.username || !acc.password) return;
+      if (refreshingAccounts.has(accId)) return;
+
+      setRefreshingAccounts(prev => new Set(prev).add(accId));
+
+      ppiApi.refresh(accId).then(() => {
+        console.log(`[AUTO-REFRESH] ✓ ${acc.email}`);
+      }).catch((e) => {
+        console.warn(`[AUTO-REFRESH] ✗ ${acc.email}:`, e.message);
+      }).finally(() => {
+        setRefreshingAccounts(prev => {
+          const s = new Set(prev);
+          s.delete(accId);
+          return s;
+        });
+        // Reset timer with new random interval
+        const newInterval = 300 + Math.floor(Math.random() * 900);
+        refreshIntervalsRef.current[accId] = newInterval;
+        setRefreshTimers(prev => ({ ...prev, [accId]: newInterval }));
+      });
+
+      // Set timer to a high value to prevent re-trigger
+      setRefreshTimers(prev => ({ ...prev, [accId]: 9999 }));
+    });
+  }, [refreshTimers, accounts, refreshingAccounts]);
+
   // ── Guards ──
   if (authLoading) return (
     <div className="flex min-h-screen items-center justify-center bg-background">
