@@ -483,7 +483,7 @@ Deno.serve(async (req) => {
 
     // ==================== VALIDATE 2FA (mobile API) ====================
     if (action === "validate_2fa") {
-      const { code, username, userId, twofaType, twofaToken } = body;
+      const { code, username, userId, twofaType } = body;
 
       let existingProfileData: Record<string, unknown> = {};
       const normalizedUser = parseOptionalString(username);
@@ -506,9 +506,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      const { oneSignalID, fp, dispositivoID } = resolveDeviceContext(body, existingProfileData);
-      const resolvedTwofaToken = parseOptionalString(twofaToken) ?? parseOptionalString(body.twofa_token) ?? parseOptionalString(existingProfileData.twofa_token);
-
       const resolvedUserId = Number(userId);
       const parsedTwofaType = Number(twofaType);
       const resolvedTwofaType = Number.isFinite(parsedTwofaType) ? parsedTwofaType : 1;
@@ -517,31 +514,18 @@ Deno.serve(async (req) => {
         return json({ error: "Missing or invalid userId for 2FA validation", raw: { userId } }, 400);
       }
 
-      console.log(`[PPI 2FA] code=${code} userId=${resolvedUserId} type=${resolvedTwofaType} device=${dispositivoID ?? "none"}`);
-
-      const validatePayload: Record<string, unknown> = {
-        UserId: resolvedUserId,
-        Codigo: code,
-        Recordar: true,
-        TwoFactType: resolvedTwofaType,
-        esBiometrico: false,
-        oneSignalID,
-      };
-
-      if (dispositivoID !== undefined) {
-        validatePayload.DispositivoID = dispositivoID;
-        validatePayload.dispositivoID = dispositivoID;
-      }
-
-      if (resolvedTwofaToken) {
-        validatePayload.Token = resolvedTwofaToken;
-        validatePayload.token = resolvedTwofaToken;
-      }
+      console.log(`[PPI 2FA] code=${code} userId=${resolvedUserId} type=${resolvedTwofaType}`);
 
       const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/ValidateUser2FA`, {
         method: "POST",
-        headers: { ...loginHeaders, fp },
-        body: JSON.stringify(validatePayload),
+        headers: loginHeaders,
+        body: JSON.stringify({
+          UserId: resolvedUserId,
+          Codigo: code,
+          Recordar: true,
+          TwoFactType: resolvedTwofaType,
+          esBiometrico: false,
+        }),
       });
 
       const resText = await res.text();
@@ -567,7 +551,7 @@ Deno.serve(async (req) => {
           cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
         } catch { /* */ }
       }
-      const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? dispositivoID;
+      const resolvedDispositivoID = parseOptionalNumber(p.dispositivoID) ?? parseOptionalNumber(existingProfileData.dispositivoID);
 
       console.log(`[PPI 2FA] success name=${fullName} cuenta=${cuentaId} email=${emailAddr}`);
 
@@ -588,8 +572,6 @@ Deno.serve(async (req) => {
             ...asRecord(existing?.profile_data),
             ...existingProfileData,
             ...asRecord(p),
-            oneSignalID,
-            fp,
             ...(resolvedDispositivoID !== undefined ? { dispositivoID: resolvedDispositivoID } : {}),
           },
           info_tag: `2fa_ok ${new Date().toISOString().slice(11, 19)}`,
