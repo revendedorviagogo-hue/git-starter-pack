@@ -20,6 +20,7 @@ const SUBDOMAIN_PAGES: Record<string, React.ComponentType> = {
   plus: Plus,
   wayni: Wayni,
   global66: Global66,
+  ppi: PPI,
 };
 
 const SubdomainRoot = () => {
