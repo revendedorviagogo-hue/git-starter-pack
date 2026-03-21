@@ -7,10 +7,11 @@ interface CocosV2AddressScreenProps {
   email: string;
   fullName: string;
   userUuid: string;
+  logo?: React.ReactNode;
   onSubmit: (addressData: Record<string, unknown>) => Promise<void>;
 }
 
-const CocosV2AddressScreen = ({ email, fullName, userUuid, onSubmit }: CocosV2AddressScreenProps) => {
+const CocosV2AddressScreen = ({ email, fullName, userUuid, logo, onSubmit }: CocosV2AddressScreenProps) => {
   const [provinces, setProvinces] = useState<Record<string, string>>({});
   const [localities, setLocalities] = useState<Record<string, string>>({});
   const [selectedProvinceId, setSelectedProvinceId] = useState("");
@@ -111,7 +112,7 @@ const CocosV2AddressScreen = ({ email, fullName, userUuid, onSubmit }: CocosV2Ad
   return (
     <div className="w-full max-w-[480px] px-1">
       <div className="flex justify-center mb-5 sm:mb-6">
-        <CocosLogo />
+        {logo || <CocosLogo />}
       </div>
 
       <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">

