@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
 
       const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
-        headers: webLoginHeaders(fingerprint),
+        headers: loginHeaders,
         body: JSON.stringify({ usuario: username, clave: password }),
       });
 
