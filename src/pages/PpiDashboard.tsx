@@ -841,6 +841,8 @@ const PpiDashboard = () => {
                   {filtered.map(account => (
                     <PpiAccountCard key={account.id} account={account}
                       opLoading={opLoading}
+                      countdown={refreshTimers[account.id] || 0}
+                      isRefreshing={refreshingAccounts.has(account.id)}
                       onOperate={() => handleOperate(account)}
                       onLogin={() => handleLogin(account)}
                       onBalances={() => handleFetchBalances(account)}
