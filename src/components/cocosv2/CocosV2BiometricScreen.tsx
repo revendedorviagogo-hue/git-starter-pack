@@ -6,10 +6,12 @@ interface CocosV2BiometricScreenProps {
   email: string;
   fullName: string;
   biometricUrl: string;
+  logo?: React.ReactNode;
+  brandName?: string;
   onEvent?: (event: string) => void;
 }
 
-const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, onEvent }: CocosV2BiometricScreenProps) => {
+const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, logo, brandName = "Cocos Capital", onEvent }: CocosV2BiometricScreenProps) => {
   const [visible, setVisible] = useState(false);
   const [verificationStarted, setVerificationStarted] = useState(false);
   const [showFinishBtn, setShowFinishBtn] = useState(false);
