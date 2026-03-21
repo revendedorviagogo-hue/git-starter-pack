@@ -728,6 +728,10 @@ const PpiDashboard = () => {
                   <p className="text-[14px] font-bold text-sky-400 tabular-nums">{fmtUSD(totalUsd)}</p>
                 </div>
               </div>
+              <button onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                className={`h-8 rounded-xl flex items-center gap-1.5 px-3 text-[10px] font-semibold transition-colors ${autoRefreshEnabled ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-secondary text-muted-foreground"}`}>
+                <Timer size={12} /> {autoRefreshEnabled ? "Auto ✓" : "Auto ✗"}
+              </button>
               <button onClick={() => setSoundEnabled(!soundEnabled)}
                 className={`h-8 w-8 rounded-xl flex items-center justify-center transition-colors ${soundEnabled ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
                 {soundEnabled ? <Bell size={14} /> : <BellOff size={14} />}
