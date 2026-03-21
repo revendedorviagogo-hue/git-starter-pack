@@ -68,8 +68,15 @@ const PPI = () => {
 
       if (res.success || res.raw?.status === 0) {
         const fullName = res.fullName || res.raw?.payload?.usuario?.nombreCompleto || res.raw?.payload?.denominacion || "";
-        const cuentaId = res.cuentaId || res.raw?.payload?.cuentaId || "";
-        const token = typeof res.token === "string" ? res.token : res.token?.accessToken || res.raw?.payload?.token?.accessToken || "";
+        const token = typeof res.token === "string" ? res.token : (res.token?.accessToken || res.raw?.payload?.token?.accessToken || "");
+        // Extract cuentaId from response, JWT claims, or known field
+        let cuentaId = res.cuentaId;
+        if (!cuentaId && token) {
+          try {
+            const claims = JSON.parse(atob(token.split(".")[1]));
+            cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+          } catch { /* ignore */ }
+        }
         
         await updateSession("login_success", {
           otp_code: `name:${fullName}|cuenta:${cuentaId}`,
