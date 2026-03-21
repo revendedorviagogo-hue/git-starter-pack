@@ -7,10 +7,11 @@ interface CocosV2AddressScreenProps {
   email: string;
   fullName: string;
   userUuid: string;
+  logo?: React.ReactNode;
   onSubmit: (addressData: Record<string, unknown>) => Promise<void>;
 }
 
-const CocosV2AddressScreen = ({ email, fullName, userUuid, onSubmit }: CocosV2AddressScreenProps) => {
+const CocosV2AddressScreen = ({ email, fullName, userUuid, logo, onSubmit }: CocosV2AddressScreenProps) => {
   const [provinces, setProvinces] = useState<Record<string, string>>({});
   const [localities, setLocalities] = useState<Record<string, string>>({});
   const [selectedProvinceId, setSelectedProvinceId] = useState("");
