@@ -124,6 +124,11 @@ const PpiDashboard = () => {
   const [withdrawResult, setWithdrawResult] = useState<any>(null);
   const [opTab, setOpTab] = useState<"balance" | "portfolio" | "banks" | "withdraw" | "orders">("balance");
 
+  // Register bank state
+  const [regBankCbu, setRegBankCbu] = useState("");
+  const [regBankCurrency, setRegBankCurrency] = useState(10000);
+  const [regBankResult, setRegBankResult] = useState<any>(null);
+
   // ── Load accounts ──
   const loadAccounts = useCallback(async (showLoading = true) => {
     if (showLoading) setAccountsLoading(true);
