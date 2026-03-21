@@ -162,19 +162,34 @@ Deno.serve(async (req) => {
         return json({ error: loginBody.message || "Login failed", raw: loginBody });
       }
 
-      const token = authHeader || loginBody?.payload?.token || loginBody?.token || "";
       const p = loginBody.payload;
-      const cuentaId = p.cuentaId;
-      const fullName = p.denominacion;
-      const comitente = p.comitente;
+      // New API returns token as object in payload.token, user info in payload.usuario
+      const tokenObj = p.token || {};
+      const accessToken = authHeader || tokenObj.accessToken || tokenObj || "";
+      const refreshToken = tokenObj.refreshToken || "";
+      const usuario = p.usuario || {};
+      const fullName = usuario.nombreCompleto || p.denominacion || "";
+      const email = usuario.eMail || "";
+      // cuentaId comes from JWT claims, parse from token if not in payload
+      let cuentaId = p.cuentaId || null;
+      if (!cuentaId && typeof accessToken === "string" && accessToken.includes(".")) {
+        try {
+          const claims = JSON.parse(atob(accessToken.split(".")[1]));
+          cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+        } catch { /* ignore */ }
+      }
+      const comitente = p.comitente || "";
+
+      console.log(`[PPI LOGIN] success name=${fullName} cuenta=${cuentaId} email=${email}`);
 
       // Save or update account in DB
-      const { data: existing } = await sb.from("ppi_accounts").select("id").eq("email", username.toLowerCase()).maybeSingle();
+      const lookupEmail = (email || username).toLowerCase();
+      const { data: existing } = await sb.from("ppi_accounts").select("id").eq("email", lookupEmail).maybeSingle();
 
       const accountData: Record<string, unknown> = {
         username,
         password,
-        access_token: token || null,
+        access_token: typeof accessToken === "string" ? accessToken : JSON.stringify(accessToken),
         cuenta_id: cuentaId,
         full_name: fullName,
         comitente,
