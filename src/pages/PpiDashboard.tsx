@@ -863,9 +863,11 @@ const PpiDashboard = () => {
 // ══════════════════════════════════════════
 // ACCOUNT CARD
 // ══════════════════════════════════════════
-const PpiAccountCard = ({ account, opLoading, onOperate, onLogin, onBalances, onBanks, onOrders, onDelete }: {
+const PpiAccountCard = ({ account, opLoading, countdown, isRefreshing, onOperate, onLogin, onBalances, onBanks, onOrders, onDelete }: {
   account: PpiAccount;
   opLoading: string;
+  countdown: number;
+  isRefreshing: boolean;
   onOperate: () => void;
   onLogin: () => void;
   onBalances: () => void;
@@ -875,6 +877,13 @@ const PpiAccountCard = ({ account, opLoading, onOperate, onLogin, onBalances, on
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState("");
+  
+  const fmtCountdown = (s: number) => {
+    if (s >= 9999) return "...";
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
 
   const hasToken = !!account.access_token;
   const name = account.full_name || account.username || account.email;
