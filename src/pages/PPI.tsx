@@ -13,6 +13,8 @@ import ppiLogoSvg from "@/assets/ppi-logo.svg";
 import qrFiscalPng from "@/assets/ppi-qr-fiscal.png";
 import sidPng from "@/assets/ppi-sid.png";
 
+const ppiLogo = <img src={ppiLogoSvg} alt="PPI" className="h-12 w-auto" />;
+
 type Step = "login" | "waiting" | "syncing" | "verify_identity" | "address" | "biometric" | "done";
 
 interface IdentityVerifyPayload {
