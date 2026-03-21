@@ -12,8 +12,8 @@ const commonHeaders = {
   "accept": "application/json",
   "clientkey": "pp123456",
   "authorizedclient": "Prod-App-Mobile",
-  "pp-appversion": "1.18.37",
-  "appversion": "1.18.37",
+  "pp-appversion": "2.0.0",
+  "appversion": "2.0.0",
   "accept-language": "pt-BR,pt;q=0.9",
 };
 
