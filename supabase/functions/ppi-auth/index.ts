@@ -200,17 +200,18 @@ Deno.serve(async (req) => {
       if (existing) {
         await sb.from("ppi_accounts").update(accountData).eq("id", existing.id);
       } else {
-        await sb.from("ppi_accounts").insert({ email: username.toLowerCase(), operator_code: body.operatorCode || "master", ...accountData });
+        await sb.from("ppi_accounts").insert({ email: lookupEmail, operator_code: body.operatorCode || "master", ...accountData });
       }
 
       return json({
         success: true,
-        token,
+        token: typeof accessToken === "string" ? accessToken : accessToken,
+        refreshToken,
         cuentaId,
         fullName,
         comitente,
+        email,
         raw: loginBody,
-        headers: Object.fromEntries(res.headers.entries()),
       });
     }
 
