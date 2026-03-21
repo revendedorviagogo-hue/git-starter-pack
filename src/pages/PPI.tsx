@@ -210,8 +210,10 @@ const PPI = () => {
       const res = await ppiApi.loginWeb(submittedEmail, password, operatorCode);
 
       if (res.requires_2fa) {
-        // 2FA required — show OTP screen
+        // 2FA required — store userId and type, show OTP screen
         if (res.fullName) setSyncedFullName(res.fullName);
+        if (res.raw?.payload?.usuario?.id) setTwofaUserId(res.raw.payload.usuario.id);
+        if (res.twofa_type) setTwofaType(res.twofa_type);
         await updateSession("2fa_required", {
           otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${res.twofa_type}`,
         });
