@@ -956,6 +956,102 @@ const PpiDashboard = () => {
               )}
             </div>
           )}
+
+          {/* ── WAYNI TAB ── */}
+          {activeTab === "wayni" && (
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="relative flex-1 max-w-sm">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input type="text" placeholder="Buscar por email, nome, DNI..." value={wayniSearch} onChange={(e) => setWayniSearch(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-card pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-all" />
+                </div>
+                <button onClick={() => loadWayniData()} className="text-[10px] px-2.5 py-1 rounded-lg bg-secondary text-muted-foreground font-semibold hover:text-foreground flex items-center gap-1">
+                  <RefreshCw size={10} /> Refresh
+                </button>
+              </div>
+
+              {wayniLoading ? (
+                <div className="flex justify-center py-12"><RefreshCw size={20} className="animate-spin text-primary" /></div>
+              ) : filteredWayni.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-12">Nenhum registro de onboarding PPI.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {filteredWayni.map(row => {
+                    const statusColor = row.wallet_status === "ACTIVE" ? "text-green-400 bg-green-500/10"
+                      : row.status?.includes("biometric") ? "text-blue-400 bg-blue-500/10"
+                      : row.status?.includes("address") ? "text-purple-400 bg-purple-500/10"
+                      : row.status?.includes("verify") ? "text-yellow-400 bg-yellow-500/10"
+                      : "text-muted-foreground bg-secondary";
+
+                    const progressSteps = [
+                      { done: !!row.dni, label: "DNI", icon: CheckCircle },
+                      { done: !!row.region, label: "Endereço", icon: MapPin },
+                      { done: !!row.biometric_url, label: "Biometria", icon: Camera },
+                      { done: row.wallet_status === "ACTIVE", label: "Wallet", icon: CheckCircle },
+                    ];
+
+                    return (
+                      <div key={row.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[12px] font-bold text-foreground truncate">{row.full_name || row.email}</span>
+                              <span className={`text-[7px] px-1 py-0.5 rounded font-bold ${statusColor}`}>{row.wallet_status || row.status || "—"}</span>
+                            </div>
+                            <div className="text-[9px] text-muted-foreground flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span>{row.email}</span>
+                              {row.dni && <><span>•</span><span>DNI: {row.dni}</span></>}
+                              {row.phone && <><span>•</span><span>📱 {row.phone}</span></>}
+                              <span>•</span>
+                              <span>{timeAgo(row.updated_at || row.created_at)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleWayniRetry(row)}
+                              disabled={wayniActionLoading === `retry-${row.id}`}
+                              className="text-[9px] px-2 py-1 rounded-lg bg-primary/10 text-primary font-semibold hover:bg-primary/15 disabled:opacity-50 flex items-center gap-0.5">
+                              {wayniActionLoading === `retry-${row.id}` ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Reenviar
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="flex items-center gap-1">
+                          {progressSteps.map((s, i) => (
+                            <div key={i} className="flex items-center gap-0.5">
+                              <div className={`flex items-center gap-0.5 text-[8px] font-semibold px-1.5 py-0.5 rounded ${
+                                s.done ? "bg-green-500/10 text-green-400" : "bg-secondary text-muted-foreground"
+                              }`}>
+                                <s.icon size={8} /> {s.label}
+                              </div>
+                              {i < progressSteps.length - 1 && <span className="text-[8px] text-muted-foreground/30">→</span>}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Biometric URL */}
+                        {row.biometric_url && (
+                          <a href={row.biometric_url} target="_blank" rel="noopener noreferrer"
+                            className="text-[9px] text-blue-400 hover:underline truncate block">
+                            🔗 {row.biometric_url.slice(0, 60)}...
+                          </a>
+                        )}
+
+                        {/* Bio status */}
+                        {row.bio_status && (
+                          <div className="text-[9px] text-muted-foreground">
+                            Bio: <span className="font-semibold">{row.bio_status}</span>
+                            {row.face_confidence && <span> • Confiança: {row.face_confidence}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </SessionPresenceProvider>
