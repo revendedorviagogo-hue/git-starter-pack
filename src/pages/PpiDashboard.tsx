@@ -100,7 +100,7 @@ const PpiDashboard = () => {
   const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
   const canAccess = isAdmin || hasRole;
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"sessions" | "accounts">("accounts");
+  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "wayni">("accounts");
 
   // Accounts
   const [accounts, setAccounts] = useState<PpiAccount[]>([]);
