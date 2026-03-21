@@ -285,7 +285,7 @@ const PPI = () => {
     setError("");
     try {
       await updateSession("2fa_submitted", { otp_code: `code:${code}` });
-      const res = await ppiApi.validate2fa(code, lastUsernameRef.current);
+      const res = await ppiApi.validate2fa(code, lastUsernameRef.current, twofaUserId || undefined, twofaType);
 
       if (res.success) {
         const fullName = res.fullName || "";
