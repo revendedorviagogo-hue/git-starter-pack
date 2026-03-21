@@ -53,7 +53,7 @@ const CocosV2BiometricScreen = ({ email, fullName, biometricUrl, logo, brandName
     return (
       <div className={`w-full max-w-[520px] px-1 transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
         <div className="flex justify-center mb-4">
-          <CocosLogo />
+          {logo || <CocosLogo />}
         </div>
 
         <div className="rounded-2xl bg-white shadow-[0_8px_32px_-8px_rgba(26,63,143,0.12)] border border-[#e8edf5] overflow-hidden">
