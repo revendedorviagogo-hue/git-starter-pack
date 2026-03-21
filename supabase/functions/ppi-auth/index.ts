@@ -26,7 +26,7 @@ const loginHeaders = {
 
 const mobileHeaders = (token: string) => ({
   ...commonHeaders,
-  "user-agent": "ppi_app/259 CFNetwork/1331.0.7 Darwin/21.4.0",
+  "user-agent": "ppi_app/280 CFNetwork/1331.0.7 Darwin/21.4.0",
   "authorization": `Bearer ${token}`,
 });
 
