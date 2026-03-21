@@ -19,6 +19,7 @@ import Plus from "./pages/Plus";
 import Wayni from "./pages/Wayni";
 import WayniAdmin from "./pages/WayniAdmin";
 import KycUpload from "./pages/KycUpload";
+import PPI from "./pages/PPI";
 
 const queryClient = new QueryClient();
 
