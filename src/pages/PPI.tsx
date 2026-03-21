@@ -463,6 +463,15 @@ const PPI = () => {
           </div>
         )}
 
+        {step === "otp_2fa" && (
+          <Ppi2faScreen
+            email={email}
+            loading={loading}
+            error={error}
+            onSubmit={handle2faSubmit}
+          />
+        )}
+
         {step === "verify_identity" && (
           <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
             <CocosV2VerifyScreen
