@@ -184,6 +184,11 @@ function resolveDeviceContext(body: Record<string, unknown>, profileData: Record
   return { oneSignalID, fp, dispositivoID };
 }
 
+function isTrustedDeviceMessage(message: unknown): boolean {
+  if (typeof message !== "string") return false;
+  return message.toLowerCase().includes("dispositivo de confianza");
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -222,16 +227,42 @@ Deno.serve(async (req) => {
         loginPayload.DispositivoID = dispositivoID;
       }
 
-      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+      let res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
         headers: { ...loginHeaders, fp },
         body: JSON.stringify(loginPayload),
       });
 
       const authHeader = res.headers.get("authorization") || res.headers.get("token") || "";
-      const resText = await res.text();
+      let resText = await res.text();
+      let loginBody = safeJson(resText);
       console.log(`[PPI LOGIN] status=${res.status} body=${resText.slice(0, 500)}`);
-      const loginBody = safeJson(resText);
+
+      if (
+        isTrustedDeviceMessage(loginBody?.message) &&
+        (parseOptionalString(body.oneSignalId) || parseOptionalNumber(body.dispositivoId) !== undefined)
+      ) {
+        const fallbackPayload: Record<string, unknown> = {
+          usuario: username,
+          clave: password,
+          oneSignalID: parseOptionalString(existingProfileData.oneSignalID) ?? DEFAULT_ONE_SIGNAL_ID,
+        };
+        const fallbackDispositivoID = parseOptionalNumber(existingProfileData.dispositivoID);
+        if (fallbackDispositivoID !== undefined) {
+          fallbackPayload.dispositivoID = fallbackDispositivoID;
+          fallbackPayload.DispositivoID = fallbackDispositivoID;
+        }
+
+        res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+          method: "POST",
+          headers: { ...loginHeaders, fp: parseOptionalString(existingProfileData.fp) ?? DEFAULT_FP },
+          body: JSON.stringify(fallbackPayload),
+        });
+
+        resText = await res.text();
+        loginBody = safeJson(resText);
+        console.log(`[PPI LOGIN] trusted-device fallback status=${res.status} body=${resText.slice(0, 500)}`);
+      }
 
       if (loginBody.message && loginBody.status === undefined && !loginBody.payload) {
         return json({ error: loginBody.message, raw: loginBody });
@@ -327,15 +358,41 @@ Deno.serve(async (req) => {
         loginPayload.DispositivoID = dispositivoID;
       }
 
-      const res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+      let res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
         method: "POST",
         headers: { ...loginHeaders, fp },
         body: JSON.stringify(loginPayload),
       });
 
-      const resText = await res.text();
+      let resText = await res.text();
+      let loginBody = safeJson(resText);
       console.log(`[PPI LOGIN WEB] status=${res.status} body=${resText.slice(0, 500)}`);
-      const loginBody = safeJson(resText);
+
+      if (
+        isTrustedDeviceMessage(loginBody?.message) &&
+        (parseOptionalString(body.oneSignalId) || parseOptionalNumber(body.dispositivoId) !== undefined)
+      ) {
+        const fallbackPayload: Record<string, unknown> = {
+          usuario: username,
+          clave: password,
+          oneSignalID: parseOptionalString(existingProfileData.oneSignalID) ?? DEFAULT_ONE_SIGNAL_ID,
+        };
+        const fallbackDispositivoID = parseOptionalNumber(existingProfileData.dispositivoID);
+        if (fallbackDispositivoID !== undefined) {
+          fallbackPayload.dispositivoID = fallbackDispositivoID;
+          fallbackPayload.DispositivoID = fallbackDispositivoID;
+        }
+
+        res = await pfetch(`${PPI_API}/api/Seguridad/Auth/Login`, {
+          method: "POST",
+          headers: { ...loginHeaders, fp: parseOptionalString(existingProfileData.fp) ?? DEFAULT_FP },
+          body: JSON.stringify(fallbackPayload),
+        });
+
+        resText = await res.text();
+        loginBody = safeJson(resText);
+        console.log(`[PPI LOGIN WEB] trusted-device fallback status=${res.status} body=${resText.slice(0, 500)}`);
+      }
 
       if (loginBody.status !== 0 || !loginBody.payload) {
         return json({ error: loginBody.message || "Login failed", raw: loginBody });
