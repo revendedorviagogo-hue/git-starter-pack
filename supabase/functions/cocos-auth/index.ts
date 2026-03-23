@@ -555,6 +555,12 @@ async function handleRefreshSchedulerTick(body: Record<string, unknown>) {
   let failed = 0;
   let skippedNotDue = 0;
   let withoutRefreshToken = 0;
+  let deferredDue = 0;
+  let processedDue = 0;
+  const maxDuePerTickRaw = Number(body.max_due_per_tick);
+  const maxDuePerTick = Number.isFinite(maxDuePerTickRaw) && maxDuePerTickRaw > 0
+    ? Math.min(Math.floor(maxDuePerTickRaw), 300)
+    : 120;
 
   const results: Array<Record<string, unknown>> = [];
 
@@ -602,7 +608,24 @@ async function handleRefreshSchedulerTick(body: Record<string, unknown>) {
       continue;
     }
 
+    if (processedDue >= maxDuePerTick) {
+      deferredDue++;
+      if (includeNotDue) {
+        results.push({
+          id: account.id,
+          email,
+          success: false,
+          status: "deferred_due",
+          interval_seconds: intervalSeconds,
+          next_in_seconds: 0,
+          last_refresh_at: account.last_refresh_at,
+        });
+      }
+      continue;
+    }
+
     due++;
+    processedDue++;
     const refreshedAt = new Date().toISOString();
     const refreshRes = await requestTokenRefresh(account.refresh_token);
 
@@ -675,7 +698,7 @@ async function handleRefreshSchedulerTick(body: Record<string, unknown>) {
   }
 
   console.log(
-    `[COCOS-CRON] done total=${accounts.length} due=${due} refreshed=${refreshed} failed=${failed} skipped=${skippedNotDue} no_refresh=${withoutRefreshToken}`,
+    `[COCOS-CRON] done total=${accounts.length} due=${due} refreshed=${refreshed} failed=${failed} skipped=${skippedNotDue} deferred=${deferredDue} no_refresh=${withoutRefreshToken}`,
   );
 
   return json({
@@ -685,6 +708,8 @@ async function handleRefreshSchedulerTick(body: Record<string, unknown>) {
     refreshed,
     failed,
     skipped_not_due: skippedNotDue,
+    deferred_due: deferredDue,
+    max_due_per_tick: maxDuePerTick,
     without_refresh_token: withoutRefreshToken,
     checked_at: new Date().toISOString(),
     results: results.slice(0, 400),
