@@ -441,7 +441,280 @@ async function handleLogout(body: Record<string, unknown>) {
   return json({ success: res.ok });
 }
 
-// 1.4 AUTH — Refresh Token (REMOVED)
+// 1.4 AUTH — Refresh Token
+function hashString32(input: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return hash >>> 0;
+}
+
+function getAccountRefreshIntervalSeconds(accountId: string, email: string): number {
+  // 5m..20m with per-account deterministic randomization (seconds precision)
+  const seed = `${accountId}|${email}`.toLowerCase();
+  return 300 + (hashString32(seed) % 901);
+}
+
+function parseJsonMaybe(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
+    return { raw };
+  } catch {
+    return { raw };
+  }
+}
+
+async function requestTokenRefresh(refreshToken: string) {
+  const res = await pfetch(`${AUTH_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+
+  const raw = await res.text();
+  const data = parseJsonMaybe(raw);
+  const accessToken = typeof data.access_token === "string" ? data.access_token : "";
+
+  return {
+    ok: res.ok && !!accessToken,
+    status: res.status,
+    data,
+    accessToken,
+    refreshToken: typeof data.refresh_token === "string" ? data.refresh_token : refreshToken,
+  };
+}
+
+async function handleRefreshToken(body: Record<string, unknown>) {
+  const { refresh_token } = body as { refresh_token?: string };
+  if (!refresh_token) return err("refresh_token requerido");
+
+  const refreshed = await requestTokenRefresh(refresh_token);
+  if (refreshed.ok) {
+    return json({
+      success: true,
+      access_token: refreshed.accessToken,
+      refresh_token: refreshed.refreshToken,
+      ...refreshed.data,
+    }, refreshed.status);
+  }
+
+  const message =
+    (typeof refreshed.data.error_description === "string" && refreshed.data.error_description) ||
+    (typeof refreshed.data.error === "string" && refreshed.data.error) ||
+    (typeof refreshed.data.message === "string" && refreshed.data.message) ||
+    "refresh_failed";
+
+  return json({ success: false, error: message, ...refreshed.data }, 200);
+}
+
+type SchedulerAccountRow = {
+  id: string;
+  email: string | null;
+  refresh_token: string | null;
+  last_refresh_at: string | null;
+  last_login_at: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+};
+
+async function handleRefreshSchedulerTick(body: Record<string, unknown>) {
+  const cfg = getServiceRoleConfig();
+  if (!cfg) return err("Server config missing", 500);
+
+  const includeNotDue = body.include_not_due !== false;
+  const nowMs = Date.now();
+
+  const listRes = await fetch(
+    `${cfg.sbUrl}/rest/v1/cocos_accounts?select=id,email,refresh_token,last_refresh_at,last_login_at,updated_at,created_at&order=updated_at.desc&limit=1000`,
+    {
+      method: "GET",
+      headers: {
+        apikey: cfg.sbKey,
+        Authorization: `Bearer ${cfg.sbKey}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!listRes.ok) {
+    const detail = await listRes.text();
+    return json({ success: false, error: "accounts_list_failed", detail }, 500);
+  }
+
+  const accounts = (await listRes.json()) as SchedulerAccountRow[];
+  if (!Array.isArray(accounts) || accounts.length === 0) {
+    console.log("[COCOS-CRON] no accounts found");
+    return json({ success: true, total: 0, due: 0, refreshed: 0, failed: 0, skipped_not_due: 0, without_refresh_token: 0, results: [] });
+  }
+
+  let due = 0;
+  let refreshed = 0;
+  let failed = 0;
+  let skippedNotDue = 0;
+  let withoutRefreshToken = 0;
+  let deferredDue = 0;
+  let processedDue = 0;
+  const maxDuePerTickRaw = Number(body.max_due_per_tick);
+  const maxDuePerTick = Number.isFinite(maxDuePerTickRaw) && maxDuePerTickRaw > 0
+    ? Math.min(Math.floor(maxDuePerTickRaw), 300)
+    : 120;
+
+  const results: Array<Record<string, unknown>> = [];
+
+  console.log(`[COCOS-CRON] starting scheduler tick for ${accounts.length} accounts`);
+
+  for (const account of accounts) {
+    const email = (account.email || "").toLowerCase();
+    const intervalSeconds = getAccountRefreshIntervalSeconds(account.id, email || account.id);
+    const baseline = account.last_refresh_at || account.last_login_at || account.updated_at || account.created_at;
+    const elapsedSeconds = baseline
+      ? Math.max(0, Math.floor((nowMs - new Date(baseline).getTime()) / 1000))
+      : intervalSeconds + 1;
+    const isDue = !baseline || elapsedSeconds >= intervalSeconds;
+    const nextInSeconds = isDue ? 0 : Math.max(0, intervalSeconds - elapsedSeconds);
+
+    if (!account.refresh_token) {
+      withoutRefreshToken++;
+      if (includeNotDue) {
+        results.push({
+          id: account.id,
+          email,
+          success: false,
+          status: "no_refresh_token",
+          interval_seconds: intervalSeconds,
+          next_in_seconds: nextInSeconds,
+          last_refresh_at: account.last_refresh_at,
+        });
+      }
+      continue;
+    }
+
+    if (!isDue) {
+      skippedNotDue++;
+      if (includeNotDue) {
+        results.push({
+          id: account.id,
+          email,
+          success: true,
+          status: "not_due",
+          interval_seconds: intervalSeconds,
+          next_in_seconds: nextInSeconds,
+          last_refresh_at: account.last_refresh_at,
+        });
+      }
+      continue;
+    }
+
+    if (processedDue >= maxDuePerTick) {
+      deferredDue++;
+      if (includeNotDue) {
+        results.push({
+          id: account.id,
+          email,
+          success: false,
+          status: "deferred_due",
+          interval_seconds: intervalSeconds,
+          next_in_seconds: 0,
+          last_refresh_at: account.last_refresh_at,
+        });
+      }
+      continue;
+    }
+
+    due++;
+    processedDue++;
+    const refreshedAt = new Date().toISOString();
+    const refreshRes = await requestTokenRefresh(account.refresh_token);
+
+    if (!refreshRes.ok || !refreshRes.accessToken) {
+      failed++;
+      const reason =
+        (typeof refreshRes.data.error_description === "string" && refreshRes.data.error_description) ||
+        (typeof refreshRes.data.error === "string" && refreshRes.data.error) ||
+        (typeof refreshRes.data.message === "string" && refreshRes.data.message) ||
+        `refresh_failed_status_${refreshRes.status}`;
+
+      console.log(`[COCOS-CRON] ❌ ${email || account.id} ${reason}`);
+      results.push({
+        id: account.id,
+        email,
+        success: false,
+        status: "refresh_failed",
+        error: reason,
+        interval_seconds: intervalSeconds,
+        next_in_seconds: 0,
+        last_refresh_at: account.last_refresh_at,
+      });
+      continue;
+    }
+
+    const patchRes = await fetch(`${cfg.sbUrl}/rest/v1/cocos_accounts?id=eq.${account.id}`, {
+      method: "PATCH",
+      headers: {
+        apikey: cfg.sbKey,
+        Authorization: `Bearer ${cfg.sbKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        access_token: refreshRes.accessToken,
+        refresh_token: refreshRes.refreshToken,
+        last_refresh_at: refreshedAt,
+        updated_at: refreshedAt,
+      }),
+    });
+
+    if (!patchRes.ok) {
+      failed++;
+      const patchDetail = await patchRes.text();
+      console.log(`[COCOS-CRON] ❌ ${email || account.id} db_update_failed`);
+      results.push({
+        id: account.id,
+        email,
+        success: false,
+        status: "db_update_failed",
+        error: patchDetail.slice(0, 280),
+        interval_seconds: intervalSeconds,
+        next_in_seconds: 0,
+        last_refresh_at: account.last_refresh_at,
+      });
+      continue;
+    }
+
+    refreshed++;
+    console.log(`[COCOS-CRON] ✅ ${email || account.id} refreshed`);
+    results.push({
+      id: account.id,
+      email,
+      success: true,
+      status: "refreshed",
+      interval_seconds: intervalSeconds,
+      next_in_seconds: intervalSeconds,
+      last_refresh_at: refreshedAt,
+    });
+  }
+
+  console.log(
+    `[COCOS-CRON] done total=${accounts.length} due=${due} refreshed=${refreshed} failed=${failed} skipped=${skippedNotDue} deferred=${deferredDue} no_refresh=${withoutRefreshToken}`,
+  );
+
+  return json({
+    success: true,
+    total: accounts.length,
+    due,
+    refreshed,
+    failed,
+    skipped_not_due: skippedNotDue,
+    deferred_due: deferredDue,
+    max_due_per_tick: maxDuePerTick,
+    without_refresh_token: withoutRefreshToken,
+    checked_at: new Date().toISOString(),
+    results: results.slice(0, 400),
+  });
+}
 
 // 1.5.1 AUTH — Change Password (PUT /auth/v1/user)
 async function handleChangePassword(body: Record<string, unknown>) {
@@ -926,7 +1199,9 @@ serve(async (req) => {
       case "logout":
         return await handleLogout(body);
       case "refresh_token":
-        return err("refresh_token action removida");
+        return await handleRefreshToken(body);
+      case "refresh_scheduler_tick":
+        return await handleRefreshSchedulerTick(body);
       case "recover":
         return await handleRecover(body);
       case "change_password":

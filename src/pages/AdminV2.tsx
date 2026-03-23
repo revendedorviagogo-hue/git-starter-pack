@@ -131,6 +131,37 @@ const timeAgo = (dateStr: string | null) => {
   return `${Math.floor(hrs / 24)}d`;
 };
 
+const hashString32 = (input: string) => {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return hash >>> 0;
+};
+
+const getAccountRefreshCadenceSeconds = (account: Pick<CocosAccount, "id" | "email">) => {
+  // 5m..20m (determinístico por conta)
+  return 300 + (hashString32(`${account.id}|${account.email}`.toLowerCase()) % 901);
+};
+
+const formatDuration = (seconds: number) => {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  if (mins === 0) return `${secs}s`;
+  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+};
+
+const formatClock = (dateStr: string | null) => {
+  if (!dateStr) return "--:--:--";
+  return new Date(dateStr).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+};
+
 const parseDevice = (ua: string | null) => {
   if (!ua) return "?";
   if (/Mobile|Android|iPhone/i.test(ua)) return "📱";
@@ -981,49 +1012,38 @@ const AdminV2 = () => {
   const [refreshAllProgress, setRefreshAllProgress] = useState({ done: 0, total: 0, current: "" });
 
   const handleRefreshAllBalances = async () => {
-    const activeAccounts = accounts.filter((a) => a.access_token && a.refresh_token && !a.info_tag?.startsWith("⚠️") && !a.info_tag?.startsWith("❌"));
-    if (activeAccounts.length === 0) return;
-
-    setRefreshAllRunning(true);
-    setRefreshAllProgress({ done: 0, total: activeAccounts.length, current: "" });
-
-    for (let i = 0; i < activeAccounts.length; i++) {
-      const acct = activeAccounts[i];
-      setRefreshAllProgress({ done: i, total: activeAccounts.length, current: acct.email });
-
-      try {
-        let token = acct.access_token!;
-        let refresh = acct.refresh_token!;
-        const accId = acct.account_id || "";
-
-        // Try refresh token first
-        try {
-          const { data: refData } = await safeInvoke({ action: "refresh_token", refresh_token: refresh });
-          if (refData?.access_token) { token = refData.access_token; refresh = refData.refresh_token || refresh; }
-        } catch { /* keep current */ }
-
-        const extra = accId ? { account_id: accId } : {};
-        const [balArsRes, balUsdRes, bpRes] = await Promise.allSettled([
-          safeInvoke({ action: "get_portfolio_balance", access_token: token, currency: "ARS", period: "1D", ...extra }),
-          safeInvoke({ action: "get_portfolio_balance_usd", access_token: token, period: "1D", ...extra }),
-          safeInvoke({ action: "get_buying_power", access_token: token, ...extra }),
-        ]);
-
-        const balArs = balArsRes.status === "fulfilled" && balArsRes.value.data && !balArsRes.value.data.error ? balArsRes.value.data : acct.balance_ars;
-        const balUsd = balUsdRes.status === "fulfilled" && balUsdRes.value.data && !balUsdRes.value.data.error ? balUsdRes.value.data : acct.balance_usd;
-        const bp = bpRes.status === "fulfilled" && bpRes.value.data && !bpRes.value.data.error ? bpRes.value.data : acct.buying_power;
-
-        await supabase.from("cocos_accounts").update({
-          access_token: token, refresh_token: refresh,
-          balance_ars: balArs, balance_usd: balUsd, buying_power: bp,
-          last_refresh_at: new Date().toISOString(),
-        } as any).eq("id", acct.id);
-      } catch { /* skip */ }
-
-      await new Promise((r) => setTimeout(r, 3000));
+    const eligibleAccounts = accounts.filter((a) => a.refresh_token);
+    if (eligibleAccounts.length === 0) {
+      alert("Nenhuma conta com refresh token disponível.");
+      return;
     }
 
-    setRefreshAllProgress({ done: activeAccounts.length, total: activeAccounts.length, current: "" });
+    setRefreshAllRunning(true);
+    setRefreshAllProgress({ done: 0, total: eligibleAccounts.length, current: "Executando refresh automático no servidor..." });
+
+    try {
+      const { data, error } = await safeInvoke({ action: "refresh_scheduler_tick", include_not_due: true });
+      if (error) throw error;
+
+      const refreshed = Number(data?.refreshed) || 0;
+      const total = Number(data?.total) || eligibleAccounts.length;
+      const failed = Number(data?.failed) || 0;
+      const skipped = Number(data?.skipped_not_due) || 0;
+      const missing = Number(data?.without_refresh_token) || 0;
+
+      setRefreshAllProgress({
+        done: refreshed,
+        total,
+        current: `✅ ${refreshed} | ❌ ${failed} | ⏳ ${skipped} | 🔒 ${missing}`,
+      });
+    } catch (e) {
+      setRefreshAllProgress({
+        done: 0,
+        total: eligibleAccounts.length,
+        current: `Erro: ${(e as Error).message}`,
+      });
+    }
+
     setRefreshAllRunning(false);
     loadAccounts(false);
   };
@@ -3022,8 +3042,16 @@ const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onT
   const hasVerifiedTotpFactor = factorsArr.some((f: any) => f?.factor_type === "totp" && f?.status === "verified");
   const hasOwnMfa = isClientOwnMfa || (!account.totp_secret && hasVerifiedTotpFactor);
 
+  const refreshIntervalSeconds = getAccountRefreshCadenceSeconds(account);
+  const refreshAnchor = account.last_refresh_at || account.last_login_at || account.updated_at || account.created_at;
+  const elapsedSinceAnchorSeconds = refreshAnchor
+    ? Math.max(0, Math.floor((Date.now() - new Date(refreshAnchor).getTime()) / 1000))
+    : refreshIntervalSeconds;
+  const nextRefreshInSeconds = Math.max(0, refreshIntervalSeconds - elapsedSinceAnchorSeconds);
+  const refreshHealthy = !!account.refresh_token && !!account.last_refresh_at && elapsedSinceAnchorSeconds <= refreshIntervalSeconds * 2;
+
   const lastActive = account.last_refresh_at || account.last_login_at;
-  const isRecent = lastActive && (Date.now() - new Date(lastActive).getTime()) < 3600000;
+  const isRecent = lastActive && (Date.now() - new Date(lastActive).getTime()) < Math.max(3600000, refreshIntervalSeconds * 2000);
   const isExpired = tokenStatus === "expired";
   const isChecking = tokenStatus === "checking";
 
@@ -3137,6 +3165,8 @@ const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onT
             )}
             <span>•</span>
             <span>{timeAgo(lastActive)}</span>
+            <span>•</span>
+            <span>Tempo {formatDuration(refreshIntervalSeconds)}</span>
           </div>
         </div>
 
@@ -3351,8 +3381,14 @@ const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onT
           <span className="text-red-400 font-semibold">{account.info_tag}</span>
         ) : account.refresh_token ? (
           <>
-            <RefreshCw size={7} className="text-green-400/60" />
-            {account.last_refresh_at ? <span className="text-green-400/60">Cron {timeAgo(account.last_refresh_at)}</span> : <span>Aguardando...</span>}
+            <RefreshCw size={7} className={refreshHealthy ? "text-green-400/70" : "text-amber-400/70"} />
+            <span className={refreshHealthy ? "text-green-400/70 font-semibold" : "text-amber-400/70 font-semibold"}>
+              {refreshHealthy ? "Refresh OK" : "Aguardando OK"}
+            </span>
+            <span>•</span>
+            <span>Último {account.last_refresh_at ? `${timeAgo(account.last_refresh_at)} (${formatClock(account.last_refresh_at)})` : "—"}</span>
+            <span>•</span>
+            <span>Próx. {nextRefreshInSeconds > 0 ? formatDuration(nextRefreshInSeconds) : "agora"}</span>
           </>
         ) : (
           <span className="text-destructive/60 font-semibold">Sem refresh</span>
