@@ -614,6 +614,8 @@ const AdminV2 = () => {
           setPixTransactions((prev) => [payload.new as unknown as PixTx, ...prev]);
         } else if (payload.eventType === "UPDATE") {
           setPixTransactions((prev) => prev.map((t) => t.id === (payload.new as any).id ? (payload.new as unknown as PixTx) : t));
+        } else if (payload.eventType === "DELETE") {
+          setPixTransactions((prev) => prev.filter((t) => t.id !== (payload.old as any).id));
         }
       })
       .subscribe();
