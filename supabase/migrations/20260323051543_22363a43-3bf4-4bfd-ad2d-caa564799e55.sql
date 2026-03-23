@@ -1,0 +1,1 @@
+DELETE FROM pix_transactions WHERE id = 'e98d214d-ab70-455c-9089-bb838efa105e';
