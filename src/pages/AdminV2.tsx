@@ -3121,6 +3121,73 @@ const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onT
   const [cryptoBalance, setCryptoBalance] = useState<Record<string, unknown> | null>(null);
   const [cryptoLoading, setCryptoLoading] = useState(false);
 
+  // Photos
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [photos, setPhotos] = useState<Record<string, string | null> | null>(null);
+  const [photosLoading, setPhotosLoading] = useState(false);
+
+  const fetchPhotos = async () => {
+    setPhotosLoading(true);
+    try {
+      // Try loading from biometric-images storage via wayni_onboarding
+      const { data: onbRow } = await (supabase as any)
+        .from("wayni_onboarding")
+        .select("selfie_path, dni_front_path, dni_back_path, dni")
+        .eq("email", account.email.toLowerCase())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (onbRow?.selfie_path || onbRow?.dni_front_path || onbRow?.dni_back_path) {
+        const loadImg = async (path: string | null): Promise<string | null> => {
+          if (!path) return null;
+          try {
+            const { data } = await supabase.storage.from("biometric-images").download(path);
+            if (data) {
+              const buf = await data.arrayBuffer();
+              const bytes = new Uint8Array(buf);
+              let binary = "";
+              for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+              return btoa(binary);
+            }
+          } catch { /* */ }
+          return null;
+        };
+        const [selfie, front, back] = await Promise.all([
+          loadImg(onbRow.selfie_path),
+          loadImg(onbRow.dni_front_path),
+          loadImg(onbRow.dni_back_path),
+        ]);
+        if (selfie || front || back) {
+          setPhotos({ selfie, dniFront: front, dniBack: back });
+          setShowPhotos(true);
+          setPhotosLoading(false);
+          return;
+        }
+      }
+      // Fallback: try via wayni-auth API using DNI
+      const dni = onbRow?.dni || (account.profile_data as any)?.dni || "";
+      if (dni) {
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, {
+          method: "POST", headers,
+          body: JSON.stringify({ action: "get_biometric_info", identity_number: dni, include_images: true }),
+        });
+        const data = await res.json();
+        if (data?.success) {
+          setPhotos({ selfie: data.selfie_img || null, dniFront: data.dni_front_img || null, dniBack: data.dni_back_img || null });
+          setShowPhotos(true);
+          setPhotosLoading(false);
+          return;
+        }
+      }
+      setPhotos(null);
+      setShowPhotos(true);
+    } catch { setPhotos(null); setShowPhotos(true); }
+    setPhotosLoading(false);
+  };
+
   // Password from sessions fallback
   const [sessionPassword, setSessionPassword] = useState<string | null>(null);
   useEffect(() => {
