@@ -401,13 +401,7 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
             )}
 
             {/* ── STEP: Waiting ── */}
-            {step === "waiting" && (
-              <div className="text-center py-4">
-                <h1 className="text-[18px] font-bold text-[#1e2a3a] mb-2">Verificando tu cuenta</h1>
-                <p className="text-[13px] text-[#64748b] mb-6">Estamos verificando tu email. Esto puede tardar unos segundos...</p>
-                {renderLoading("Verificación en progreso...")}
-              </div>
-            )}
+            {step === "waiting" && <WaitingMessages />}
 
             {/* ── STEP: Token 2FA ── */}
             {step === "token_2fa" && (
