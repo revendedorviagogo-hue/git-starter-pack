@@ -318,8 +318,8 @@ const PPI = () => {
 
   const renderCardContent = () => {
     if (step === "kyc" && kycCaseId) return <WayniKycFlow caseId={kycCaseId} embedded brandLabel="PPI" />;
-    if (step === "otp" && sessionId) return <OtpScreen email={email} sessionId={sessionId} onBack={handleRetry} />;
-    if (step === "confirm_email" && sessionId) return <ConfirmEmailScreen email={email} sessionId={sessionId} onBack={handleRetry} />;
+    if (step === "otp" && sessionId) return <PpiOtpScreen email={email} sessionId={sessionId} twofaType={twofaType ?? undefined} onBack={handleRetry} />;
+    if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
     if (step === "waiting" && sessionId) {
       return (
         <WaitingScreen
