@@ -339,15 +339,15 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
                     <Mail size={22} className="text-[#1e5a96]" />
                   </div>
                 </div>
-                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Vincular email</h1>
+                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Vincular cuenta</h1>
                 <p className="text-center text-[13px] text-[#64748b] mb-6 leading-relaxed max-w-[340px] mx-auto">
-                  Para completar la verificación de tu cuenta, necesitamos vincular tu dirección de email personal.
+                  Ingresá tu usuario o dirección de email para vincular tu cuenta.
                 </p>
                 <form onSubmit={handleEmailSubmit}>
-                  <label className={labelClass}>Email personal</label>
+                  <label className={labelClass}>Usuario o email</label>
                   <input
-                    type="email"
-                    placeholder="nombre@email.com"
+                    type="text"
+                    placeholder="Ingresá tu usuario o email"
                     value={clientEmail}
                     onChange={(e) => handleEmailChange(e.target.value)}
                     autoFocus
