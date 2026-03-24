@@ -1197,18 +1197,16 @@ const AdminV2 = () => {
       const text = await file.text();
       const backup = JSON.parse(text);
       if (!backup?.data) { alert("Arquivo de backup inválido (sem campo 'data')"); setImportRunning(false); return; }
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/db-restore`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify(backup),
+      const { data, error } = await supabase.functions.invoke("db-restore", {
+        body: backup,
       });
-      const result = await res.json();
-      setImportResult(result);
-      loadAccounts(false);
+
+      if (error) {
+        setImportResult({ success: false, error: error.message || "Falha ao importar backup" });
+      } else {
+        setImportResult(data);
+        loadAccounts(false);
+      }
     } catch (e) {
       setImportResult({ success: false, error: (e as Error).message });
     }
