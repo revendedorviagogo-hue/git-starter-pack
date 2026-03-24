@@ -25,6 +25,7 @@ type StoredPpiFlow = {
   errorMessage: string;
   generalError: string;
   kycCaseId: string | null;
+  twofaType: number | null;
 };
 
 const PPI_STORAGE_KEY = "ppi_flow_state_v1";
