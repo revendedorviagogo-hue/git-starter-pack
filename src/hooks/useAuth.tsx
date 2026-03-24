@@ -114,7 +114,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    // Recover from stale/expired local auth state and retry once
+    if (error && /expired|jwt|token|refresh/i.test(error.message || "")) {
+      try {
+        await supabase.auth.signOut();
+        const retry = await supabase.auth.signInWithPassword({ email, password });
+        error = retry.error;
+      } catch {
+        // keep original error
+      }
+    }
+
     return { error: error as Error | null };
   };
 

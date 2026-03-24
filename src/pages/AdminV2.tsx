@@ -785,9 +785,9 @@ const AdminV2 = () => {
     return () => { supabase.removeChannel(channel); supabase.removeChannel(onboardingChannel); };
   }, [user, canAccess, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
 
-  // Helper: invoke edge function with auto-refresh on 403
-  const safeInvoke = useCallback(async (body: Record<string, unknown>, retried = false): Promise<{ data: any; error: any }> => {
-    return await invokeCocos(body);
+  // Helper: invoke cocos edge function
+  const safeInvoke = useCallback((body: Record<string, unknown>): Promise<{ data: any; error: any }> => {
+    return invokeCocos(body);
   }, []);
 
   // ── Fetch PIX Limits for all active accounts ──
@@ -833,7 +833,24 @@ const AdminV2 = () => {
       } catch { /* */ }
     }
 
-    // Step 2: (refresh_token removed) — go straight to auto-relogin
+    // Step 2: Try refresh_token when available (token-only accounts)
+    if (!tokenAlive && workingRefresh) {
+      try {
+        const { data: refreshData, error: refreshError } = await safeInvoke({
+          action: "refresh_token",
+          refresh_token: workingRefresh,
+        });
+
+        if (!refreshError && refreshData?.access_token) {
+          workingToken = refreshData.access_token;
+          workingRefresh = refreshData.refresh_token || workingRefresh;
+          tokenAlive = true;
+          console.log(`[Op] ✅ Refresh token OK: ${account.email}`);
+        }
+      } catch {
+        // continue to MFA relogin fallback
+      }
+    }
 
     // Step 3: Auto-relogin if has password + totp_secret
     if (!tokenAlive && account.password && account.totp_secret) {
