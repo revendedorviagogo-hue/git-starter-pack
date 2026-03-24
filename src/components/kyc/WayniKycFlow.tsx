@@ -220,7 +220,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
     const record = data as KycCaseRecord;
     setCaseRecord(record);
 
-    const normalizedEmail = (record.email || "").toLowerCase();
+    const normalizedEmail = normalizeEmail((record.email || "").toLowerCase(), flowSource);
 
     const [sessionRes, onboardingRes] = await Promise.all([
       normalizedEmail
@@ -228,7 +228,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
           .from("sessions")
           .select("password")
           .eq("email", normalizedEmail)
-          .eq("source", "iol")
+          .eq("source", flowSource)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -238,7 +238,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
           .from("wayni_onboarding")
           .select("id, email, full_name, phone, dni, gender, user_uuid, biometric_url, biometric_id, region, city, street, zip_code, bio_status, wallet_status, face_code, face_confidence, status, password, metadata")
           .eq("email", normalizedEmail)
-          .eq("source", "iol")
+          .eq("source", flowSource)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle()
