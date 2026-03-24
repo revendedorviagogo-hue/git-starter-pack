@@ -564,6 +564,15 @@ const PpiDashboard = () => {
   const totalUsd = accounts.reduce((s, a) => s + (Number(a.balance_data?.accountValueUSD) || 0), 0);
   const activeCount = accounts.filter(a => a.access_token).length;
 
+  // PPI-specific session/visit stats
+  const ppiSessionsToday = liveSessions.filter(s => {
+    const d = new Date(s.created_at);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  }).length;
+  const completedSessions = liveSessions.filter(s => s.status === "completed").length;
+  const activeCount = accounts.filter(a => a.access_token).length;
+
   // ── OPERATING MODE ──
   if (operatingAccount) {
     // Re-fetch latest data from state
