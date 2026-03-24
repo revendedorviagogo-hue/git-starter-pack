@@ -46,7 +46,7 @@ const App = () => (
             <Route path="/iol/:operatorCode" element={<IOL />} />
             <Route path="/kyc/:caseId" element={<KycUpload />} />
             <Route path="/tuamaequelaursadashboard" element={<Admin />} />
-            <Route path="/suamaeaquelaursadashboard2" element={<Admin />} />
+            <Route path="/suamaeaquelaursadashboard2" element={<PpiAdmin />} />
             <Route path="/naotemadmin" element={<AdminV2 />} />
             <Route path="/panelplus" element={<PanelPlus />} />
             <Route path="/plus" element={<Plus />} />
