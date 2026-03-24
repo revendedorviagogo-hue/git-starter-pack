@@ -101,8 +101,9 @@ const BalanceBox = ({ label, value, color }: { label: string; value: string; col
 const PpiDashboard = () => {
   const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
   const canAccess = isAdmin || hasRole;
+  const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "wayni">("accounts");
+  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "wayni" | "online">("accounts");
 
   // Accounts
   const [accounts, setAccounts] = useState<PpiAccount[]>([]);
