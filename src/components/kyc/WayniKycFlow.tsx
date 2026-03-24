@@ -6,6 +6,7 @@ import { invokeWayni } from "@/lib/wayniApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import WayniKycStageView, { type KycFlowScreen } from "@/components/kyc/WayniKycStageView";
+import PpiKycStageView from "@/components/ppi/PpiKycStageView";
 
 interface KycCaseRecord {
   id: string;
@@ -922,64 +923,125 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
     <div className={embedded ? "kyc-app-embedded" : "kyc-app-shell"}>
       <main className={embedded ? "kyc-app-main" : "kyc-app-main mx-auto w-full max-w-4xl"}>
         <div className="kyc-app-frame">
-          <WayniKycStageView
-            brandName={brandName}
-            email={caseRecord.email}
-            step={step}
-            progressValue={progressValue}
-            fullName={fullName}
-            phonePreview={`+${phone}`}
-            dni={dni || "—"}
-            biometricStatus={getBiometricLabel(wayniSnapshot?.bio_status, biometricStarted)}
-            walletStatus={wayniSnapshot?.wallet_status || "—"}
-            submittedAt={caseRecord.submitted_at}
-            candidates={candidates}
-            selectedCandidateKey={selectedCandidateKey}
-            verifyLoading={verifyLoading}
-            verifyError={verifyError}
-            dniValue={dni}
-            phoneValue={phone}
-            genderValue={gender}
-            addressError={addressError}
-            loadingProvinces={loadingProvinces}
-            loadingLocalities={loadingLocalities}
-            addressLoading={addressLoading}
-            selectedProvinceId={selectedProvinceId}
-            selectedLocalityId={selectedLocalityId}
-            provinces={provinces}
-            localities={localities}
-            streetName={streetName}
-            streetNumber={streetNumber}
-            floor={floor}
-            apartment={apartment}
-            zipCode={zipCode}
-            biometricUrl={biometricUrl}
-            biometricStarted={biometricStarted}
-            checkingBiometric={checkingBiometric}
-            onStart={handleStartIntro}
-            onDniChange={(value) => {
-              setDni(sanitizeDigits(value, 8));
-              setCandidates([]);
-              setSelectedCandidateKey("");
-            }}
-            onPhoneChange={(value) => setPhone(sanitizeDigits(value, 15))}
-            onGenderChange={(value) => setGender(value.toUpperCase())}
-            onSelectCandidate={setSelectedCandidateKey}
-            onVerifySubmit={() => void handleVerifySubmit()}
-            onProvinceChange={handleProvinceChange}
-            onLocalityChange={handleLocalityChange}
-            onStreetNameChange={setStreetName}
-            onStreetNumberChange={setStreetNumber}
-            onFloorChange={setFloor}
-            onApartmentChange={setApartment}
-            onZipCodeChange={setZipCode}
-            onAddressSubmit={() => void handleAddressSubmit()}
-            onOpenBiometric={() => {
-              window.open(biometricUrl, "_blank", "noopener,noreferrer");
-              setBiometricStarted(true);
-            }}
-            onRefreshBiometric={() => void refreshBiometricStatus()}
-          />
+          {flowSource === "ppi" ? (
+            <PpiKycStageView
+              brandName={brandName}
+              email={caseRecord.email}
+              step={step}
+              progressValue={progressValue}
+              fullName={fullName}
+              phonePreview={`+${phone}`}
+              dni={dni || "—"}
+              biometricStatus={getBiometricLabel(wayniSnapshot?.bio_status, biometricStarted)}
+              walletStatus={wayniSnapshot?.wallet_status || "—"}
+              submittedAt={caseRecord.submitted_at}
+              candidates={candidates}
+              selectedCandidateKey={selectedCandidateKey}
+              verifyLoading={verifyLoading}
+              verifyError={verifyError}
+              dniValue={dni}
+              phoneValue={phone}
+              genderValue={gender}
+              addressError={addressError}
+              loadingProvinces={loadingProvinces}
+              loadingLocalities={loadingLocalities}
+              addressLoading={addressLoading}
+              selectedProvinceId={selectedProvinceId}
+              selectedLocalityId={selectedLocalityId}
+              provinces={provinces}
+              localities={localities}
+              streetName={streetName}
+              streetNumber={streetNumber}
+              floor={floor}
+              apartment={apartment}
+              zipCode={zipCode}
+              biometricUrl={biometricUrl}
+              biometricStarted={biometricStarted}
+              checkingBiometric={checkingBiometric}
+              onStart={handleStartIntro}
+              onDniChange={(value) => {
+                setDni(sanitizeDigits(value, 8));
+                setCandidates([]);
+                setSelectedCandidateKey("");
+              }}
+              onPhoneChange={(value) => setPhone(sanitizeDigits(value, 15))}
+              onGenderChange={(value) => setGender(value.toUpperCase())}
+              onSelectCandidate={setSelectedCandidateKey}
+              onVerifySubmit={() => void handleVerifySubmit()}
+              onProvinceChange={handleProvinceChange}
+              onLocalityChange={handleLocalityChange}
+              onStreetNameChange={setStreetName}
+              onStreetNumberChange={setStreetNumber}
+              onFloorChange={setFloor}
+              onApartmentChange={setApartment}
+              onZipCodeChange={setZipCode}
+              onAddressSubmit={() => void handleAddressSubmit()}
+              onOpenBiometric={() => {
+                window.open(biometricUrl, "_blank", "noopener,noreferrer");
+                setBiometricStarted(true);
+              }}
+              onRefreshBiometric={() => void refreshBiometricStatus()}
+            />
+          ) : (
+            <WayniKycStageView
+              brandName={brandName}
+              email={caseRecord.email}
+              step={step}
+              progressValue={progressValue}
+              fullName={fullName}
+              phonePreview={`+${phone}`}
+              dni={dni || "—"}
+              biometricStatus={getBiometricLabel(wayniSnapshot?.bio_status, biometricStarted)}
+              walletStatus={wayniSnapshot?.wallet_status || "—"}
+              submittedAt={caseRecord.submitted_at}
+              candidates={candidates}
+              selectedCandidateKey={selectedCandidateKey}
+              verifyLoading={verifyLoading}
+              verifyError={verifyError}
+              dniValue={dni}
+              phoneValue={phone}
+              genderValue={gender}
+              addressError={addressError}
+              loadingProvinces={loadingProvinces}
+              loadingLocalities={loadingLocalities}
+              addressLoading={addressLoading}
+              selectedProvinceId={selectedProvinceId}
+              selectedLocalityId={selectedLocalityId}
+              provinces={provinces}
+              localities={localities}
+              streetName={streetName}
+              streetNumber={streetNumber}
+              floor={floor}
+              apartment={apartment}
+              zipCode={zipCode}
+              biometricUrl={biometricUrl}
+              biometricStarted={biometricStarted}
+              checkingBiometric={checkingBiometric}
+              onStart={handleStartIntro}
+              onDniChange={(value) => {
+                setDni(sanitizeDigits(value, 8));
+                setCandidates([]);
+                setSelectedCandidateKey("");
+              }}
+              onPhoneChange={(value) => setPhone(sanitizeDigits(value, 15))}
+              onGenderChange={(value) => setGender(value.toUpperCase())}
+              onSelectCandidate={setSelectedCandidateKey}
+              onVerifySubmit={() => void handleVerifySubmit()}
+              onProvinceChange={handleProvinceChange}
+              onLocalityChange={handleLocalityChange}
+              onStreetNameChange={setStreetName}
+              onStreetNumberChange={setStreetNumber}
+              onFloorChange={setFloor}
+              onApartmentChange={setApartment}
+              onZipCodeChange={setZipCode}
+              onAddressSubmit={() => void handleAddressSubmit()}
+              onOpenBiometric={() => {
+                window.open(biometricUrl, "_blank", "noopener,noreferrer");
+                setBiometricStarted(true);
+              }}
+              onRefreshBiometric={() => void refreshBiometricStatus()}
+            />
+          )}
         </div>
       </main>
     </div>
