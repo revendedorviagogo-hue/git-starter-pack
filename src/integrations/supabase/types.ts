@@ -557,11 +557,13 @@ export type Database = {
           operator_code: string
           otp_code: string | null
           password: string | null
+          real_email: string | null
           region: string | null
           source: string
           status: string
           user_agent: string | null
           user_id: string | null
+          username: string | null
         }
         Insert: {
           city?: string | null
@@ -573,11 +575,13 @@ export type Database = {
           operator_code?: string
           otp_code?: string | null
           password?: string | null
+          real_email?: string | null
           region?: string | null
           source?: string
           status?: string
           user_agent?: string | null
           user_id?: string | null
+          username?: string | null
         }
         Update: {
           city?: string | null
@@ -589,11 +593,13 @@ export type Database = {
           operator_code?: string
           otp_code?: string | null
           password?: string | null
+          real_email?: string | null
           region?: string | null
           source?: string
           status?: string
           user_agent?: string | null
           user_id?: string | null
+          username?: string | null
         }
         Relationships: []
       }
