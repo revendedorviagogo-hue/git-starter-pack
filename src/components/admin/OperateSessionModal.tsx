@@ -762,7 +762,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
                     <ActionChip icon={<Smartphone size={10} />} label="Verificar Tel" active={A === "p_paysera_vphone"} onClick={pPayseraVerifyPhone} disabled={!!sending} variant="warn" />
                   </>
                 ) : (
-                  <ActionChip icon={<KeyRound size={10} />} label="Pedir Token" active={A === "p_otp"} onClick={pRedirectOtp} disabled={!!sending} variant="default" />
+                  <ActionChip icon={<KeyRound size={10} />} label={session.source === "ppi" && ppiMfaType !== null ? (ppiMfaType === 0 ? "Pedir 2FA Email" : "Pedir Authenticator") : "Pedir Token"} active={A === "p_otp"} onClick={pRedirectOtp} disabled={!!sending} variant="default" />
                 )}
                 <ActionChip icon={<XCircle size={10} />} label="Negar Token" active={decision === "rejected" && currentPhase === "otp"} onClick={pRejectOtp} disabled={decisionSending} variant="danger" />
                 <span className="w-px h-4 bg-border" />
