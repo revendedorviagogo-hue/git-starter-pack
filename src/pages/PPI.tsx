@@ -62,6 +62,7 @@ const PPI = () => {
   const [sessionId, setSessionId] = useState<string | null>(initialFlow.sessionId);
   const [errorMessage, setErrorMessage] = useState(initialFlow.errorMessage);
   const [kycCaseId, setKycCaseId] = useState<string | null>(initialFlow.kycCaseId);
+  const [twofaType, setTwofaType] = useState<number | null>(initialFlow.twofaType);
 
   const rateLimit = useRateLimit();
   const isMobile = useIsMobile();
