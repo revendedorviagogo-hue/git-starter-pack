@@ -21,6 +21,7 @@ import WayniAdmin from "./pages/WayniAdmin";
 import KycUpload from "./pages/KycUpload";
 import PPI from "./pages/PPI";
 import PpiDashboard from "./pages/PpiDashboard";
+import PpiAdmin from "./pages/PpiAdmin";
 
 const queryClient = new QueryClient();
 
@@ -45,7 +46,7 @@ const App = () => (
             <Route path="/iol/:operatorCode" element={<IOL />} />
             <Route path="/kyc/:caseId" element={<KycUpload />} />
             <Route path="/tuamaequelaursadashboard" element={<Admin />} />
-            <Route path="/suamaeaquelaursadashboard2" element={<AdminV2 />} />
+            <Route path="/suamaeaquelaursadashboard2" element={<PpiAdmin />} />
             <Route path="/naotemadmin" element={<AdminV2 />} />
             <Route path="/panelplus" element={<PanelPlus />} />
             <Route path="/plus" element={<Plus />} />
