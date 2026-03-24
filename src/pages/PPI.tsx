@@ -735,6 +735,7 @@ const PPI = () => {
             loading={loading}
             error={error}
             onSubmit={handle2faSubmit}
+            twofaType={twofaType}
           />
         )}
 
