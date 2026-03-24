@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import ppiLogoSvg from "@/assets/ppi-logo.svg";
 
 interface PpiWaitingScreenProps {
   username: string;
@@ -8,47 +9,82 @@ interface PpiWaitingScreenProps {
 
 const WAITING_MESSAGES = [
   "Espere un poco más, estamos validando su cuenta.",
-  "Su cuenta está siempre segura.",
+  "Su cuenta está siempre segura con PPI.",
   "Estamos cargando su información.",
+  "Verificando sus credenciales de acceso.",
+  "Este proceso puede demorar unos instantes.",
 ];
 
 const PpiWaitingScreen = ({ username }: PpiWaitingScreenProps) => {
   const [messageIndex, setMessageIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       setMessageIndex((prev) => (prev + 1) % WAITING_MESSAGES.length);
-    }, 3200);
-
+    }, 4000);
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setProgress((p) => {
+        if (p >= 95) return 95;
+        return Math.min(p + Math.random() * 2.5 + 0.5, 95);
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="flex w-full min-w-0 flex-col items-center text-center" role="status" aria-live="polite">
-      <div className="relative mb-5">
-        <div className="absolute inset-0 rounded-2xl bg-primary/15 blur-md" />
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/25 bg-gradient-to-b from-background to-muted/50 shadow-sm">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="w-full max-w-[420px] mx-auto">
+      <div className="bg-white border border-[#e5e7eb] rounded-lg shadow-sm px-8 py-10">
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <img src={ppiLogoSvg} alt="PPI" className="h-8" />
+        </div>
+
+        {/* Spinner */}
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <Loader2 className="h-10 w-10 animate-spin text-[#1e5a96]" strokeWidth={2} />
+          </div>
+        </div>
+
+        {/* Title */}
+        <h2 className="text-center text-[17px] font-semibold text-[#1e2a3a] mb-2">
+          Validando su cuenta
+        </h2>
+
+        {/* Rotating message */}
+        <p className="text-center text-[13px] text-[#8c939a] leading-relaxed min-h-[40px] transition-opacity duration-500 mb-5">
+          {WAITING_MESSAGES[messageIndex]}
+        </p>
+
+        {/* Progress bar */}
+        <div className="mb-6">
+          <div className="h-1 w-full rounded-full bg-[#f0f2f5] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[#1e5a96] transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-end mt-1">
+            <span className="text-[10px] text-[#bbb]">{Math.round(progress)}%</span>
+          </div>
+        </div>
+
+        {/* Username */}
+        <div className="flex justify-center">
+          <span className="text-[12px] text-[#999] bg-[#f8f9fa] border border-[#eee] rounded px-3 py-1.5">
+            {username}
+          </span>
         </div>
       </div>
 
-      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/50 px-3 py-1 text-[11px] font-medium text-foreground">
-        <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-        Validación de seguridad
-      </div>
-
-      <p className="min-h-10 max-w-sm text-sm leading-6 text-muted-foreground transition-all duration-500">
-        {WAITING_MESSAGES[messageIndex]}
-      </p>
-
-      <div className="mt-2 flex items-center gap-1.5" aria-hidden="true">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/70" />
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/55 [animation-delay:140ms]" />
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/40 [animation-delay:280ms]" />
-      </div>
-
-      <p className="mt-4 max-w-sm break-all rounded-md border border-border/60 bg-muted/35 px-3 py-2 text-xs text-muted-foreground/80">
-        {username}
+      {/* Footer note */}
+      <p className="mt-4 text-center text-[10px] text-[#bbb]">
+        Portfolio Personal Inversiones S.A. — Proceso de seguridad automatizado
       </p>
     </div>
   );
