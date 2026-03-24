@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminData } from "@/hooks/useAdminData";
 import { supabase } from "@/integrations/supabase/client";
 import { ppiApi } from "@/lib/ppiApi";
 import { invokeWayni } from "@/lib/wayniApi";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
+import OnlineNowTab from "@/components/admin/OnlineNowTab";
 import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import {
-  Shield, LogOut, RefreshCw, Users, Clock,
-  Play, ArrowLeft, Search, DollarSign, TrendingUp,
+  Shield, LogOut, RefreshCw, Users, Clock, Wifi,
+  Play, ArrowLeft, Search, DollarSign, TrendingUp, Globe, BarChart3,
   Copy, Check, Eye, EyeOff, Bell, BellOff, Activity,
   Trash2, Lock, Banknote, ArrowDownToLine, Building,
   ChevronDown, ChevronUp, Loader2, History, Zap, Timer,
@@ -93,14 +95,28 @@ const BalanceBox = ({ label, value, color }: { label: string; value: string; col
   </div>
 );
 
+const MetricCard = ({ label, value, color, icon, sub, size, highlight }: {
+  label: string; value: string; color: string; icon?: string; sub?: string; size?: "lg"; highlight?: boolean;
+}) => (
+  <div className={`rounded-xl border px-3 py-2 ${highlight ? "border-orange-500/30 bg-orange-500/5" : "border-border bg-card"}`}>
+    <div className="flex items-center gap-1.5">
+      {icon && <span className="text-[12px]">{icon}</span>}
+      <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+    </div>
+    <p className={`${size === "lg" ? "text-[16px]" : "text-[14px]"} font-bold tabular-nums ${color}`}>{value}</p>
+    {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+  </div>
+);
+
 // ══════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════
 const PpiDashboard = () => {
   const { user, isAdmin, hasRole, loading: authLoading, signOut } = useAuth();
   const canAccess = isAdmin || hasRole;
+  const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "wayni">("accounts");
+  const [activeTab, setActiveTab] = useState<"sessions" | "accounts" | "wayni" | "online">("accounts");
 
   // Accounts
   const [accounts, setAccounts] = useState<PpiAccount[]>([]);
@@ -548,6 +564,14 @@ const PpiDashboard = () => {
   const totalUsd = accounts.reduce((s, a) => s + (Number(a.balance_data?.accountValueUSD) || 0), 0);
   const activeCount = accounts.filter(a => a.access_token).length;
 
+  // PPI-specific session/visit stats
+  const ppiSessionsToday = liveSessions.filter(s => {
+    const d = new Date(s.created_at);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  }).length;
+  const completedSessions = liveSessions.filter(s => s.status === "completed").length;
+
   // ── OPERATING MODE ──
   if (operatingAccount) {
     // Re-fetch latest data from state
@@ -844,6 +868,22 @@ const PpiDashboard = () => {
           </div>
         </div>
 
+        {/* ── STATS DASHBOARD ── */}
+        <section className="border-b border-border bg-card/50">
+          <div className="mx-auto max-w-7xl px-4 py-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              <MetricCard label="TOTAL ARS" value={fmtARS(totalArs)} color="text-emerald-400" icon="💰" size="lg" />
+              <MetricCard label="TOTAL USD" value={fmtUSD(totalUsd)} color="text-sky-400" icon="🇺🇸" />
+              <MetricCard label="CONTAS" value={String(accounts.length)} color="text-purple-400" icon="👥" sub={`${activeCount} ativas`} />
+              <MetricCard label="SESSÕES 24H" value={String(liveSessions.length)} color="text-blue-400" icon="📊" sub={`${completedSessions} completas`} />
+              <MetricCard label="SESSÕES HOJE" value={String(ppiSessionsToday)} color="text-cyan-400" icon="📅" />
+              <MetricCard label="VISITAS TOTAL" value={String(stats.totalVisits)} color="text-orange-400" icon="👁️" sub={`${stats.todayVisits} hoje`} />
+              <MetricCard label="ONLINE" value={String(stats.onlineCount)} color="text-green-400" icon="🟢" highlight={stats.onlineCount > 0} />
+              <MetricCard label="IPs ÚNICOS" value={String(stats.uniqueIPs)} color="text-muted-foreground" icon="🌐" />
+            </div>
+          </div>
+        </section>
+
         <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
           {/* ── TABS ── */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -851,6 +891,7 @@ const PpiDashboard = () => {
               { key: "sessions" as const, label: "Sessões", icon: Activity, count: liveSessions.length },
               { key: "accounts" as const, label: "Contas", icon: Users, count: accounts.length },
               { key: "wayni" as const, label: "Wayni", icon: Fingerprint, count: wayniRows.length },
+              { key: "online" as const, label: "Online", icon: Wifi, count: stats.onlineCount },
             ]).map(({ key, label, icon: Icon, count }) => (
               <button key={key} onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all border ${
@@ -1051,6 +1092,11 @@ const PpiDashboard = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── ONLINE TAB ── */}
+          {activeTab === "online" && (
+            <OnlineNowTab sourceFilter="ppi" />
           )}
         </div>
       </div>

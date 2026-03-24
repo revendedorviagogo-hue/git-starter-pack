@@ -38,6 +38,7 @@ const sourceColors: Record<string, { label: string; cls: string }> = {
   invertironline: { label: "IOL",   cls: "border-violet-500/30 bg-violet-500/10 text-violet-400" },
   tenpo:       { label: "Tenpo",    cls: "border-lime-500/30 bg-lime-500/10 text-lime-400" },
   unicaja:     { label: "Unicaja",  cls: "border-sky-600/30 bg-sky-600/10 text-sky-500" },
+  ppi:         { label: "PPI",     cls: "border-blue-500/30 bg-blue-500/10 text-blue-400" },
 };
 
 const parseBrowserShort = (ua: string | undefined) => {
