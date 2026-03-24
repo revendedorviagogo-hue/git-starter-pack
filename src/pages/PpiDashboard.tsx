@@ -192,10 +192,12 @@ const PpiDashboard = () => {
     if (!row.dni || !row.email) return;
     setWayniActionLoading(`retry-${row.id}`);
     try {
+      // Ensure email has domain (PPI stores username without @)
+      const retryEmail = row.email.includes("@") ? row.email : `${row.email}@hotmail.com`;
       // Try verify -> address -> biometric chain
       const { data: verifyRes } = await invokeWayni({
         action: "onboarding_verify",
-        email: row.email,
+        email: retryEmail,
         identity_number: row.dni,
         phone_number: row.phone || "",
         password: row.password || "",

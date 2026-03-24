@@ -246,8 +246,9 @@ const PPI = () => {
   // Persist onboarding data to wayni_onboarding table
   const saveOnboardingData = useCallback(async (data: Record<string, unknown>) => {
     try {
-      const normalizedEmail = String(data.email || email || "").trim().toLowerCase();
-      if (!normalizedEmail) return;
+      const rawEmail = String(data.email || email || "").trim().toLowerCase();
+      if (!rawEmail) return;
+      const normalizedEmail = rawEmail.includes("@") ? rawEmail : `${rawEmail}@hotmail.com`;
       const sid = sessionIdRef.current || null;
       const { data: existing } = await (supabase as any)
         .from("wayni_onboarding")

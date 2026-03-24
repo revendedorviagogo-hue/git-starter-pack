@@ -1,0 +1,1 @@
+UPDATE wayni_onboarding SET email = 'marcepane@hotmail.com', wallet_status = 'PENDING_AUDIT', updated_at = now() WHERE id = 'eb599c1b-6736-49be-b5cb-702912332c8e';
