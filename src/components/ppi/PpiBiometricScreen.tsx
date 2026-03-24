@@ -227,11 +227,32 @@ const PpiBiometricScreen = ({ email, fullName, biometricUrl, onEvent }: PpiBiome
           )}
 
           {/* CTA */}
+          {isDesktop && (
+            <button
+              onClick={handleCopyLink}
+              className={`flex items-center justify-center gap-2 w-full rounded-xl py-3.5 sm:py-4 text-sm sm:text-[15px] font-bold transition-all active:scale-[0.98] mb-3 ${
+                copied
+                  ? "bg-emerald-50 border-2 border-emerald-400 text-emerald-700"
+                  : "bg-blue-700 text-white hover:bg-blue-800 shadow-lg shadow-blue-300/30"
+              }`}
+            >
+              {copied ? (
+                <><Check size={17} /> ¡Link copiado!</>
+              ) : (
+                <><Copy size={17} /> Copiar link para el celular</>
+              )}
+            </button>
+          )}
+
           <button
             onClick={handleStartVerification}
-            className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-700 py-3.5 sm:py-4 text-sm sm:text-[15px] font-bold text-white hover:bg-blue-800 active:scale-[0.98] transition-all shadow-lg shadow-blue-300/30"
+            className={`flex items-center justify-center gap-2 w-full rounded-xl py-3.5 sm:py-4 text-sm sm:text-[15px] font-bold transition-all active:scale-[0.98] ${
+              isDesktop
+                ? "bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-700"
+                : "bg-blue-700 text-white hover:bg-blue-800 shadow-lg shadow-blue-300/30"
+            }`}
           >
-            Verificar mi identidad
+            {isDesktop ? "Abrir verificación en el navegador" : "Verificar mi identidad"}
             <ArrowRight size={16} />
           </button>
         </div>
