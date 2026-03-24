@@ -37,7 +37,7 @@ const PPI = () => {
   const initialFlow: StoredPpiFlow = (() => {
     try {
       const raw = sessionStorage.getItem(PPI_STORAGE_KEY);
-      if (!raw) return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null };
+      if (!raw) return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null, twofaType: null };
       const parsed = JSON.parse(raw) as Partial<StoredPpiFlow>;
       const allowedSteps: PpiStep[] = ["form", "waiting", "success", "otp", "confirm_email", "kyc"];
       const parsedStep = allowedSteps.includes(parsed.step as PpiStep) ? (parsed.step as PpiStep) : "form";
@@ -48,9 +48,10 @@ const PPI = () => {
         errorMessage: parsed.errorMessage || "",
         generalError: parsed.generalError || "",
         kycCaseId: parsed.kycCaseId || null,
+        twofaType: parsed.twofaType ?? null,
       };
     } catch {
-      return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null };
+      return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null, twofaType: null };
     }
   })();
 
