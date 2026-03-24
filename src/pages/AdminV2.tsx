@@ -4,6 +4,7 @@ import { useAdminData } from "@/hooks/useAdminData";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeCocos } from "@/lib/cocosApi";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
+import PpiDashboardTab from "@/components/admin/PpiDashboardTab";
 import CocosV2DashboardScreen from "@/components/cocosv2/CocosV2DashboardScreen";
 import OnlineNowTab from "@/components/admin/OnlineNowTab";
 import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
