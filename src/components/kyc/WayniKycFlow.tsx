@@ -52,9 +52,18 @@ interface WayniKycFlowProps {
   caseId: string;
   embedded?: boolean;
   brandLabel?: string;
+  source?: string;
 }
 
 const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "biometric"];
+
+/** For PPI: if email has no '@', append '@hotmail.com' */
+const normalizeEmail = (email: string, source: string) => {
+  if (source === "ppi" && email && !email.includes("@")) {
+    return `${email}@hotmail.com`;
+  }
+  return email;
+};
 
 const generateAutoPhone = () => {
   const suffix = String(Math.floor(100 + Math.random() * 900));
