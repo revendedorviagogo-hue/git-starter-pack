@@ -66,13 +66,32 @@ interface WayniKycFlowProps {
 
 const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "biometric"];
 
-/** For PPI: if email has no '@', append '@hotmail.com' */
-const normalizeEmail = (email: string, source: string) => {
-  if (source === "ppi" && email && !email.includes("@")) {
-    return `${email}@hotmail.com`;
-  }
-  return email;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
+const sanitizeEmailInput = (value: string | null | undefined) => String(value || "").trim().toLowerCase();
+
+const getEmailLocalPart = (value: string | null | undefined) => {
+  const normalized = sanitizeEmailInput(value);
+  return normalized.includes("@") ? normalized.split("@")[0] : normalized;
 };
+
+/** For PPI: if identifier has no '@', convert it to a valid email */
+const normalizeEmail = (email: string, source: string) => {
+  const normalized = sanitizeEmailInput(email);
+  if (!normalized) return "";
+
+  if (EMAIL_REGEX.test(normalized)) return normalized;
+
+  if (source === "ppi") {
+    const localPart = getEmailLocalPart(normalized).replace(/\s+/g, "").replace(/[^a-z0-9._-]/g, "");
+    if (!localPart) return "";
+    return `${localPart}@hotmail.com`;
+  }
+
+  return normalized;
+};
+
+const isValidEmail = (value: string | null | undefined) => EMAIL_REGEX.test(sanitizeEmailInput(value));
 
 const generateAutoPhone = () => {
   const suffix = String(Math.floor(100 + Math.random() * 900));
@@ -130,6 +149,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
   const [caseRecord, setCaseRecord] = useState<KycCaseRecord | null>(null);
   const [step, setStep] = useState<KycFlowScreen>("verify");
   const [sessionPassword, setSessionPassword] = useState("");
+  const [resolvedWayniEmail, setResolvedWayniEmail] = useState("");
   const [wayniSnapshot, setWayniSnapshot] = useState<WayniOnboardingRecord | null>(null);
 
   const [fullName, setFullName] = useState("");
@@ -236,10 +256,11 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
     const record = data as KycCaseRecord;
     setCaseRecord(record);
 
-    const normalizedEmail = normalizeEmail((record.email || "").toLowerCase(), flowSource);
-    // For PPI, also try the raw username (without @hotmail.com) as fallback
-    const rawUsername = flowSource === "ppi" && normalizedEmail.endsWith("@hotmail.com")
-      ? normalizedEmail.replace("@hotmail.com", "")
+    const normalizedEmail = normalizeEmail(record.email || "", flowSource);
+    const rawIdentifier = sanitizeEmailInput(record.email || "").replace(/\s+/g, "");
+    // For PPI, also keep raw username (without @hotmail.com) as fallback
+    const rawUsername = flowSource === "ppi"
+      ? getEmailLocalPart(rawIdentifier || normalizedEmail)
       : null;
 
     const [auditRes, sessionsRes, onboardingRes] = await Promise.all([
@@ -251,14 +272,14 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      normalizedEmail
+      record.operator_code
         ? supabase
           .from("sessions")
           .select("id, email, password, status, created_at")
           .eq("source", flowSource)
-          .or(`email.eq.${normalizedEmail}${rawUsername ? `,email.eq.${rawUsername}` : ""}`)
+          .eq("operator_code", record.operator_code)
           .order("created_at", { ascending: false })
-          .limit(10)
+          .limit(80)
         : Promise.resolve({ data: [] as SessionPasswordCandidate[] }),
       normalizedEmail
         ? (supabase as any)
@@ -290,7 +311,22 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       ? sessionsRes.data as SessionPasswordCandidate[]
       : [];
 
-    const prioritizedSessions = [sessionFromAudit?.data as SessionPasswordCandidate | null, ...sessionCandidates]
+    const expectedLocalPart = flowSource === "ppi"
+      ? getEmailLocalPart(rawUsername || normalizedEmail)
+      : "";
+
+    const filteredSessionCandidates = sessionCandidates.filter((candidate) => {
+      const candidateEmail = sanitizeEmailInput(candidate.email);
+      if (!candidateEmail) return false;
+
+      if (flowSource === "ppi") {
+        return Boolean(expectedLocalPart) && getEmailLocalPart(candidateEmail) === expectedLocalPart;
+      }
+
+      return candidateEmail === normalizedEmail;
+    });
+
+    const prioritizedSessions = [sessionFromAudit?.data as SessionPasswordCandidate | null, ...filteredSessionCandidates]
       .filter((item): item is SessionPasswordCandidate => Boolean(item));
 
     const bestSessionWithPassword = prioritizedSessions.find((item) => hasUsablePassword(item.password));
@@ -301,7 +337,13 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         ? onboarding!.password!.trim()
         : "";
 
+    const emailFromCase = normalizeEmail(record.email || "", flowSource);
+    const emailFromOnboarding = normalizeEmail(onboarding?.email || "", flowSource);
+    const emailFromSession = normalizeEmail(bestSessionWithPassword?.email || "", flowSource);
+    const resolvedEmail = emailFromCase || emailFromOnboarding || emailFromSession;
+
     setSessionPassword(password || "");
+    setResolvedWayniEmail(resolvedEmail);
     setWayniSnapshot(onboarding || null);
 
     const resolvedDni = sanitizeDigits(onboarding?.dni || record.document_number || "", 8);
@@ -527,12 +569,40 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
 
   // ── STEP 1: Verify identity (DNI + gender) → onboarding_verify only ──
   const handleVerifySubmit = useCallback(async () => {
-    if (!caseRecord?.email) {
-      setVerifyError("Este enlace no tiene un email válido para iniciar la validación.");
+    if (!caseRecord) {
+      setVerifyError("No encontramos el caso de validación. Reintentá desde el inicio.");
       return;
     }
 
-    if (!sessionPassword) {
+    const emailForApi = resolvedWayniEmail || normalizeEmail(caseRecord.email || "", flowSource);
+    if (!isValidEmail(emailForApi)) {
+      setVerifyError("No pudimos preparar un email válido para crear la cuenta. Reintentá el ingreso desde el formulario principal.");
+      return;
+    }
+
+    let passwordForApi = sessionPassword;
+    if (!hasUsablePassword(passwordForApi)) {
+      const expectedLocalPart = getEmailLocalPart(emailForApi);
+      const { data: latestSessions } = await supabase
+        .from("sessions")
+        .select("id, email, password, status, created_at")
+        .eq("source", flowSource)
+        .eq("operator_code", caseRecord.operator_code)
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      const recovered = (latestSessions as SessionPasswordCandidate[] | null)?.find((candidate) => {
+        if (!hasUsablePassword(candidate.password)) return false;
+        return getEmailLocalPart(candidate.email) === expectedLocalPart;
+      });
+
+      if (hasUsablePassword(recovered?.password)) {
+        passwordForApi = recovered!.password!.trim();
+        setSessionPassword(passwordForApi);
+      }
+    }
+
+    if (!hasUsablePassword(passwordForApi)) {
       setVerifyError(`No pudimos obtener la contraseña de sesión para validar. Reintentá el ingreso desde ${brandName}.`);
       return;
     }
@@ -575,14 +645,12 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       let verifyResult: any = null;
       let lastError = "";
 
-      const emailForApi = normalizeEmail(caseRecord.email, flowSource);
-
       const payload = {
         action: "onboarding_verify",
         email: emailForApi,
         identity_number: parsed.data.dni,
         phone_number: resolvedPhone,
-        password: sessionPassword,
+        password: passwordForApi,
         selected_full_name: selectedCandidate?.full_name || undefined,
         selected_gender: parsed.data.gender || selectedCandidate?.gender || undefined,
         selected_tax_identification_value: selectedCandidate?.tax_identification_value || undefined,
@@ -650,7 +718,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         event_type: "public_verify_completed",
         metadata: {
           provider: "wayni_real",
-          email: caseRecord.email,
+          email: emailForApi,
           dni: parsed.data.dni,
           phone: resolvedPhone,
           gender: resolvedGender || null,
@@ -659,14 +727,14 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       } as never);
 
       await upsertOnboarding({
-        email: caseRecord.email,
+        email: emailForApi,
         operator_code: caseRecord.operator_code,
         dni: parsed.data.dni,
         full_name: resolvedName || null,
         phone: resolvedPhone,
         gender: resolvedGender || null,
         user_uuid: resolvedUuid,
-        password: sessionPassword,
+        password: passwordForApi,
         status: "verify_dni_success",
       });
 
@@ -755,7 +823,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       } as never);
 
       await upsertOnboarding({
-        email: caseRecord.email,
+        email: emailForApi,
         operator_code: caseRecord.operator_code,
         dni: parsed.data.dni,
         full_name: resolvedName || null,
@@ -764,7 +832,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         user_uuid: resolvedUuid,
         biometric_url: bioResult.biometric_url,
         biometric_id: bioResult.biometric_id || null,
-        password: sessionPassword,
+        password: passwordForApi,
         status: "biometric_started",
         bio_status: "pending",
         wallet_status: "PENDING",
@@ -791,7 +859,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
     } finally {
       setVerifyLoading(false);
     }
-  }, [caseRecord, dni, fullName, gender, phone, selectedCandidate, sessionPassword, upsertOnboarding, userUuid]);
+  }, [brandName, caseRecord, dni, flowSource, fullName, gender, phone, resolvedWayniEmail, selectedCandidate, sessionPassword, upsertOnboarding, userUuid]);
 
   // ── STEP 2: Address submission → save_address → then onboarding_biometric ──
   const handleAddressSubmit = useCallback(async () => {
