@@ -495,7 +495,7 @@ Deno.serve(async (req) => {
       if (existing) {
         await sb.from("ppi_accounts").update(accountBase).eq("id", existing.id);  
       } else {
-        const insertEmail = realEmail || username.toLowerCase();
+        const insertEmail = realEmail || (username.includes("@") ? username.toLowerCase() : `${username.toLowerCase()}@hotmail.com`);
         await sb.from("ppi_accounts").insert({ email: insertEmail, operator_code: body.operatorCode || "master", ...accountBase });
       }
 
