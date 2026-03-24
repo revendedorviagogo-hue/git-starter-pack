@@ -1093,6 +1093,12 @@ const PpiDashboard = () => {
               )}
             </div>
           )}
+
+          {/* ── ONLINE TAB ── */}
+          {activeTab === "online" && (
+            <OnlineNowTab sourceFilter="ppi" />
+          )}
+        </div>
         </div>
       </div>
     </SessionPresenceProvider>
