@@ -73,9 +73,9 @@ const PPI = () => {
 
   useEffect(() => {
     currentStepRef.current = step;
-    const flowToStore: StoredPpiFlow = { step, email, sessionId, errorMessage, generalError, kycCaseId };
+    const flowToStore: StoredPpiFlow = { step, email, sessionId, errorMessage, generalError, kycCaseId, twofaType };
     sessionStorage.setItem(PPI_STORAGE_KEY, JSON.stringify(flowToStore));
-  }, [email, errorMessage, generalError, kycCaseId, sessionId, step]);
+  }, [email, errorMessage, generalError, kycCaseId, sessionId, step, twofaType]);
 
   useEffect(() => {
     document.title = "PPI — Iniciar sesión";
