@@ -17,11 +17,12 @@ import ppiBgPattern from "@/assets/ppi-bg-pattern.svg";
 const ppiLogo = <img src={ppiLogoSvg} alt="PPI" className="h-12 w-auto" />;
 
 // ── Inline 2FA OTP Screen ──
-const Ppi2faScreen = ({ email, loading, error, onSubmit }: {
+const Ppi2faScreen = ({ email, loading, error, onSubmit, twofaType }: {
   email: string;
   loading: boolean;
   error?: string;
   onSubmit: (code: string) => void;
+  twofaType: number;
 }) => {
   const [code, setCode] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -34,12 +35,23 @@ const Ppi2faScreen = ({ email, loading, error, onSubmit }: {
     onSubmit(code.trim());
   };
 
+  const isEmailCode = twofaType === 0;
+  const title = isEmailCode ? "Código por email" : "Google Authenticator";
+  const description = isEmailCode
+    ? "Ingresá el código de 6 dígitos que enviamos a tu correo electrónico."
+    : "Ingresá el código de 6 dígitos de tu aplicación Google Authenticator.";
+  const icon = isEmailCode ? "📧" : "🔐";
+
   return (
     <div className="relative z-10 w-full max-w-none sm:max-w-[420px] bg-white px-6 py-6 sm:px-10 sm:py-8">
-      <h2 className="mb-2 text-center text-[20px] font-bold text-[#1e2a3a]">Verificación en dos pasos</h2>
-      <p className="mb-6 text-center text-[13px] text-[#8c939a]">
-        Ingresá el código de verificación que recibiste en tu email o aplicación de autenticación.
+      <div className="flex justify-center mb-3">
+        <span className="text-[32px]">{icon}</span>
+      </div>
+      <h2 className="mb-1 text-center text-[20px] font-bold text-[#1e2a3a]">{title}</h2>
+      <p className="mb-1 text-center text-[11px] font-medium text-[#42a5f5]">
+        {isEmailCode ? "Verificación por email" : "Verificación por app"}
       </p>
+      <p className="mb-6 text-center text-[13px] text-[#8c939a]">{description}</p>
       {error && (
         <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>
       )}
@@ -49,7 +61,7 @@ const Ppi2faScreen = ({ email, loading, error, onSubmit }: {
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          placeholder="Código de verificación"
+          placeholder={isEmailCode ? "Código del email" : "Código de la app"}
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           className="w-full border border-[#ccd0d5] bg-white px-3 py-3 text-center text-[22px] font-semibold tracking-[0.3em] text-[#333] outline-none transition-colors placeholder:text-[14px] placeholder:tracking-normal placeholder:font-normal placeholder:text-[#adb5bd] focus:border-[#80bdff] focus:shadow-[0_0_0_3px_rgba(0,123,255,0.15)]"
@@ -723,6 +735,7 @@ const PPI = () => {
             loading={loading}
             error={error}
             onSubmit={handle2faSubmit}
+            twofaType={twofaType}
           />
         )}
 
