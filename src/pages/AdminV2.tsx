@@ -1412,6 +1412,7 @@ const AdminV2 = () => {
     { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
     { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
     { key: "cron" as const, icon: <Monitor size={14} />, label: "Cron" },
+    { key: "ppi" as const, icon: <Banknote size={14} />, label: "PPI" },
   ];
 
   return (
@@ -1650,6 +1651,8 @@ const AdminV2 = () => {
         {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
 
         {activeTab === "cron" && <CronTerminal />}
+
+        {activeTab === "ppi" && <PpiDashboardTab />}
 
         {activeTab === "accounts" && (
           <div className="space-y-3">
