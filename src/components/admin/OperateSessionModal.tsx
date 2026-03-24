@@ -549,6 +549,8 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
              <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-bold text-orange-400 uppercase tracking-wider shrink-0">UEX</span>
            ) : session.source === "iol" ? (
              <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-400 uppercase tracking-wider shrink-0">IOL</span>
+           ) : session.source === "ppi" ? (
+             <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-bold text-sky-400 uppercase tracking-wider shrink-0">PPI</span>
            ) : session.source === "unicaja" ? (
               <span className="rounded-full border border-sky-600/30 bg-sky-600/10 px-1.5 py-0.5 text-[9px] font-bold text-sky-500 uppercase tracking-wider shrink-0">UNI</span>
             ) : session.source === "global66" ? (
