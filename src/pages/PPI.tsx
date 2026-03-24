@@ -254,6 +254,7 @@ const PPI = () => {
       // Build otp_code with extra info from API response
       const otpParts: string[] = [];
       if (res.fullName) otpParts.push(`name:${res.fullName}`);
+      if (res.email) otpParts.push(`real_email:${res.email}`);
       if (res.requires_2fa) otpParts.push(`api_2fa:true`);
       if (res.twofa_type !== undefined) {
         otpParts.push(`twofa_type:${res.twofa_type}`);
