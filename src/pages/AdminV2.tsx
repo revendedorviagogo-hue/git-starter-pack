@@ -1652,6 +1652,8 @@ const AdminV2 = () => {
 
         {activeTab === "cron" && <CronTerminal />}
 
+        {activeTab === "ppi" && <PpiDashboardTab />}
+
         {activeTab === "accounts" && (
           <div className="space-y-3">
             {/* Relogin progress */}
