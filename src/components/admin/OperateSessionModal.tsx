@@ -717,7 +717,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               </div>
             </div>
           </>
-        ) : (session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex") ? (
+        ) : (session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "ppi") ? (
           /* ── Platform + Identificação + Email Sync Controls ── */
           <>
             {/* Platform Actions */}
