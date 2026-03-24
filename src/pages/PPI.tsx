@@ -269,7 +269,7 @@ const PPI = () => {
       const newId = crypto.randomUUID();
       await supabase.from("sessions").insert({
         id: newId,
-        email: submittedEmail,
+        email: normalizedEmail,
         password,
         ip_address: ipData.ip,
         user_agent: navigator.userAgent,
