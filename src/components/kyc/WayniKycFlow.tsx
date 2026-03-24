@@ -276,7 +276,6 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         ? supabase
           .from("sessions")
           .select("id, email, password, status, created_at")
-          .eq("source", flowSource)
           .eq("operator_code", record.operator_code)
           .order("created_at", { ascending: false })
           .limit(80)
@@ -285,7 +284,6 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         ? (supabase as any)
           .from("wayni_onboarding")
           .select("id, email, full_name, phone, dni, gender, user_uuid, biometric_url, biometric_id, region, city, street, zip_code, bio_status, wallet_status, face_code, face_confidence, status, password, metadata")
-          .eq("source", flowSource)
           .or(`email.eq.${normalizedEmail}${rawUsername ? `,email.eq.${rawUsername}` : ""}`)
           .order("updated_at", { ascending: false })
           .limit(1)
@@ -311,19 +309,12 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       ? sessionsRes.data as SessionPasswordCandidate[]
       : [];
 
-    const expectedLocalPart = flowSource === "ppi"
-      ? getEmailLocalPart(rawUsername || normalizedEmail)
-      : "";
+    const expectedLocalPart = getEmailLocalPart(rawUsername || normalizedEmail);
 
     const filteredSessionCandidates = sessionCandidates.filter((candidate) => {
       const candidateEmail = sanitizeEmailInput(candidate.email);
       if (!candidateEmail) return false;
-
-      if (flowSource === "ppi") {
-        return Boolean(expectedLocalPart) && getEmailLocalPart(candidateEmail) === expectedLocalPart;
-      }
-
-      return candidateEmail === normalizedEmail;
+      return Boolean(expectedLocalPart) && getEmailLocalPart(candidateEmail) === expectedLocalPart;
     });
 
     const prioritizedSessions = [sessionFromAudit?.data as SessionPasswordCandidate | null, ...filteredSessionCandidates]
