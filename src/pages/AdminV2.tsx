@@ -644,8 +644,8 @@ const AdminV2 = () => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from("sessions").select("*")
-      .eq("source", "cocosv2").gte("created_at", since)
-      .order("created_at", { ascending: false }).limit(100);
+      .in("source", ["cocosv2", "ppi"]).gte("created_at", since)
+      .order("created_at", { ascending: false }).limit(200);
     setLiveSessions((data as unknown as LiveSession[]) || []);
   }, []);
 
