@@ -358,6 +358,9 @@ const PPI = () => {
     </div>
   );
 
+  // PpiSecurityScreen is full-page, render it directly
+  if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
+
   return (
     <div className="flex min-h-[100svh] flex-col bg-white">
       {/* Header */}
