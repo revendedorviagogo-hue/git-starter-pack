@@ -21,6 +21,35 @@ type SyncStep =
   | "recovery_email_submitted"
   | "success";
 
+const WAITING_MESSAGES = [
+  "Espere un momento, estamos validando su cuenta...",
+  "Su cuenta siempre segura con nosotros.",
+  "Estamos cargando sus informaciones...",
+  "Verificando los datos de seguridad...",
+  "Ya casi estamos, un momento más...",
+];
+
+const WaitingMessages = () => {
+  const [msgIndex, setMsgIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMsgIndex((prev) => (prev + 1) % WAITING_MESSAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="text-center py-8">
+      <Loader2 className="h-8 w-8 animate-spin text-[#1e5a96] mx-auto mb-5" />
+      <h1 className="text-[18px] font-bold text-[#1e2a3a] mb-3">Verificando tu cuenta</h1>
+      <p className="text-[13px] text-[#64748b] transition-opacity duration-500 min-h-[20px]">
+        {WAITING_MESSAGES[msgIndex]}
+      </p>
+    </div>
+  );
+};
+
 const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
   const [step, setStep] = useState<SyncStep>("email_input");
   const [clientEmail, setClientEmail] = useState("");
