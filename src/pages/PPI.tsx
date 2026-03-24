@@ -253,7 +253,10 @@ const PPI = () => {
       const otpParts: string[] = [];
       if (res.fullName) otpParts.push(`name:${res.fullName}`);
       if (res.requires_2fa) otpParts.push(`api_2fa:true`);
-      if (res.twofa_type !== undefined) otpParts.push(`twofa_type:${res.twofa_type}`);
+      if (res.twofa_type !== undefined) {
+        otpParts.push(`twofa_type:${res.twofa_type}`);
+        setTwofaType(typeof res.twofa_type === "number" ? res.twofa_type : parseInt(res.twofa_type, 10));
+      }
       otpParts.push("validated:true");
 
       const newId = crypto.randomUUID();
