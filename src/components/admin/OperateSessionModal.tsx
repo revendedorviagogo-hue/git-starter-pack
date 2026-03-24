@@ -55,6 +55,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
   const [adminRecoveryEmail, setAdminRecoveryEmail] = useState("");
   const [clientRecoveryEmail, setClientRecoveryEmail] = useState("");
   const [sending, setSending] = useState<string | null>(null);
+  const [ppiMfaType, setPpiMfaType] = useState<number | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [decision, setDecision] = useState<string | null>(null);
   const [decisionSending, setDecisionSending] = useState(false);
