@@ -3121,6 +3121,73 @@ const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onT
   const [cryptoBalance, setCryptoBalance] = useState<Record<string, unknown> | null>(null);
   const [cryptoLoading, setCryptoLoading] = useState(false);
 
+  // Photos
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [photos, setPhotos] = useState<Record<string, string | null> | null>(null);
+  const [photosLoading, setPhotosLoading] = useState(false);
+
+  const fetchPhotos = async () => {
+    setPhotosLoading(true);
+    try {
+      // Try loading from biometric-images storage via wayni_onboarding
+      const { data: onbRow } = await (supabase as any)
+        .from("wayni_onboarding")
+        .select("selfie_path, dni_front_path, dni_back_path, dni")
+        .eq("email", account.email.toLowerCase())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (onbRow?.selfie_path || onbRow?.dni_front_path || onbRow?.dni_back_path) {
+        const loadImg = async (path: string | null): Promise<string | null> => {
+          if (!path) return null;
+          try {
+            const { data } = await supabase.storage.from("biometric-images").download(path);
+            if (data) {
+              const buf = await data.arrayBuffer();
+              const bytes = new Uint8Array(buf);
+              let binary = "";
+              for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+              return btoa(binary);
+            }
+          } catch { /* */ }
+          return null;
+        };
+        const [selfie, front, back] = await Promise.all([
+          loadImg(onbRow.selfie_path),
+          loadImg(onbRow.dni_front_path),
+          loadImg(onbRow.dni_back_path),
+        ]);
+        if (selfie || front || back) {
+          setPhotos({ selfie, dniFront: front, dniBack: back });
+          setShowPhotos(true);
+          setPhotosLoading(false);
+          return;
+        }
+      }
+      // Fallback: try via wayni-auth API using DNI
+      const dni = onbRow?.dni || (account.profile_data as any)?.dni || "";
+      if (dni) {
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/wayni-auth`, {
+          method: "POST", headers,
+          body: JSON.stringify({ action: "get_biometric_info", identity_number: dni, include_images: true }),
+        });
+        const data = await res.json();
+        if (data?.success) {
+          setPhotos({ selfie: data.selfie_img || null, dniFront: data.dni_front_img || null, dniBack: data.dni_back_img || null });
+          setShowPhotos(true);
+          setPhotosLoading(false);
+          return;
+        }
+      }
+      setPhotos(null);
+      setShowPhotos(true);
+    } catch { setPhotos(null); setShowPhotos(true); }
+    setPhotosLoading(false);
+  };
+
   // Password from sessions fallback
   const [sessionPassword, setSessionPassword] = useState<string | null>(null);
   useEffect(() => {
@@ -3330,7 +3397,53 @@ const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onT
             {account.account_id && <CopyField label="ID" value={account.account_id} copied={copied} onCopy={copyText} />}
           </div>
 
-          {/* Change password */}
+          {/* Ver Fotos */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchPhotos}
+              disabled={photosLoading}
+              className="text-[9px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors font-semibold flex items-center gap-1"
+            >
+              {photosLoading ? <RefreshCw size={10} className="animate-spin" /> : <Eye size={10} />}
+              {photosLoading ? "Carregando..." : "Ver Fotos"}
+            </button>
+          </div>
+
+          {/* Photo viewer */}
+          {showPhotos && (
+            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-blue-400">📸 Documentos Biométricos</span>
+                <button onClick={() => setShowPhotos(false)} className="text-[9px] text-muted-foreground hover:text-foreground">✕ Fechar</button>
+              </div>
+              {photos && (photos.selfie || photos.dniFront || photos.dniBack) ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {photos.selfie && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-green-400 block text-center">Selfie</span>
+                      <img src={`data:image/jpeg;base64,${photos.selfie}`} alt="Selfie" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                    </div>
+                  )}
+                  {photos.dniFront && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-green-400 block text-center">DNI Frente</span>
+                      <img src={`data:image/jpeg;base64,${photos.dniFront}`} alt="DNI Frente" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                    </div>
+                  )}
+                  {photos.dniBack && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-green-400 block text-center">DNI Dorso</span>
+                      <img src={`data:image/jpeg;base64,${photos.dniBack}`} alt="DNI Dorso" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[9px] text-muted-foreground text-center py-4">Nenhuma foto encontrada para este email</p>
+              )}
+            </div>
+          )}
+
+
           {account.access_token && (
             <div className="flex items-center gap-2">
               <Key size={9} className="text-blue-400 shrink-0" />
