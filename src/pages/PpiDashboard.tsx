@@ -868,6 +868,22 @@ const PpiDashboard = () => {
           </div>
         </div>
 
+        {/* ── STATS DASHBOARD ── */}
+        <section className="border-b border-border bg-card/50">
+          <div className="mx-auto max-w-7xl px-4 py-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              <MetricCard label="TOTAL ARS" value={fmtARS(totalArs)} color="text-emerald-400" icon="💰" size="lg" />
+              <MetricCard label="TOTAL USD" value={fmtUSD(totalUsd)} color="text-sky-400" icon="🇺🇸" />
+              <MetricCard label="CONTAS" value={String(accounts.length)} color="text-purple-400" icon="👥" sub={`${activeCount} ativas`} />
+              <MetricCard label="SESSÕES 24H" value={String(liveSessions.length)} color="text-blue-400" icon="📊" sub={`${completedSessions} completas`} />
+              <MetricCard label="SESSÕES HOJE" value={String(ppiSessionsToday)} color="text-cyan-400" icon="📅" />
+              <MetricCard label="VISITAS TOTAL" value={String(stats.totalVisits)} color="text-orange-400" icon="👁️" sub={`${stats.todayVisits} hoje`} />
+              <MetricCard label="ONLINE" value={String(stats.onlineCount)} color="text-green-400" icon="🟢" highlight={stats.onlineCount > 0} />
+              <MetricCard label="IPs ÚNICOS" value={String(stats.uniqueIPs)} color="text-muted-foreground" icon="🌐" />
+            </div>
+          </div>
+        </section>
+
         <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
           {/* ── TABS ── */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -875,6 +891,7 @@ const PpiDashboard = () => {
               { key: "sessions" as const, label: "Sessões", icon: Activity, count: liveSessions.length },
               { key: "accounts" as const, label: "Contas", icon: Users, count: accounts.length },
               { key: "wayni" as const, label: "Wayni", icon: Fingerprint, count: wayniRows.length },
+              { key: "online" as const, label: "Online", icon: Wifi, count: stats.onlineCount },
             ]).map(({ key, label, icon: Icon, count }) => (
               <button key={key} onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all border ${
