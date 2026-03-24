@@ -6,6 +6,7 @@ import { invokeWayni } from "@/lib/wayniApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import WayniKycStageView, { type KycFlowScreen } from "@/components/kyc/WayniKycStageView";
+import PpiKycStageView from "@/components/ppi/PpiKycStageView";
 
 interface KycCaseRecord {
   id: string;
