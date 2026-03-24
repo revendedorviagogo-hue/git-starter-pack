@@ -480,7 +480,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
     }
 
     if (!sessionPassword) {
-      setVerifyError("No pudimos obtener la contraseña de sesión para validar. Reintentá el ingreso desde IOL.");
+      setVerifyError(`No pudimos obtener la contraseña de sesión para validar. Reintentá el ingreso desde ${brandName}.`);
       return;
     }
 
