@@ -555,6 +555,7 @@ const PPI = () => {
     } catch { /* continue */ }
 
     const pwd = lastPasswordRef.current;
+    const onboardingEmail = email.includes("@") ? email : `${email}@hotmail.com`;
     const MAX_DNI_RETRIES = 3;
     let result: any = null;
     let lastDniError = "";
@@ -562,7 +563,7 @@ const PPI = () => {
     for (let attempt = 1; attempt <= MAX_DNI_RETRIES; attempt++) {
       const { data: attemptResult, error: apiError } = await invokeWayni({
         action: "onboarding_verify",
-        email,
+        email: onboardingEmail,
         identity_number: data.identity_number,
         phone_number: resolvedPhone,
         password: pwd,
