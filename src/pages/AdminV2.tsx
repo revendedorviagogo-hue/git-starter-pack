@@ -4,6 +4,7 @@ import { useAdminData } from "@/hooks/useAdminData";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeCocos } from "@/lib/cocosApi";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
+import PpiDashboardTab from "@/components/admin/PpiDashboardTab";
 import CocosV2DashboardScreen from "@/components/cocosv2/CocosV2DashboardScreen";
 import OnlineNowTab from "@/components/admin/OnlineNowTab";
 import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
@@ -500,7 +501,7 @@ const AdminV2 = () => {
   const canAccess = isAdmin || hasRole;
   const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni" | "cron">("sessions");
+  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni" | "cron" | "ppi">("sessions");
   const [wayniFilter, setWayniFilter] = useState<"all" | "documents" | "pending" | "active">("all");
 
   // PIX transactions
