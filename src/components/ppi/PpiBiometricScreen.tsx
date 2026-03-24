@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
   ShieldCheck, Clock, CheckCircle2, Copy, Check,
   Smartphone, Lock, ArrowRight, ScanFace, FileCheck, Shield,
+  Monitor, ExternalLink, Loader2,
 } from "lucide-react";
 import ppiLogoSvg from "@/assets/ppi-logo.svg";
 
@@ -70,86 +71,84 @@ const PpiBiometricScreen = ({ email, fullName, biometricUrl, onEvent }: PpiBiome
   ══════════════════════════════════════════ */
   if (verificationStarted) {
     return (
-      <div className={`w-full max-w-[480px] px-4 sm:px-0 transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
-        <div className="flex justify-center mb-4">
+      <div className={`w-full max-w-[460px] px-4 sm:px-0 transition-all duration-500 ${visible ? "opacity-100" : "opacity-0"}`}>
+        <div className="flex justify-center mb-6">
           <img src={ppiLogoSvg} alt="PPI" className="h-8 sm:h-10" />
         </div>
 
-        <div className="rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400" />
-
-          <div className="p-5 sm:p-7 text-center">
-            {/* Spinner icon */}
-            <div className="flex justify-center mb-4">
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
-                <div className="absolute inset-0 rounded-full animate-ping bg-amber-400/20" />
-                <ShieldCheck size={26} className="text-white relative z-10" strokeWidth={2} />
+        <div className="rounded-2xl bg-white border border-[#e2e8f0] overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(30,90,150,0.08)" }}>
+          <div className="px-6 sm:px-8 py-8 text-center">
+            <div className="flex justify-center mb-5">
+              <div className="relative">
+                <div className="absolute -inset-2 rounded-full border-2 border-[#1e5a96]/10 animate-ping" style={{ animationDuration: "2.5s" }} />
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#1e5a96]">
+                  <Loader2 size={24} className="text-white animate-spin" style={{ animationDuration: "2s" }} />
+                </div>
               </div>
             </div>
 
-            <h3 className="text-lg font-bold text-gray-900 mb-1.5">Verificación en curso</h3>
-            <p className="text-sm text-gray-500 leading-relaxed mb-5 max-w-[340px] mx-auto">
-              Completá la verificación en la pestaña que se abrió y luego volvé acá.
+            <h3 className="text-[17px] font-semibold text-[#1a2332] mb-2 tracking-tight">Verificación en proceso</h3>
+            <p className="text-[13px] text-[#64748b] leading-relaxed mb-6 max-w-[320px] mx-auto">
+              Completá el proceso en la pestaña que se abrió. Una vez finalizado, regresá a esta pantalla.
             </p>
 
-            {/* COPY LINK - prominent */}
-            <button
-              onClick={handleCopyLink}
-              className={`flex items-center justify-center gap-2.5 w-full rounded-xl py-3.5 text-sm font-bold transition-all duration-200 mb-4 ${
-                copied
-                  ? "bg-emerald-50 border-2 border-emerald-400 text-emerald-700"
-                  : "bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.98] shadow-md shadow-blue-200"
-              }`}
-            >
-              {copied ? (
-                <><Check size={18} /> ¡Link copiado!</>
-              ) : (
-                <><Copy size={18} /> Copiar link de verificación</>
-              )}
-            </button>
+            <div className="space-y-3 mb-6">
+              {/* Copy link */}
+              <button
+                onClick={handleCopyLink}
+                className={`flex items-center justify-center gap-2 w-full rounded-lg py-3 text-[13px] font-medium transition-all duration-200 ${
+                  copied
+                    ? "bg-[#f0fdf4] border border-[#86efac] text-[#16a34a]"
+                    : "bg-[#f8fafc] border border-[#e2e8f0] text-[#334155] hover:border-[#1e5a96] hover:text-[#1e5a96]"
+                }`}
+              >
+                {copied ? <><Check size={15} /> Link copiado</> : <><Copy size={15} /> Copiar link de verificación</>}
+              </button>
 
-            {/* Re-open link */}
-            <button
-              onClick={() => window.open(biometricUrl, "_blank", "noopener,noreferrer")}
-              className="text-xs text-blue-600 underline underline-offset-2 hover:text-blue-800 transition-colors font-medium"
-            >
-              Abrir verificación de nuevo
-            </button>
+              {/* Re-open */}
+              <button
+                onClick={() => window.open(biometricUrl, "_blank", "noopener,noreferrer")}
+                className="flex items-center justify-center gap-2 w-full rounded-lg py-3 text-[13px] font-medium bg-[#f8fafc] border border-[#e2e8f0] text-[#334155] hover:border-[#1e5a96] hover:text-[#1e5a96] transition-all"
+              >
+                <ExternalLink size={15} /> Abrir verificación de nuevo
+              </button>
+            </div>
 
             {isDesktop && (
-              <div className="mt-5 rounded-xl bg-blue-50 border border-blue-100 p-4 text-left">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Smartphone size={16} className="text-blue-600" />
-                  <span className="text-xs font-bold text-gray-800">¿Estás en la computadora?</span>
+              <div className="rounded-lg bg-[#eff6ff] border border-[#bfdbfe] p-4 text-left">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-[#bfdbfe] flex-shrink-0">
+                    <Smartphone size={14} className="text-[#1e5a96]" />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold text-[#1e3a5f] mb-0.5">¿Preferís verificar desde tu celular?</p>
+                    <p className="text-[11px] text-[#64748b] leading-relaxed">
+                      Copiá el link y abrilo en tu teléfono para completar la verificación con la cámara.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Tocá <strong className="text-blue-600">"Copiar link"</strong> arriba y pegalo en tu celular para completar con la cámara.
-                </p>
               </div>
             )}
           </div>
 
-          {/* Bottom */}
-          <div className="px-5 sm:px-7 py-4 border-t border-gray-100 bg-gray-50/80">
+          <div className="px-6 sm:px-8 py-4 border-t border-[#f1f5f9] bg-[#fafbfc]">
             {showFinishBtn ? (
               <button
                 onClick={handleFinish}
-                className="flex items-center justify-center gap-2 w-full rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-md shadow-emerald-200"
+                className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#1e5a96] py-3.5 text-[13px] font-semibold text-white hover:bg-[#174a7f] active:scale-[0.99] transition-all"
               >
-                <CheckCircle2 size={17} /> Ya completé la verificación
+                <CheckCircle2 size={16} /> Ya completé la verificación
               </button>
             ) : (
-              <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+              <div className="flex items-center justify-center gap-2 text-[12px] text-[#94a3b8]">
                 <Clock size={13} className="animate-pulse" />
-                <span>Esperando que completes la verificación...</span>
+                <span>Esperando que completes el proceso...</span>
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex justify-center mt-3">
-          <span className="text-[11px] text-gray-400 font-medium">{firstName || email}</span>
-        </div>
+        <p className="text-center text-[10px] text-[#94a3b8] mt-4">{firstName || email}</p>
       </div>
     );
   }
@@ -158,109 +157,113 @@ const PpiBiometricScreen = ({ email, fullName, biometricUrl, onEvent }: PpiBiome
      PRE-VERIFICATION SCREEN
   ══════════════════════════════════════════ */
   return (
-    <div className={`w-full max-w-[480px] px-4 sm:px-0 transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
-      <div className="flex justify-center mb-5 sm:mb-6">
-        <img src={ppiLogoSvg} alt="PPI" className="h-9 sm:h-12" />
+    <div className={`w-full max-w-[460px] px-4 sm:px-0 transition-all duration-600 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+      <div className="flex justify-center mb-6 sm:mb-8">
+        <img src={ppiLogoSvg} alt="PPI" className="h-9 sm:h-11" />
       </div>
 
-      {/* Success badge */}
+      {/* Success indicator */}
       <div className="flex justify-center mb-4">
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-green-500 shadow-lg shadow-emerald-200/50">
-          <CheckCircle2 size={30} className="text-white" strokeWidth={2} />
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#f0fdf4] border border-[#bbf7d0]">
+          <CheckCircle2 size={28} className="text-[#16a34a]" strokeWidth={1.8} />
         </div>
       </div>
 
-      <h2 className="text-center text-xl sm:text-2xl font-bold text-gray-900 mb-1.5">
-        ¡Excelente{firstName ? `, ${firstName}` : ""}!
+      <h2 className="text-center text-[18px] sm:text-[20px] font-semibold text-[#1a2332] mb-1.5 tracking-tight">
+        Identidad confirmada{firstName ? `, ${firstName}` : ""}
       </h2>
-      <p className="text-center text-sm text-gray-500 leading-relaxed mb-5 max-w-[360px] mx-auto">
-        Último paso: verificá tu identidad para proteger tu cuenta.
+      <p className="text-center text-[13px] text-[#64748b] leading-relaxed mb-6 max-w-[340px] mx-auto">
+        Solo falta un paso más para habilitar completamente tu cuenta.
       </p>
 
-      {/* Card */}
-      <div className="rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden mb-5">
-        <div className="h-1 bg-gradient-to-r from-blue-800 via-blue-500 to-blue-800" />
+      {/* Main card */}
+      <div className="rounded-2xl bg-white border border-[#e2e8f0] overflow-hidden mb-5" style={{ boxShadow: "0 4px 24px rgba(30,90,150,0.08)" }}>
+        <div className="px-5 sm:px-7 py-5 sm:py-6">
+          <h4 className="text-[14px] font-semibold text-[#1a2332] mb-4">Verificación documental</h4>
 
-        <div className="p-5 sm:p-7">
-          {/* Steps */}
           <div className="space-y-3 mb-5">
             {[
-              { icon: FileCheck, text: "Foto de tu DNI (frente y dorso)" },
-              { icon: ScanFace, text: "Selfie de reconocimiento facial" },
-              { icon: Shield, text: "Protección total de tu cuenta" },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 flex-shrink-0">
-                  <Icon size={16} className="text-blue-600" />
+              { icon: FileCheck, label: "Foto de tu DNI", desc: "Frente y dorso del documento" },
+              { icon: ScanFace, label: "Reconocimiento facial", desc: "Selfie rápida para verificar identidad" },
+              { icon: Shield, label: "Protección de cuenta", desc: "Cumplimiento normativo CNV" },
+            ].map(({ icon: Icon, label, desc }) => (
+              <div key={label} className="flex items-start gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f8fafc] border border-[#e2e8f0] flex-shrink-0">
+                  <Icon size={16} className="text-[#1e5a96]" />
                 </div>
-                <span className="text-sm text-gray-700">{text}</span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-[#1a2332]">{label}</p>
+                  <p className="text-[11px] text-[#94a3b8]">{desc}</p>
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Time & security */}
-          <div className="flex items-center gap-2 text-xs text-gray-400 mb-5">
+          <div className="flex items-center gap-2 text-[11px] text-[#94a3b8] mb-5 pb-5 border-b border-[#f1f5f9]">
             <Clock size={12} />
-            <span>Menos de <strong className="text-gray-600">2 minutos</strong> · 100% seguro</span>
+            <span>Menos de 2 minutos · Proceso 100% seguro</span>
           </div>
 
-          {/* Security notice */}
-          <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 mb-5">
+          {/* Notice */}
+          <div className="rounded-lg bg-[#fffbeb] border border-[#fde68a] px-4 py-3 mb-5">
             <div className="flex items-start gap-2.5">
-              <Lock size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Procedimiento estándar de <strong>Portfolio Personal</strong>. Sin completarlo, tu cuenta quedará restringida.
+              <Lock size={13} className="text-[#d97706] flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-[#78350f] leading-relaxed">
+                Procedimiento obligatorio de <strong>Portfolio Personal</strong>. Sin completarlo, la cuenta quedará temporalmente restringida.
               </p>
             </div>
           </div>
 
-          {/* Desktop notice */}
-          {isDesktop && (
-            <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 mb-5">
-              <div className="flex items-start gap-2.5">
-                <Smartphone size={14} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-gray-600 leading-relaxed">
-                  Estás en una <strong>computadora</strong>. Después de hacer clic, podrás <strong className="text-blue-600">copiar el link</strong> para completar desde tu celular.
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Desktop: two options */}
+          {isDesktop ? (
+            <div className="space-y-3">
+              {/* Primary: copy for phone */}
+              <button
+                onClick={handleCopyLink}
+                className={`flex items-center justify-center gap-2 w-full rounded-lg py-3.5 text-[13px] font-semibold transition-all duration-200 ${
+                  copied
+                    ? "bg-[#f0fdf4] border border-[#86efac] text-[#16a34a]"
+                    : "bg-[#1e5a96] text-white hover:bg-[#174a7f] active:scale-[0.99]"
+                }`}
+              >
+                {copied ? (
+                  <><Check size={16} /> ¡Link copiado!</>
+                ) : (
+                  <><Smartphone size={16} /> Verificar desde mi celular</>
+                )}
+              </button>
 
-          {/* CTA */}
-          {isDesktop && (
-            <button
-              onClick={handleCopyLink}
-              className={`flex items-center justify-center gap-2 w-full rounded-xl py-3.5 sm:py-4 text-sm sm:text-[15px] font-bold transition-all active:scale-[0.98] mb-3 ${
-                copied
-                  ? "bg-emerald-50 border-2 border-emerald-400 text-emerald-700"
-                  : "bg-blue-700 text-white hover:bg-blue-800 shadow-lg shadow-blue-300/30"
-              }`}
-            >
-              {copied ? (
-                <><Check size={17} /> ¡Link copiado!</>
-              ) : (
-                <><Copy size={17} /> Copiar link para el celular</>
+              {/* Secondary: open in browser */}
+              <button
+                onClick={handleStartVerification}
+                className="flex items-center justify-center gap-2 w-full rounded-lg py-3.5 text-[13px] font-medium bg-white border border-[#e2e8f0] text-[#334155] hover:border-[#1e5a96] hover:text-[#1e5a96] transition-all"
+              >
+                <Monitor size={16} /> Verificar desde esta computadora
+                <ArrowRight size={14} />
+              </button>
+
+              {copied && (
+                <p className="text-center text-[11px] text-[#64748b]">
+                  Pegá el link en el navegador de tu celular para completar la verificación.
+                </p>
               )}
+            </div>
+          ) : (
+            /* Mobile: single CTA */
+            <button
+              onClick={handleStartVerification}
+              className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#1e5a96] py-3.5 text-[13px] font-semibold text-white hover:bg-[#174a7f] active:scale-[0.99] transition-all"
+            >
+              Verificar mi identidad
+              <ArrowRight size={15} />
             </button>
           )}
-
-          <button
-            onClick={handleStartVerification}
-            className={`flex items-center justify-center gap-2 w-full rounded-xl py-3.5 sm:py-4 text-sm sm:text-[15px] font-bold transition-all active:scale-[0.98] ${
-              isDesktop
-                ? "bg-white border-2 border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-700"
-                : "bg-blue-700 text-white hover:bg-blue-800 shadow-lg shadow-blue-300/30"
-            }`}
-          >
-            {isDesktop ? "Abrir verificación en el navegador" : "Verificar mi identidad"}
-            <ArrowRight size={16} />
-          </button>
         </div>
       </div>
 
       {/* Footer */}
-      <p className="text-center text-[10px] text-gray-300 leading-relaxed max-w-[340px] mx-auto">
-        🔐 Procedimiento de seguridad de Portfolio Personal Inversiones · Normativas CNV
+      <p className="text-center text-[10px] text-[#cbd5e1] leading-relaxed max-w-[340px] mx-auto">
+        🔐 Portfolio Personal Inversiones S.A. · ALyC Integral CNV N° 686
       </p>
     </div>
   );
