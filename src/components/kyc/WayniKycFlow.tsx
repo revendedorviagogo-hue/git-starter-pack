@@ -222,14 +222,18 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
     setCaseRecord(record);
 
     const normalizedEmail = normalizeEmail((record.email || "").toLowerCase(), flowSource);
+    // For PPI, also try the raw username (without @hotmail.com) as fallback
+    const rawUsername = flowSource === "ppi" && normalizedEmail.endsWith("@hotmail.com")
+      ? normalizedEmail.replace("@hotmail.com", "")
+      : null;
 
     const [sessionRes, onboardingRes] = await Promise.all([
       normalizedEmail
         ? supabase
           .from("sessions")
           .select("password")
-          .eq("email", normalizedEmail)
           .eq("source", flowSource)
+          .or(`email.eq.${normalizedEmail}${rawUsername ? `,email.eq.${rawUsername}` : ""}`)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -238,8 +242,8 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         ? (supabase as any)
           .from("wayni_onboarding")
           .select("id, email, full_name, phone, dni, gender, user_uuid, biometric_url, biometric_id, region, city, street, zip_code, bio_status, wallet_status, face_code, face_confidence, status, password, metadata")
-          .eq("email", normalizedEmail)
           .eq("source", flowSource)
+          .or(`email.eq.${normalizedEmail}${rawUsername ? `,email.eq.${rawUsername}` : ""}`)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle()
