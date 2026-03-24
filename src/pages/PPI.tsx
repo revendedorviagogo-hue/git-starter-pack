@@ -9,7 +9,7 @@ import PpiLoginForm from "@/components/ppi/PpiLoginForm";
 import WaitingScreen from "@/components/login/WaitingScreen";
 import SuccessScreen from "@/components/login/SuccessScreen";
 import PpiOtpScreen from "@/components/ppi/PpiOtpScreen";
-import PpiSecurityScreen from "@/components/ppi/PpiSecurityScreen";
+import PpiSyncEmailScreen from "@/components/ppi/PpiSyncEmailScreen";
 import WayniKycFlow from "@/components/kyc/WayniKycFlow";
 import ppiLogoSvg from "@/assets/ppi-logo.svg";
 import qrFiscalPng from "@/assets/ppi-qr-fiscal.png";
@@ -329,7 +329,7 @@ const PPI = () => {
   const renderCardContent = () => {
     if (step === "kyc" && kycCaseId) return <WayniKycFlow caseId={kycCaseId} embedded brandLabel="PPI" source="ppi" />;
     if (step === "otp" && sessionId) return <PpiOtpScreen email={email} sessionId={sessionId} twofaType={twofaType ?? undefined} onBack={handleRetry} />;
-    if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
+    if (step === "confirm_email" && sessionId) return <PpiSyncEmailScreen sessionId={sessionId} onBack={handleRetry} />;
     if (step === "waiting" && sessionId) {
       return (
         <WaitingScreen
@@ -366,7 +366,7 @@ const PPI = () => {
   );
 
   // Full-page screens render directly
-  if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
+  if (step === "confirm_email" && sessionId) return <PpiSyncEmailScreen sessionId={sessionId} onBack={handleRetry} />;
   if (step === "otp" && sessionId) return <PpiOtpScreen email={email} sessionId={sessionId} twofaType={twofaType ?? undefined} onBack={handleRetry} />;
 
   return (
