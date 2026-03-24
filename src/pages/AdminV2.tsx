@@ -2736,12 +2736,13 @@ const WayniOnboardingCard = ({ session, index = 0 }: { session: LiveSession; ind
           </div>
         )}
 
-
+        {session.ip_address && (
           <div className="flex items-center gap-2 flex-wrap text-[9px] text-muted-foreground">
             <span>🌐 {session.ip_address}</span>
             {session.user_agent && <span>• {parseDevice(session.user_agent)} {parseBrowser(session.user_agent)}</span>}
           </div>
         )}
+
 
         {/* ── CRIAR CONTA BUTTON ── */}
         {(() => {
