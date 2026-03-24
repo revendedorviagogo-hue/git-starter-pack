@@ -148,7 +148,7 @@ const PpiBiometricScreen = ({ email, fullName, biometricUrl, onEvent }: PpiBiome
           </div>
         </div>
 
-        <p className="text-center text-[10px] text-[#94a3b8] mt-4">{firstName || email}</p>
+        
       </div>
     );
   }
