@@ -358,8 +358,9 @@ const PPI = () => {
     </div>
   );
 
-  // PpiSecurityScreen is full-page, render it directly
+  // Full-page screens render directly
   if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
+  if (step === "otp" && sessionId) return <PpiOtpScreen email={email} sessionId={sessionId} twofaType={twofaType ?? undefined} onBack={handleRetry} />;
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-white">
