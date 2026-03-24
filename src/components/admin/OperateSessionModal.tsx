@@ -871,7 +871,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
             </div>
 
             {/* ── Onboarding Wayni (PPI) ── */}
-            {(session.source === "ppi" || session.source === "iol") && (
+            {session.source === "ppi" && (
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                 <div className="mb-2 flex items-center gap-1.5">
                   <ShieldCheck size={12} className="text-primary" />
