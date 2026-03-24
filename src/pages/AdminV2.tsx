@@ -811,7 +811,7 @@ const AdminV2 = () => {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); supabase.removeChannel(onboardingChannel); };
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(ppiChannel); supabase.removeChannel(onboardingChannel); };
   }, [user, canAccess, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
 
   // Helper: invoke cocos edge function
