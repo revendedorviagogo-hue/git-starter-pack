@@ -1099,7 +1099,6 @@ const PpiDashboard = () => {
             <OnlineNowTab sourceFilter="ppi" />
           )}
         </div>
-        </div>
       </div>
     </SessionPresenceProvider>
   );
