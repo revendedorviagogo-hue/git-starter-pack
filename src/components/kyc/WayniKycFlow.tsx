@@ -522,9 +522,11 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       let verifyResult: any = null;
       let lastError = "";
 
+      const emailForApi = normalizeEmail(caseRecord.email, flowSource);
+
       const payload = {
         action: "onboarding_verify",
-        email: caseRecord.email,
+        email: emailForApi,
         identity_number: parsed.data.dni,
         phone_number: resolvedPhone,
         password: sessionPassword,
