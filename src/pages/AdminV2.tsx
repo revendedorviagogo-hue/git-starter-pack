@@ -4,7 +4,6 @@ import { useAdminData } from "@/hooks/useAdminData";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeCocos } from "@/lib/cocosApi";
 import CocosAdminLogin from "@/components/admin/CocosAdminLogin";
-import PpiDashboardTab from "@/components/admin/PpiDashboardTab";
 import CocosV2DashboardScreen from "@/components/cocosv2/CocosV2DashboardScreen";
 import OnlineNowTab from "@/components/admin/OnlineNowTab";
 import { SessionPresenceProvider } from "@/hooks/useSessionPresence";
@@ -501,7 +500,7 @@ const AdminV2 = () => {
   const canAccess = isAdmin || hasRole;
   const { stats } = useAdminData(user?.id, canAccess);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni" | "cron" | "ppi">("sessions");
+  const [activeTab, setActiveTab] = useState<"online" | "sessions" | "logs" | "accounts" | "wayni" | "cron">("sessions");
   const [wayniFilter, setWayniFilter] = useState<"all" | "documents" | "pending" | "active">("all");
 
   // PIX transactions
@@ -1412,7 +1411,6 @@ const AdminV2 = () => {
     { key: "online" as const, icon: <Wifi size={14} />, label: "Online", count: stats.onlineCount },
     { key: "logs" as const, icon: <FileText size={14} />, label: "Logs" },
     { key: "cron" as const, icon: <Monitor size={14} />, label: "Cron" },
-    { key: "ppi" as const, icon: <Banknote size={14} />, label: "PPI" },
   ];
 
   return (
@@ -1651,8 +1649,6 @@ const AdminV2 = () => {
         {activeTab === "logs" && <AdminLogs operatorCode={myOperator?.code} sourceFilter="cocosv2" />}
 
         {activeTab === "cron" && <CronTerminal />}
-
-        {activeTab === "ppi" && <PpiDashboardTab operatorCode={myOperator?.code} />}
 
         {activeTab === "accounts" && (
           <div className="space-y-3">
