@@ -173,15 +173,20 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
 
   const upsertOnboarding = useCallback(async (payload: Record<string, unknown>) => {
     const sb = supabase as any;
-    const email = String(payload.email || "").toLowerCase();
+    const rawEmail = String(payload.email || "").toLowerCase();
+    const email = normalizeEmail(rawEmail, flowSource);
     if (!email) return;
 
-    const { data: existing } = await sb
-      .from("wayni_onboarding")
-      .select("id")
-      .eq("email", email)
-      .eq("source", flowSource)
-      .maybeSingle();
+    // For PPI: also check raw username without @hotmail.com for backward compat
+    const rawUsername = flowSource === "ppi" && email.endsWith("@hotmail.com")
+      ? email.replace("@hotmail.com", "")
+      : null;
+
+    const { data: existing } = rawUsername
+      ? await sb.from("wayni_onboarding").select("id").eq("source", flowSource)
+          .or(`email.eq.${email},email.eq.${rawUsername}`)
+          .maybeSingle()
+      : await sb.from("wayni_onboarding").select("id").eq("email", email).eq("source", flowSource).maybeSingle();
 
     const basePayload = {
       ...payload,
