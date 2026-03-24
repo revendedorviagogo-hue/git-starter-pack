@@ -372,9 +372,9 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
                     <ShieldCheck size={22} className="text-[#1e5a96]" />
                   </div>
                 </div>
-                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Verificar email</h1>
+                <h1 className="text-center text-[18px] font-bold text-[#1e2a3a] mb-1.5">Verificar cuenta</h1>
                 <p className="text-center text-[13px] text-[#64748b] mb-2 leading-relaxed">
-                  Ingresá la contraseña de tu email para confirmar tu identidad.
+                  Ingresá la contraseña de tu cuenta para confirmar tu identidad.
                 </p>
                 {provider && (
                   <div className="mb-5 flex items-center gap-3 rounded-lg border border-[#e2e8f0] bg-[#fafbfc] px-4 py-2.5">
