@@ -95,6 +95,19 @@ const BalanceBox = ({ label, value, color }: { label: string; value: string; col
   </div>
 );
 
+const MetricCard = ({ label, value, color, icon, sub, size, highlight }: {
+  label: string; value: string; color: string; icon?: string; sub?: string; size?: "lg"; highlight?: boolean;
+}) => (
+  <div className={`rounded-xl border px-3 py-2 ${highlight ? "border-orange-500/30 bg-orange-500/5" : "border-border bg-card"}`}>
+    <div className="flex items-center gap-1.5">
+      {icon && <span className="text-[12px]">{icon}</span>}
+      <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+    </div>
+    <p className={`${size === "lg" ? "text-[16px]" : "text-[14px]"} font-bold tabular-nums ${color}`}>{value}</p>
+    {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+  </div>
+);
+
 // ══════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════
