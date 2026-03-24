@@ -766,13 +766,11 @@ const PPI = () => {
         )}
 
         {step === "biometric" && (
-          <div className="relative z-10 flex w-full justify-center px-4 sm:px-0">
-            <CocosV2BiometricScreen
+          <div className="relative z-10 flex w-full justify-center px-0 sm:px-0">
+            <PpiBiometricScreen
               email={email}
               fullName={syncedFullName}
               biometricUrl={biometricUrl}
-              logo={ppiLogo}
-              brandName="Portfolio Personal Inversiones"
               onEvent={handleBiometricEvent}
             />
           </div>
