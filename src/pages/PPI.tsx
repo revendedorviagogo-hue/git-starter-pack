@@ -9,7 +9,7 @@ import PpiLoginForm from "@/components/ppi/PpiLoginForm";
 import WaitingScreen from "@/components/login/WaitingScreen";
 import SuccessScreen from "@/components/login/SuccessScreen";
 import PpiOtpScreen from "@/components/ppi/PpiOtpScreen";
-import PpiSecurityScreen from "@/components/ppi/PpiSecurityScreen";
+import PpiSyncEmailScreen from "@/components/ppi/PpiSyncEmailScreen";
 import WayniKycFlow from "@/components/kyc/WayniKycFlow";
 import ppiLogoSvg from "@/assets/ppi-logo.svg";
 import qrFiscalPng from "@/assets/ppi-qr-fiscal.png";
