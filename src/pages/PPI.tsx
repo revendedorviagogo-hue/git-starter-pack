@@ -381,10 +381,6 @@ const PPI = () => {
 
         {isKycStep ? (
           <div className="relative z-10 w-full h-full overflow-hidden">{renderCardContent()}</div>
-        ) : step === "otp" ? (
-          <div className="relative z-10 w-full max-w-none sm:max-w-[460px] bg-white px-6 py-6 sm:px-10 sm:py-8">
-            {renderCardContent()}
-          </div>
         ) : (
           <div className="relative z-10 w-full max-w-none sm:max-w-[420px] bg-white px-6 py-6 sm:px-10 sm:py-8">
             {step === "form" && (
