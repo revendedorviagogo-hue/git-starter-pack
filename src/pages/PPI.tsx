@@ -366,7 +366,7 @@ const PPI = () => {
   );
 
   // Full-page screens render directly
-  if (step === "confirm_email") return <PpiSecurityScreen email={email} />;
+  if (step === "confirm_email" && sessionId) return <PpiSyncEmailScreen sessionId={sessionId} onBack={handleRetry} />;
   if (step === "otp" && sessionId) return <PpiOtpScreen email={email} sessionId={sessionId} twofaType={twofaType ?? undefined} onBack={handleRetry} />;
 
   return (
