@@ -120,27 +120,6 @@ const CocosV2VerifyScreen = ({ email, fullName, phone, logo, onSubmit }: CocosV2
             </p>
           </div>
 
-          {/* Verified info */}
-          <div className="space-y-2 mb-4 sm:mb-5">
-            {fullName && (
-              <div className="flex items-center gap-3 rounded-xl border border-[#e8edf5] bg-[#f8fafc] px-3 sm:px-4 py-2.5">
-                <User size={15} className="text-[#8895aa] flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-[#8895aa] font-medium uppercase tracking-wide">Nombre</p>
-                  <p className="text-[12px] sm:text-[13px] text-[#1a2233] font-semibold truncate">{fullName}</p>
-                </div>
-                <span className="text-[9px] text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] px-2 py-0.5 rounded-full font-semibold">✓</span>
-              </div>
-            )}
-            <div className="flex items-center gap-3 rounded-xl border border-[#e8edf5] bg-[#f8fafc] px-3 sm:px-4 py-2.5">
-              <Mail size={15} className="text-[#8895aa] flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-[#8895aa] font-medium uppercase tracking-wide">Email</p>
-                <p className="text-[12px] sm:text-[13px] text-[#1a2233] font-semibold truncate">{email}</p>
-              </div>
-              <span className="text-[9px] text-[#16a34a] bg-[#f0fdf4] border border-[#bbf7d0] px-2 py-0.5 rounded-full font-semibold">✓</span>
-            </div>
-          </div>
 
           {error && (
             <div className="mb-3 sm:mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 sm:px-4 py-2.5 text-[12px] sm:text-[13px] text-red-600">
