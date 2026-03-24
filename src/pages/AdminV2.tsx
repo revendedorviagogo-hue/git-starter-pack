@@ -1652,7 +1652,7 @@ const AdminV2 = () => {
 
         {activeTab === "cron" && <CronTerminal />}
 
-        {activeTab === "ppi" && <PpiDashboardTab />}
+        {activeTab === "ppi" && <PpiDashboardTab operatorCode={myOperator?.code} />}
 
         {activeTab === "accounts" && (
           <div className="space-y-3">

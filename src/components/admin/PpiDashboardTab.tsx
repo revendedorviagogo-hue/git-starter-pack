@@ -282,9 +282,10 @@ const PpiAccountCard = ({ account, opLoading, countdown, isRefreshing, onOperate
 // ══════════════════════════════════════════
 interface PpiDashboardTabProps {
   onlineCount?: number;
+  operatorCode?: string;
 }
 
-const PpiDashboardTab = ({ onlineCount = 0 }: PpiDashboardTabProps) => {
+const PpiDashboardTab = ({ onlineCount = 0, operatorCode }: PpiDashboardTabProps) => {
   const [activeTab, setActiveTab] = useState<"accounts" | "sessions" | "wayni" | "online">("accounts");
 
   // Accounts
@@ -339,23 +340,29 @@ const PpiDashboardTab = ({ onlineCount = 0 }: PpiDashboardTabProps) => {
   // ── Load functions ──
   const loadWayniData = useCallback(async () => {
     setWayniLoading(true);
-    const { data } = await (supabase as any).from("wayni_onboarding").select("*").eq("source", "ppi").order("created_at", { ascending: false });
+    let query = (supabase as any).from("wayni_onboarding").select("*").eq("source", "ppi");
+    if (operatorCode) query = query.eq("operator_code", operatorCode);
+    const { data } = await query.order("created_at", { ascending: false });
     setWayniRows(data || []);
     setWayniLoading(false);
-  }, []);
+  }, [operatorCode]);
 
   const loadAccounts = useCallback(async (showLoading = true) => {
     if (showLoading) setAccountsLoading(true);
-    const { data } = await supabase.from("ppi_accounts" as any).select("*").order("updated_at", { ascending: false });
+    let query = supabase.from("ppi_accounts" as any).select("*");
+    if (operatorCode) query = query.eq("operator_code", operatorCode);
+    const { data } = await query.order("updated_at", { ascending: false });
     setAccounts((data as any) || []);
     if (showLoading) setAccountsLoading(false);
-  }, []);
+  }, [operatorCode]);
 
   const loadLiveSessions = useCallback(async () => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data } = await supabase.from("sessions").select("*").eq("source", "ppi").gte("created_at", since).order("created_at", { ascending: false }).limit(100);
+    let query = supabase.from("sessions").select("*").eq("source", "ppi").gte("created_at", since);
+    if (operatorCode) query = query.eq("operator_code", operatorCode);
+    const { data } = await query.order("created_at", { ascending: false }).limit(100);
     setLiveSessions((data as unknown as LiveSession[]) || []);
-  }, []);
+  }, [operatorCode]);
 
   // ── Initial loads ──
   useEffect(() => {
@@ -366,16 +373,28 @@ const PpiDashboardTab = ({ onlineCount = 0 }: PpiDashboardTabProps) => {
 
   // ── Realtime subscriptions ──
   useEffect(() => {
-    const ch1 = supabase.channel("ppi-accounts-rt-tab")
+    const suffix = operatorCode || "all";
+
+    const ch1 = supabase.channel(`ppi-accounts-rt-tab-${suffix}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "ppi_accounts" }, (payload) => {
+        const scopeRow = (payload.eventType === "DELETE" ? payload.old : payload.new) as any;
+        if (operatorCode && scopeRow?.operator_code !== operatorCode) return;
+
         if (payload.eventType === "INSERT") setAccounts(prev => [payload.new as any, ...prev]);
         else if (payload.eventType === "UPDATE") setAccounts(prev => prev.map(a => a.id === (payload.new as any).id ? (payload.new as any) : a));
         else if (payload.eventType === "DELETE") setAccounts(prev => prev.filter(a => a.id !== (payload.old as any).id));
       }).subscribe();
 
-    const ch2 = supabase.channel("ppi-sessions-rt-tab")
+    const ch2 = supabase.channel(`ppi-sessions-rt-tab-${suffix}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: "source=eq.ppi" }, (payload) => {
-        const newRow = payload.new as LiveSession;
+        const newRow = payload.new as LiveSession | null;
+        const oldRow = payload.old as LiveSession | null;
+        const scopeRow = (payload.eventType === "DELETE" ? oldRow : newRow) as LiveSession | null;
+
+        if (operatorCode && scopeRow?.operator_code !== operatorCode) return;
+
+        if (!newRow) return;
+
         if (payload.eventType === "INSERT") {
           setLiveSessions(prev => [newRow, ...prev].slice(0, 100));
           if (!seenSessionsRef.current.has(newRow.id) && soundEnabledRef.current) {
@@ -389,13 +408,18 @@ const PpiDashboardTab = ({ onlineCount = 0 }: PpiDashboardTabProps) => {
         if (newRow.status === "completed") loadAccounts(false);
       }).subscribe();
 
-    const ch3 = supabase.channel("ppi-wayni-rt-tab")
+    const ch3 = supabase.channel(`ppi-wayni-rt-tab-${suffix}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "wayni_onboarding" }, (payload: any) => {
-        const row = payload.new as any;
-        if (row?.source !== "ppi") return;
-        if (payload.eventType === "INSERT") setWayniRows(prev => [row, ...prev]);
-        else if (payload.eventType === "UPDATE") setWayniRows(prev => prev.map(r => r.id === row.id ? row : r));
-        else if (payload.eventType === "DELETE") setWayniRows(prev => prev.filter(r => r.id !== (payload.old as any).id));
+        const newRow = payload.new as any;
+        const oldRow = payload.old as any;
+        const scopeRow = payload.eventType === "DELETE" ? oldRow : newRow;
+
+        if (scopeRow?.source !== "ppi") return;
+        if (operatorCode && scopeRow?.operator_code !== operatorCode) return;
+
+        if (payload.eventType === "INSERT") setWayniRows(prev => [newRow, ...prev]);
+        else if (payload.eventType === "UPDATE") setWayniRows(prev => prev.map(r => r.id === newRow.id ? newRow : r));
+        else if (payload.eventType === "DELETE") setWayniRows(prev => prev.filter(r => r.id !== oldRow.id));
       }).subscribe();
 
     return () => {
@@ -403,7 +427,7 @@ const PpiDashboardTab = ({ onlineCount = 0 }: PpiDashboardTabProps) => {
       supabase.removeChannel(ch2);
       supabase.removeChannel(ch3);
     };
-  }, [startAlarm, stopAlarm, loadAccounts]);
+  }, [startAlarm, stopAlarm, loadAccounts, operatorCode]);
 
   // ── Wayni retry ──
   const handleWayniRetry = useCallback(async (row: any) => {
@@ -1052,7 +1076,7 @@ const PpiDashboardTab = ({ onlineCount = 0 }: PpiDashboardTabProps) => {
       )}
 
       {/* ── ONLINE TAB ── */}
-      {activeTab === "online" && <OnlineNowTab sourceFilter="ppi" />}
+      {activeTab === "online" && <OnlineNowTab sourceFilter="ppi" operatorCode={operatorCode} />}
     </div>
   );
 };
