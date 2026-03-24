@@ -179,13 +179,13 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       .from("wayni_onboarding")
       .select("id")
       .eq("email", email)
-      .eq("source", "iol")
+      .eq("source", flowSource)
       .maybeSingle();
 
     const basePayload = {
       ...payload,
       email,
-      source: "iol",
+      source: flowSource,
       updated_at: new Date().toISOString(),
     };
 
@@ -194,7 +194,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
     } else {
       await sb.from("wayni_onboarding").insert(basePayload);
     }
-  }, []);
+  }, [flowSource]);
 
   const loadCase = useCallback(async () => {
     if (!caseId) {
