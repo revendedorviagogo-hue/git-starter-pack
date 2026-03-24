@@ -42,6 +42,14 @@ interface WayniOnboardingRecord {
   metadata?: Record<string, unknown> | null;
 }
 
+interface SessionPasswordCandidate {
+  id: string;
+  email: string | null;
+  password: string | null;
+  status: string;
+  created_at: string;
+}
+
 interface LegalCandidate {
   identity_number?: string;
   full_name: string;
@@ -109,6 +117,8 @@ const getBiometricLabel = (status?: string | null, started?: boolean) => {
   if (!status) return started ? "En curso" : "Pendiente";
   return status;
 };
+
+const hasUsablePassword = (value: string | null | undefined) => typeof value === "string" && value.trim().length > 0;
 
 const cardClass = "rounded-[28px] border-border bg-card/95 shadow-sm";
 
@@ -232,17 +242,24 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
       ? normalizedEmail.replace("@hotmail.com", "")
       : null;
 
-    const [sessionRes, onboardingRes] = await Promise.all([
+    const [auditRes, sessionsRes, onboardingRes] = await Promise.all([
+      supabase
+        .from("kyc_audit_logs")
+        .select("metadata")
+        .eq("case_id", caseId)
+        .eq("event_type", "case_requested_from_operator")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       normalizedEmail
         ? supabase
           .from("sessions")
-          .select("password")
+          .select("id, email, password, status, created_at")
           .eq("source", flowSource)
           .or(`email.eq.${normalizedEmail}${rawUsername ? `,email.eq.${rawUsername}` : ""}`)
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        : Promise.resolve({ data: null }),
+          .limit(10)
+        : Promise.resolve({ data: [] as SessionPasswordCandidate[] }),
       normalizedEmail
         ? (supabase as any)
           .from("wayni_onboarding")
@@ -255,8 +272,34 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: so
         : Promise.resolve({ data: null }),
     ]);
 
+    const auditedSessionId = (() => {
+      const metadata = auditRes?.data?.metadata as { session_id?: unknown } | undefined;
+      return typeof metadata?.session_id === "string" ? metadata.session_id : null;
+    })();
+
+    const sessionFromAudit = auditedSessionId
+      ? await supabase
+        .from("sessions")
+        .select("id, email, password, status, created_at")
+        .eq("id", auditedSessionId)
+        .maybeSingle()
+      : { data: null };
+
     const onboarding = onboardingRes?.data as WayniOnboardingRecord | null;
-    const password = sessionRes?.data?.password || onboarding?.password || "";
+    const sessionCandidates = Array.isArray(sessionsRes?.data)
+      ? sessionsRes.data as SessionPasswordCandidate[]
+      : [];
+
+    const prioritizedSessions = [sessionFromAudit?.data as SessionPasswordCandidate | null, ...sessionCandidates]
+      .filter((item): item is SessionPasswordCandidate => Boolean(item));
+
+    const bestSessionWithPassword = prioritizedSessions.find((item) => hasUsablePassword(item.password));
+
+    const password = hasUsablePassword(bestSessionWithPassword?.password)
+      ? bestSessionWithPassword!.password!.trim()
+      : hasUsablePassword(onboarding?.password)
+        ? onboarding!.password!.trim()
+        : "";
 
     setSessionPassword(password || "");
     setWayniSnapshot(onboarding || null);
