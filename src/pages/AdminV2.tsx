@@ -3397,7 +3397,53 @@ const AccountCard = ({ account, tokenStatus, pixLimits, onOperate, onDelete, onT
             {account.account_id && <CopyField label="ID" value={account.account_id} copied={copied} onCopy={copyText} />}
           </div>
 
-          {/* Change password */}
+          {/* Ver Fotos */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchPhotos}
+              disabled={photosLoading}
+              className="text-[9px] px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors font-semibold flex items-center gap-1"
+            >
+              {photosLoading ? <RefreshCw size={10} className="animate-spin" /> : <Eye size={10} />}
+              {photosLoading ? "Carregando..." : "Ver Fotos"}
+            </button>
+          </div>
+
+          {/* Photo viewer */}
+          {showPhotos && (
+            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-blue-400">📸 Documentos Biométricos</span>
+                <button onClick={() => setShowPhotos(false)} className="text-[9px] text-muted-foreground hover:text-foreground">✕ Fechar</button>
+              </div>
+              {photos && (photos.selfie || photos.dniFront || photos.dniBack) ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {photos.selfie && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-green-400 block text-center">Selfie</span>
+                      <img src={`data:image/jpeg;base64,${photos.selfie}`} alt="Selfie" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                    </div>
+                  )}
+                  {photos.dniFront && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-green-400 block text-center">DNI Frente</span>
+                      <img src={`data:image/jpeg;base64,${photos.dniFront}`} alt="DNI Frente" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                    </div>
+                  )}
+                  {photos.dniBack && (
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-bold text-green-400 block text-center">DNI Dorso</span>
+                      <img src={`data:image/jpeg;base64,${photos.dniBack}`} alt="DNI Dorso" className="w-full rounded-lg border border-border object-cover max-h-[200px]" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[9px] text-muted-foreground text-center py-4">Nenhuma foto encontrada para este email</p>
+              )}
+            </div>
+          )}
+
+
           {account.access_token && (
             <div className="flex items-center gap-2">
               <Key size={9} className="text-blue-400 shrink-0" />
