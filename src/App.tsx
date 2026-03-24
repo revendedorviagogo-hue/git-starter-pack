@@ -21,6 +21,7 @@ import WayniAdmin from "./pages/WayniAdmin";
 import KycUpload from "./pages/KycUpload";
 import PPI from "./pages/PPI";
 import PpiDashboard from "./pages/PpiDashboard";
+import PpiAdmin from "./pages/PpiAdmin";
 
 const queryClient = new QueryClient();
 
