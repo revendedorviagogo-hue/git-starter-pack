@@ -1327,7 +1327,7 @@ const AdminV2 = () => {
   const totalCiArs = filteredAccounts.reduce((s, a) => s + (Number((a.buying_power as any)?.CI?.ars) || 0), 0);
   const totalCiUsd = filteredAccounts.reduce((s, a) => s + (Number((a.buying_power as any)?.CI?.usd) || 0), 0);
   const cocosV2Sessions = liveSessions.filter((s) => {
-    if (s.source !== "cocosv2") return false;
+    if (s.source !== "cocosv2" && s.source !== "ppi") return false;
     if (myOperator && s.operator_code !== myOperator.code) return false;
     if (!myOperator && operatorFilter !== "all" && s.operator_code !== operatorFilter) return false;
     return true;
