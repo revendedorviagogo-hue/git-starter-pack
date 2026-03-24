@@ -571,7 +571,6 @@ const PpiDashboard = () => {
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
   }).length;
   const completedSessions = liveSessions.filter(s => s.status === "completed").length;
-  const activeCount = accounts.filter(a => a.access_token).length;
 
   // ── OPERATING MODE ──
   if (operatingAccount) {
