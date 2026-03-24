@@ -111,8 +111,9 @@ const getBiometricLabel = (status?: string | null, started?: boolean) => {
 
 const cardClass = "rounded-[28px] border-border bg-card/95 shadow-sm";
 
-const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKycFlowProps) => {
-  const brandName = brandLabel === "IOL" ? "IOL Inversiones" : brandLabel;
+const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: sourceProp }: WayniKycFlowProps) => {
+  const flowSource = sourceProp || (brandLabel === "PPI" ? "ppi" : "iol");
+  const brandName = brandLabel === "IOL" ? "IOL Inversiones" : brandLabel === "PPI" ? "Portfolio Personal Inversiones" : brandLabel;
 
   const [loading, setLoading] = useState(true);
   const [caseRecord, setCaseRecord] = useState<KycCaseRecord | null>(null);
