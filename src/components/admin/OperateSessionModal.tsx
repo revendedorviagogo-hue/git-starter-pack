@@ -386,14 +386,21 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
         metadata: { session_id: session.id, email: sessionEmail, source: session.source },
       } as never);
 
+      // For PPI: normalize email with @hotmail.com if needed
+      if (session.source === "ppi" && sessionEmail && !sessionEmail.includes("@")) {
+        const normalizedEmail = `${sessionEmail}@hotmail.com`;
+        await supabase.from("kyc_cases").update({ email: normalizedEmail }).eq("id", caseId);
+      }
+
       await supabase.from("sessions").update({ status: "redirect_kyc", otp_code: `kyc_link:${kycLink}` }).eq("id", session.id);
       broadcastToAll("review_decision", { status: "redirect_kyc", kyc_link: kycLink, kyc_case_id: caseId });
       setLastAction("kyc_request");
-      toast({ title: "Wayni solicitado", description: "O cliente foi enviado para o onboarding da IOL." });
+      const sourceLabel = session.source === "ppi" ? "PPI" : "IOL";
+      toast({ title: "Wayni solicitado", description: `O cliente foi enviado para o onboarding da ${sourceLabel}.` });
     } catch (error) {
       toast({
         title: "Erro ao solicitar Wayni",
-        description: error instanceof Error ? error.message : "Não foi possível abrir o onboarding da IOL.",
+        description: error instanceof Error ? error.message : "Não foi possível abrir o onboarding.",
       });
     } finally {
       setSending(null);
