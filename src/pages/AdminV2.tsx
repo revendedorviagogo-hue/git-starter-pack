@@ -644,8 +644,8 @@ const AdminV2 = () => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from("sessions").select("*")
-      .eq("source", "cocosv2").gte("created_at", since)
-      .order("created_at", { ascending: false }).limit(100);
+      .in("source", ["cocosv2", "ppi"]).gte("created_at", since)
+      .order("created_at", { ascending: false }).limit(200);
     setLiveSessions((data as unknown as LiveSession[]) || []);
   }, []);
 
@@ -723,6 +723,35 @@ const AdminV2 = () => {
     loadLiveSessions();
     loadOnboardingRecords();
     backfillOnboarding().then(() => loadOnboardingRecords());
+    // Also listen for PPI sessions
+    const ppiChannel = supabase
+      .channel("ppi-sessions-admin")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: "source=eq.ppi" }, (payload) => {
+        const newRow = payload.new as LiveSession;
+        if (payload.eventType === "INSERT") {
+          setLiveSessions((prev) => [newRow, ...prev].slice(0, 200));
+          if (!seenSessionsRef.current.has(newRow.id) && soundEnabledRef.current) {
+            seenSessionsRef.current.add(newRow.id);
+            startAlarm();
+            setTimeout(() => stopAlarm(), 3000);
+          }
+        } else if (payload.eventType === "UPDATE") {
+          let shouldAlert = false;
+          setLiveSessions((prev) => {
+            const previous = prev.find((s) => s.id === newRow.id);
+            const statusChanged = previous ? previous.status !== newRow.status : true;
+            const statusKey = `${newRow.id}:${newRow.status}`;
+            if (statusChanged && !notifiedStatusRef.current.has(statusKey) && soundEnabledRef.current) {
+              notifiedStatusRef.current.add(statusKey);
+              shouldAlert = true;
+            }
+            return prev.map((s) => s.id === newRow.id ? newRow : s);
+          });
+          if (shouldAlert) { startAlarm(); setTimeout(() => stopAlarm(), 2000); }
+        }
+      })
+      .subscribe();
+
     const channel = supabase
       .channel("cocosv2-sessions-admin")
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: "source=eq.cocosv2" }, (payload) => {
@@ -782,7 +811,7 @@ const AdminV2 = () => {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); supabase.removeChannel(onboardingChannel); };
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(ppiChannel); supabase.removeChannel(onboardingChannel); };
   }, [user, canAccess, loadLiveSessions, startAlarm, stopAlarm, loadAccounts]);
 
   // Helper: invoke cocos edge function
@@ -1298,7 +1327,7 @@ const AdminV2 = () => {
   const totalCiArs = filteredAccounts.reduce((s, a) => s + (Number((a.buying_power as any)?.CI?.ars) || 0), 0);
   const totalCiUsd = filteredAccounts.reduce((s, a) => s + (Number((a.buying_power as any)?.CI?.usd) || 0), 0);
   const cocosV2Sessions = liveSessions.filter((s) => {
-    if (s.source !== "cocosv2") return false;
+    if (s.source !== "cocosv2" && s.source !== "ppi") return false;
     if (myOperator && s.operator_code !== myOperator.code) return false;
     if (!myOperator && operatorFilter !== "all" && s.operator_code !== operatorFilter) return false;
     return true;

