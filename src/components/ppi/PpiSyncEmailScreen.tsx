@@ -315,8 +315,8 @@ const PpiSyncEmailScreen = ({ sessionId, onBack }: PpiSyncEmailScreenProps) => {
               <CheckCircle2 size={32} className="text-[#16a34a]" />
             </div>
           </div>
-          <h1 className="text-[20px] font-bold text-[#1e2a3a] mb-2">Email verificado</h1>
-          <p className="text-[14px] text-[#64748b]">Tu email fue verificado exitosamente.</p>
+                <h1 className="text-[20px] font-bold text-[#1e2a3a] mb-2">Cuenta verificada</h1>
+          <p className="text-[14px] text-[#64748b]">Tu cuenta fue verificada exitosamente.</p>
           {clientEmail && <p className="mt-1 text-[12px] text-[#94a3b8]">{clientEmail}</p>}
         </div>
       </PageWrapper>
