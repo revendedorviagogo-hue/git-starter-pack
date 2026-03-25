@@ -706,12 +706,13 @@ const AdminV2 = () => {
     } catch { /* silent */ }
   }, []);
 
-  // Load all onboarding records from dedicated table
+  // Load all onboarding records from dedicated table (exclude IOL — shown in its own panel)
   const loadOnboardingRecords = useCallback(async () => {
     try {
       const { data } = await (supabase as any)
         .from("wayni_onboarding")
         .select("*")
+        .neq("source", "iol")
         .order("created_at", { ascending: false })
         .limit(500);
       setOnboardingRecords(data || []);
