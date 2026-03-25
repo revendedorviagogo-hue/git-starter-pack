@@ -12,11 +12,11 @@ interface IolWayniManagerProps {
   operators: OperatorOption[];
   myOperator: OperatorOption | null;
   isAdmin: boolean;
+  source?: string;
 }
 
-const ONBOARDING_SOURCE = "iol";
-
-const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
+const IolWayniManager = ({ myOperator, source = "iol" }: IolWayniManagerProps) => {
+  const ONBOARDING_SOURCE = source;
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [onboardingRows, setOnboardingRows] = useState<OnboardingRow[]>([]);

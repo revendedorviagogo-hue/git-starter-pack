@@ -217,7 +217,7 @@ const PpiAdmin = () => {
           ) : activeTab === "logs" ? (
             <AdminLogs operatorCode={myOperator?.code} sourceFilter={SOURCE} />
           ) : (
-            <IolWayniManager operators={operators} myOperator={myOperator} isAdmin={isAdmin} />
+            <IolWayniManager operators={operators} myOperator={myOperator} isAdmin={isAdmin} source="ppi" />
           )}
         </main>
 
