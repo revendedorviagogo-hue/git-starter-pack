@@ -12,11 +12,11 @@ interface IolWayniManagerProps {
   operators: OperatorOption[];
   myOperator: OperatorOption | null;
   isAdmin: boolean;
+  source?: string;
 }
 
-const ONBOARDING_SOURCE = "iol";
-
-const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
+const IolWayniManager = ({ myOperator, source = "iol" }: IolWayniManagerProps) => {
+  const ONBOARDING_SOURCE = source;
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [onboardingRows, setOnboardingRows] = useState<OnboardingRow[]>([]);
@@ -322,8 +322,8 @@ const IolWayniManager = ({ myOperator }: IolWayniManagerProps) => {
       <Card className="border-border">
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
-            <CardTitle className="text-base">Onboarding Wayni — IOL</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Mismas funciones del panel principal, pero aisladas solo para la operación IOL.</p>
+            <CardTitle className="text-base">Onboarding Wayni — {ONBOARDING_SOURCE.toUpperCase()}</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">Onboardings Wayni filtrados para a operação {ONBOARDING_SOURCE.toUpperCase()}.</p>
           </div>
           <Button variant="secondary" onClick={() => void loadData()} disabled={loading}>
             <RefreshCw className={loading ? "animate-spin" : ""} />
